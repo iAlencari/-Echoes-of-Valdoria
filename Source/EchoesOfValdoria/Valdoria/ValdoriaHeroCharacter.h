@@ -211,6 +211,10 @@ public:
 	float GetTeamDamageReduction() const;
 	float GetTeamDamageBonus() const;
 	float GetTeamRegen() const;
+	/** Anti-heal: healing this hero receives is cut by Fraction for Seconds. */
+	void ApplyAntiHeal(float Fraction, float Seconds) { AntiHealValue = FMath::Max(Fraction, GetWorld()->GetTimeSeconds() < AntiHealEnd ? AntiHealValue : 0.f); AntiHealEnd = GetWorld()->GetTimeSeconds() + Seconds; }
+	/** (1 + healing received from items) x (1 - active anti-heal). */
+	float GetHealingReceivedMultiplier() const { return (1.f + ShopBonus.HealingReceived) * (1.f - (GetWorld()->GetTimeSeconds() < AntiHealEnd ? FMath::Clamp(AntiHealValue, 0.f, 0.9f) : 0.f)); }
 	/** Who hit this hero last, and when (guardians defend allies under attack). */
 	TWeakObjectPtr<AValdoriaHeroCharacter> LastAttacker;
 	float LastAttackedTime = -100.f;
@@ -431,6 +435,8 @@ protected:
 	int32 AutopilotRouteIndex = 0;
 	float TeamBuffValue[3] = { 0.f, 0.f, 0.f };
 	float TeamBuffEnd[3] = { 0.f, 0.f, 0.f };
+	float AntiHealValue = 0.f;
+	float AntiHealEnd = 0.f;
 	float SkateEndTime = 0.f;
 	bool bWasSkating = false;
 	float FlightLeanAlpha = 0.f;

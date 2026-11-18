@@ -43,6 +43,10 @@ struct FValdoriaSpotRule
 
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Spot")
 	float GuardianHealth = 3000.f;
+
+	/** Index (in Buffs) of the guardian that is a support mage (-1 = none). */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Spot")
+	int32 MageGuardianIndex = -1;
 };
 
 UCLASS(BlueprintType)
@@ -67,20 +71,33 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "MOBA")
 	float SpotAreaRadius = 1200.f;
 
+	// --- Comeback rules (owner's design)
+	/** "Early" = before this match time (s). */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Comeback")
+	float EarlyWindow = 300.f;
+	/** If a team's spot 1 falls early, that team keeps its buff x this, constant, until EarlyWindow. */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Comeback")
+	float Spot1EarlyFallMultiplier = 2.f;
+	/** If spots 1 and 2 of a lane fall early, that lane's last spot buffs x this until LastSpotBoostUntil. */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Comeback")
+	float LastSpotMultiplier = 3.f;
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Comeback")
+	float LastSpotBoostUntil = 600.f;
+
 	/** Lane names (left, middle, right). Nova Paulicéia uses famous Brazilian avenues. */
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Aurora Trails")
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Bifrost")
 	TArray<FString> LaneNames = { TEXT("Av. Ipiranga"), TEXT("Av. Paulista"), TEXT("Av. Rebouças") };
 
 	/** Calm trail colour per lane (enemy trails get a red accent). */
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Aurora Trails")
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Bifrost")
 	TArray<FLinearColor> LaneColors = { FLinearColor(0.35f, 0.75f, 1.f), FLinearColor(0.75f, 0.55f, 1.f), FLinearColor(0.4f, 1.f, 0.7f) };
 
 	/** How far each trail reaches without minions (0.5 = the middle of the map). */
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Aurora Trails")
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Bifrost")
 	float TrailReach = 0.5f;
 
 	/** Height of the horizontal part over the lane, and of the vertical start at the base (cm). */
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Aurora Trails")
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Bifrost")
 	float TrailHeight = 700.f;
 };
 
@@ -115,4 +132,8 @@ protected:
 	int32 Result = 0;
 	float MatchStart = 0.f;
 	bool bAutoPlayer = false;
+	/** Match time when each guardian fell: key = team*100 + lane*10 + spot. */
+	TMap<int32, float> FallTimes;
+	float ComebackTimer = 0.f;
+	void TickComeback();
 };

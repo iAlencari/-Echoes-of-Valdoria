@@ -1,4 +1,4 @@
-// Echoes of Valdoria - "Aurora Trails": light rails from each base along the lanes (MOBA).
+// Echoes of Valdoria - "Bifrost": light rails from each base along the lanes (MOBA).
 // Owner's design: starts vertical at the spawn, bends into a horizontal line over the lane,
 // reaches the middle without minions (Reach, changed later by minion pushes). Heroes mount it by
 // looking at it and holding Space; they ride lying down, can use basic attacks but no abilities,

@@ -32,7 +32,9 @@ enum class EValdoriaShopStat : uint8
 	LifeSteal			UMETA(DisplayName = "Roubo de vida (dano vira cura)"),
 	PhysicalPower		UMETA(DisplayName = "Poder físico"),
 	MagicPower			UMETA(DisplayName = "Poder mágico"),
-	HeadshotDamage		UMETA(DisplayName = "Dano na cabeça")
+	HeadshotDamage		UMETA(DisplayName = "Dano na cabeça"),
+	HealingReceived		UMETA(DisplayName = "Healing received"),
+	AntiHeal			UMETA(DisplayName = "Anti-heal (cuts the target's healing for 3 s)")
 };
 
 USTRUCT(BlueprintType)
@@ -80,6 +82,8 @@ struct FValdoriaShopBonus
 	float PhysicalPower = 0.f;
 	float MagicPower = 0.f;
 	float HeadshotDamage = 0.f;
+	float HealingReceived = 0.f;
+	float AntiHeal = 0.f;
 };
 
 /** Catálogo da loja e regras de créditos (Content/Valdoria/Shop/DA_Loja). */

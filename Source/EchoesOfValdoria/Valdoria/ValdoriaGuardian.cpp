@@ -50,10 +50,10 @@ float AValdoriaGuardian::GetCurrentBuff() const
 	const float T = GetWorld()->GetTimeSeconds();
 	if (BuffFadeEnd <= 0.f || T <= BuffHoldUntil)
 	{
-		return BuffValue;
+		return BuffValue * BuffMultiplier;
 	}
 	const float Fade = FMath::Clamp((T - BuffHoldUntil) / FMath::Max(1.f, BuffFadeEnd - BuffHoldUntil), 0.f, 1.f);
-	return BuffValue * (1.f - Fade);
+	return BuffValue * (1.f - Fade) * BuffMultiplier;
 }
 
 void AValdoriaGuardian::Tick(float DeltaSeconds)
@@ -62,6 +62,10 @@ void AValdoriaGuardian::Tick(float DeltaSeconds)
 	if (HasAuthority() && !IsDead())
 	{
 		StrikeRiders();
+		if (bSupportMage)
+		{
+			TickMage();
+		}
 	}
 	BuffTimer += DeltaSeconds;
 	if (!HasAuthority() || IsDead() || BuffTimer < 0.5f)
@@ -131,5 +135,63 @@ void AValdoriaGuardian::StrikeRiders()
 		}
 		ValdoriaAudio::PlayAt(this, ValdoriaAudio::Load(TEXT("Impacts"), TEXT("impactPunch_heavy_000")), Rider->GetActorLocation(), 0.9f);
 		return;
+	}
+}
+void AValdoriaGuardian::TickMage()
+{
+	const float Now = GetWorld()->GetTimeSeconds();
+	// Area heal: every ally (the other guardian included) inside the area.
+	if (Now >= NextMageHeal)
+	{
+		bool bAnyHurt = false;
+		for (TActorIterator<AValdoriaHeroCharacter> It(GetWorld()); It; ++It)
+		{
+			if (It->TeamId == GuardTeam && !It->IsDead() && It->GetHealth() < It->GetMaxHealth()
+				&& FVector::Dist2D(It->GetActorLocation(), StartLocation) <= AreaRadius)
+			{
+				bAnyHurt = true;
+				HealTarget(*It, MageHeal); // healing items/anti-heal apply here too
+			}
+		}
+		if (bAnyHurt)
+		{
+			NextMageHeal = Now + MageHealCooldown;
+			PlayAreaEffect(StartLocation, AreaRadius, FLinearColor(0.4f, 1.f, 0.6f));
+			ValdoriaAudio::PlayAt(this, ValdoriaAudio::Load(TEXT("Magic"), TEXT("heal")), GetActorLocation(), 0.9f);
+		}
+	}
+	// Empower: the ally with the lowest health fraction in the area.
+	if (Now >= NextMageEmpower)
+	{
+		AValdoriaHeroCharacter* Weakest = nullptr;
+		float Lowest = 0.95f;
+		for (TActorIterator<AValdoriaHeroCharacter> It(GetWorld()); It; ++It)
+		{
+			if (It->TeamId != GuardTeam || It->IsDead() || FVector::Dist2D(It->GetActorLocation(), StartLocation) > AreaRadius)
+			{
+				continue;
+			}
+			const float Frac = It->GetHealth() / FMath::Max(1.f, It->GetMaxHealth());
+			if (Frac < Lowest)
+			{
+				Lowest = Frac;
+				Weakest = *It;
+			}
+		}
+		if (Weakest)
+		{
+			NextMageEmpower = Now + MageEmpowerCooldown;
+			// Alternates: damage reduction, then damage reflection.
+			if (EmpowerCount++ % 2 == 0)
+			{
+				Weakest->ApplyTeamBuff(0, MageEmpowerReduction, 4.f);
+			}
+			else
+			{
+				Weakest->StartReflect(2.f);
+			}
+			AValdoriaFx::Beam(GetWorld(), GetActorLocation() + FVector(0, 0, 90.f), Weakest->GetActorLocation(), FLinearColor(1.f, 0.85f, 0.4f), 6.f, 0.4f);
+			ValdoriaAudio::PlayAt(this, ValdoriaAudio::Load(TEXT("Magic"), TEXT("blessing")), Weakest->GetActorLocation(), 0.8f);
+		}
 	}
 }

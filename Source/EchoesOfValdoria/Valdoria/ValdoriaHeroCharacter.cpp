@@ -798,8 +798,13 @@ float AValdoriaHeroCharacter::DealTypedDamage(AActor* Target, float BaseDamage, 
 	// Resistências e passiva de quem apanha.
 	Physical *= 1.f - FMath::Clamp(Victim->GetPhysicalResistance(), 0.f, 0.9f);
 	Magical *= 1.f - FMath::Clamp(Victim->GetMagicResistance(), 0.f, 0.9f);
-	float Total = (Physical + Magical) * Scale * (1.f - Victim->GetPassiveDamageReduction())
-		* (1.f - Victim->GetTeamDamageReduction()) * (1.f + GetTeamDamageBonus());
+	// Reductions stack multiplicatively and are capped at 75% so buffs never make anyone immortal.
+	const float Kept = FMath::Max(0.25f, (1.f - Victim->GetPassiveDamageReduction()) * (1.f - Victim->GetTeamDamageReduction()));
+	float Total = (Physical + Magical) * Scale * Kept * (1.f + GetTeamDamageBonus());
+	if (ShopBonus.AntiHeal > 0.f)
+	{
+		Victim->ApplyAntiHeal(ShopBonus.AntiHeal, 3.f); // shop: cuts the target's healing for 3 s
+	}
 	// Absorver: parte do dano some e vira carga de ultimate.
 	if (Victim->IsAbsorbing() && Total > 0.f)
 	{
@@ -843,7 +848,8 @@ void AValdoriaHeroCharacter::HealTarget(AActor* Target, float Amount)
 	FGameplayEffectSpecHandle Spec = AbilitySystem->MakeOutgoingSpec(UValdoriaHealEffect::StaticClass(), 1.f, AbilitySystem->MakeEffectContext());
 	if (Spec.IsValid())
 	{
-		Spec.Data->SetSetByCallerMagnitude(ValdoriaTags::Data_Heal, Amount * (1.f + ShopBonus.HealingPower));
+		const float Received = Other->GetHealingReceivedMultiplier();
+		Spec.Data->SetSetByCallerMagnitude(ValdoriaTags::Data_Heal, Amount * (1.f + ShopBonus.HealingPower) * Received);
 		if (Target != this)
 		{
 			LastCombatTime = GetWorld()->GetTimeSeconds(); // healing others counts as general combat
@@ -2587,8 +2593,13 @@ void AValdoriaHeroCharacter::ApplyTeamBuff(uint8 Type, float Value, float Second
 {
 	if (Type < 3)
 	{
-		TeamBuffValue[Type] = Value;
-		TeamBuffEnd[Type] = GetWorld()->GetTimeSeconds() + Seconds;
+		// Keep the stronger buff while both are active (spot buff + mage empower, etc.).
+		const float Now = GetWorld()->GetTimeSeconds();
+		if (Now >= TeamBuffEnd[Type] || Value >= TeamBuffValue[Type])
+		{
+			TeamBuffValue[Type] = Value;
+		}
+		TeamBuffEnd[Type] = FMath::Max(TeamBuffEnd[Type], Now + Seconds);
 	}
 }
 
@@ -2606,7 +2617,7 @@ float AValdoriaHeroCharacter::GetTeamRegen() const
 {
 	return GetWorld()->GetTimeSeconds() < TeamBuffEnd[2] ? FMath::Max(0.f, TeamBuffValue[2]) : 0.f;
 }
-// ------------------------------------------------------------------ Aurora Trails (lane rails)
+// ------------------------------------------------------------------ Bifrost (lane rails)
 // Mount: look at a rail and hold Space ~0.4 s. Direction follows the camera (look back to go
 // home). Basic attacks only, no abilities. Falls off when hit by an enemy. Locked for 2 s after
 // "passive combat" (taking damage/control from an enemy).

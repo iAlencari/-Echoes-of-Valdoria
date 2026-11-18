@@ -55,6 +55,8 @@ void UValdoriaShopCatalog::ApplyDefaultItems()
 		C::Healing, S::HealingPower, { 300, 400, 500 }, { 0.1f, 0.2f, 0.3f });
 	Add(TEXT("sangue"), LOCTEXT("Blood", "Sangue de Ferro"), LOCTEXT("BloodD", "Recupera 5% / 10% / 15% do dano que você causa."),
 		C::Healing, S::LifeSteal, { 350, 450, 550 }, { 0.05f, 0.1f, 0.15f });
+	Add(TEXT("balsamo"), LOCTEXT("Balm", "Vital Balm"), LOCTEXT("BalmD", "Healing you receive +10% / +20% / +30%."),
+		C::Healing, S::HealingReceived, { 250, 350, 450 }, { 0.1f, 0.2f, 0.3f });
 	// Dano
 	Add(TEXT("lamina"), LOCTEXT("Blade", "Lâmina Afiada"), LOCTEXT("BladeD", "Dano físico +8% / +16% / +24%."),
 		C::Damage, S::PhysicalPower, { 350, 450, 550 }, { 0.08f, 0.16f, 0.24f });
@@ -62,6 +64,8 @@ void UValdoriaShopCatalog::ApplyDefaultItems()
 		C::Damage, S::MagicPower, { 350, 450, 550 }, { 0.08f, 0.16f, 0.24f });
 	Add(TEXT("olho"), LOCTEXT("Eye", "Olho Certeiro"), LOCTEXT("EyeD", "Dano na cabeça +10% / +20% / +30%."),
 		C::Damage, S::HeadshotDamage, { 300, 400, 500 }, { 0.1f, 0.2f, 0.3f });
+	Add(TEXT("amarga"), LOCTEXT("Bitter", "Bitter Edge"), LOCTEXT("BitterD", "Your hits cut the target's healing by 25% / 40% / 55% for 3 s."),
+		C::Damage, S::AntiHeal, { 300, 400, 500 }, { 0.25f, 0.4f, 0.55f });
 }
 
 const FValdoriaShopItem* UValdoriaShopCatalog::FindItem(FName ItemId) const
@@ -93,6 +97,8 @@ FValdoriaShopBonus UValdoriaShopCatalog::ComputeBonus(const TMap<FName, int32>& 
 		case EValdoriaShopStat::PhysicalPower: B.PhysicalPower += V; break;
 		case EValdoriaShopStat::MagicPower: B.MagicPower += V; break;
 		case EValdoriaShopStat::HeadshotDamage: B.HeadshotDamage += V; break;
+		case EValdoriaShopStat::HealingReceived: B.HealingReceived += V; break;
+		case EValdoriaShopStat::AntiHeal: B.AntiHeal = FMath::Max(B.AntiHeal, V); break;
 		}
 	}
 	return B;

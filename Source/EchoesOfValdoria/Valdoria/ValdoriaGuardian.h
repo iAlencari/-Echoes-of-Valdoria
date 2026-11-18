@@ -68,8 +68,26 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Spot|Buff")
 	float BuffFadeEnd = 300.f;
 
-	/** Current buff value after the fade. */
+	/** Current buff value after the fade, times BuffMultiplier. */
 	float GetCurrentBuff() const;
+
+	/** Set by the MOBA mode (e.g. x3 on the last spot after early losses). */
+	float BuffMultiplier = 1.f;
+	int32 SpotIndex = 0;
+	int32 LaneIndex = 0;
+
+	/** Support mage (staff): area heal on a cooldown (heals the other guardian too) and an empower on
+	 *  the lowest-health ally in the area (damage reduction, or reflection every other cast). */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Spot|Mage")
+	bool bSupportMage = false;
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Spot|Mage")
+	float MageHeal = 300.f;
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Spot|Mage")
+	float MageHealCooldown = 8.f;
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Spot|Mage")
+	float MageEmpowerCooldown = 12.f;
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Spot|Mage")
+	float MageEmpowerReduction = 0.4f;
 
 	/** Call right after spawning: team and area (centre = current location). */
 	void SetupSpot(uint8 Team, float Radius);
@@ -78,5 +96,9 @@ protected:
 	virtual void BeginPlay() override;
 	float BuffTimer = 0.f;
 	float NextRiderStrike = 0.f;
+	float NextMageHeal = 0.f;
+	float NextMageEmpower = 0.f;
+	int32 EmpowerCount = 0;
+	void TickMage();
 	void StrikeRiders();
 };

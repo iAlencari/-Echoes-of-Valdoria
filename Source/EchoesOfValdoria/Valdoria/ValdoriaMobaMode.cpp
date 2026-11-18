@@ -31,6 +31,9 @@ UValdoriaMobaRules::UValdoriaMobaRules()
 	S2.MidLanePosition = 0.4f;
 	S2.Buffs = { B::DamageBonus };
 	S2.BuffValues = { 0.2f };
+	// Owner: spot 2 fades from full to 0 between minutes 5 and 10.
+	S2.BuffHoldUntil = 300.f;
+	S2.BuffFadeEnd = 600.f;
 	// Spot 3 (owner: two guardians doing different things; buffs are placeholders): regeneration + damage bonus, no fade.
 	FValdoriaSpotRule S3;
 	S3.SideLanePosition = 0.38f;
@@ -39,6 +42,7 @@ UValdoriaMobaRules::UValdoriaMobaRules()
 	S3.BuffValues = { 10.f, 0.1f };
 	S3.BuffFadeEnd = 0.f;
 	S3.GuardianHealth = 4000.f;
+	S3.MageGuardianIndex = 0; // owner: one of the two is a support mage with a staff
 	Spots = { S1, S2, S3 };
 }
 
@@ -105,8 +109,9 @@ void AValdoriaMobaMode::BuildLayout()
 		for (int32 Lane = -1; Lane <= 1; ++Lane)
 		{
 			const bool bSide = Lane != 0;
-			for (const FValdoriaSpotRule& Spot : Rules->Spots)
+			for (int32 SpotIdx = 0; SpotIdx < Rules->Spots.Num(); ++SpotIdx)
 			{
+				const FValdoriaSpotRule& Spot = Rules->Spots[SpotIdx];
 				const float Along = (bSide ? Spot.SideLanePosition : Spot.MidLanePosition) * HalfLength;
 				const FVector LanePoint = Base[Team] + Toward * Along + SideDir * (Lane * Rules->SideLaneOffset);
 				for (int32 g = 0; g < Spot.Buffs.Num(); ++g)
@@ -124,6 +129,9 @@ void AValdoriaMobaMode::BuildLayout()
 					Guardian->BuffHoldUntil = Spot.BuffHoldUntil;
 					Guardian->BuffFadeEnd = Spot.BuffFadeEnd;
 					Guardian->GuardianHealth = Spot.GuardianHealth;
+					Guardian->SpotIndex = SpotIdx;
+					Guardian->LaneIndex = Lane + 1;
+					Guardian->bSupportMage = g == Spot.MageGuardianIndex;
 					Guardian->SetupSpot(Team, Rules->SpotAreaRadius);
 					Guardian->ResetCombatState();
 					Guardians.Add(Guardian);
@@ -227,6 +235,10 @@ void AValdoriaMobaMode::OnHeroKilled(AValdoriaHeroCharacter* Victim, AValdoriaHe
 	{
 		Super::OnHeroKilled(Victim, Killer);
 	}
+	if (const AValdoriaGuardian* Fallen = Cast<AValdoriaGuardian>(Victim))
+	{
+		FallTimes.Add(Fallen->GuardTeam * 100 + Fallen->LaneIndex * 10 + Fallen->SpotIndex, GetWorld()->GetTimeSeconds() - MatchStart);
+	}
 	if (Result == 0 && Victim && Killer && !Victim->IsA<AValdoriaGuardian>())
 	{
 		(Killer->TeamId == 0 ? Kills0 : Kills1)++;
@@ -245,6 +257,12 @@ void AValdoriaMobaMode::Tick(float DeltaSeconds)
 				Hero->SetAutopilot(true, 0.7f);
 			}
 		}
+	}
+	ComebackTimer += DeltaSeconds;
+	if (ComebackTimer >= 0.5f)
+	{
+		ComebackTimer = 0.f;
+		TickComeback();
 	}
 	if (Result != 0 || Guardians.Num() == 0)
 	{
@@ -275,4 +293,45 @@ void AValdoriaMobaMode::EndMatch(uint8 Winner)
 		UGameplayStatics::OpenLevel(this, FName(*UGameplayStatics::GetCurrentLevelName(this)), true,
 			bAutoPlayer ? TEXT("game=/Script/EchoesOfValdoria.ValdoriaMobaMode?bots=1") : TEXT("game=/Script/EchoesOfValdoria.ValdoriaMobaMode"));
 	}), 8.f, false);
+}
+
+void AValdoriaMobaMode::TickComeback()
+{
+	const float T = GetWorld()->GetTimeSeconds() - MatchStart;
+	auto FellEarly = [this](int32 Key)
+	{
+		const float* When = FallTimes.Find(Key);
+		return When && *When < Rules->EarlyWindow;
+	};
+	const FValdoriaSpotRule* S1 = Rules->Spots.IsValidIndex(0) ? &Rules->Spots[0] : nullptr;
+	for (uint8 Team = 0; Team < 2; ++Team)
+	{
+		// Spot 1 fell early (any lane): that team keeps the spot-1 buff doubled and constant until EarlyWindow.
+		bool bSpot1Early = false;
+		for (int32 Lane = 0; Lane < 3; ++Lane)
+		{
+			bSpot1Early |= FellEarly(Team * 100 + Lane * 10 + 0);
+		}
+		if (S1 && bSpot1Early && T < Rules->EarlyWindow && S1->Buffs.Num() > 0 && S1->BuffValues.Num() > 0)
+		{
+			for (TActorIterator<AValdoriaHeroCharacter> It(GetWorld()); It; ++It)
+			{
+				if (It->TeamId == Team && !It->IsDead() && !It->IsA<AValdoriaGuardian>())
+				{
+					It->ApplyTeamBuff(static_cast<uint8>(S1->Buffs[0]), S1->BuffValues[0] * Rules->Spot1EarlyFallMultiplier, 1.f);
+				}
+			}
+		}
+	}
+	// Last spot of a lane: x3 buffs if spots 1 and 2 of that lane fell early, until LastSpotBoostUntil.
+	for (const TWeakObjectPtr<AValdoriaGuardian>& G : Guardians)
+	{
+		if (!G.IsValid() || G->SpotIndex != Rules->Spots.Num() - 1)
+		{
+			continue;
+		}
+		const int32 Key = G->GuardTeam * 100 + G->LaneIndex * 10;
+		const bool bBoost = FellEarly(Key + 0) && FellEarly(Key + 1) && T < Rules->LastSpotBoostUntil;
+		G->BuffMultiplier = bBoost ? Rules->LastSpotMultiplier : 1.f;
+	}
 }
