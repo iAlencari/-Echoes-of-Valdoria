@@ -1,4 +1,4 @@
-# LOG — Echoes of Valdoria (Unreal Engine 5)
+﻿# LOG — Echoes of Valdoria (Unreal Engine 5)
 
 > Documento de continuidade entre agentes (Claude Code e OpenCode). **Só acrescente**, nunca
 > apague histórico. Atualize a seção "Estado atual" a cada turno e registre um bloco novo no fim.
@@ -38,20 +38,24 @@ contra bonecos de treino.
 - Desempenho no PC do dono: ~197 FPS no mapa de teste (RTX 5070), Lumen e ray tracing ativos
   (configuração padrão do modelo).
 
-**Ainda não feito / limitações conhecidas:**
-- Agachar, deitar, deslizar e escalar ainda **não têm animação** (a malha só abaixa/sobe). O
-  ABP do modelo só tem andar/correr/pular.
-- Efeitos visuais são linhas de depuração (só aparecem em builds de desenvolvimento).
-- Subir em beirada e escalar parede só foram testados por código, não à mão.
-- Sem Data Assets de heróis reais ainda; sem menu de admin, menu gráfico, DLSS, seleção de herói.
-
-## Próximos passos sugeridos
-1. Dono testar no editor (Play) e ajustar sensação de movimento.
-2. Menu de administrador (trocar herói, imortal, sem recarga, dano, teleporte, editar alvo mirado).
-3. Menu de configurações gráficas + plugin DLSS da NVIDIA (download precisa de aprovação do dono).
-4. Primeiros heróis reais (1 por função) como Data Assets, com a aprovação do dono.
-5. Animações de agachar/deitar/escalar e efeitos visuais de verdade (assets livres aprovados).
-
+**Ainda nao feito / limitacoes conhecidas:**
+- Deitar/rastejar e escalar parede: pacotes CC0 do Quaternius (Universal Animation Library 1 e 2) aprovados pelo dono e importados em /Game/Valdoria/Animations/UAL1 e UAL2 (86 animacoes). Conversao para o esqueleto do Mannequin em andamento via IK Retargeter (IK rigs e retargeters criados com sucesso; passo final de batch retarget em depuracao). Fallback sem download desenhado (pose deitado + sway procedural / zipline loop) caso a conversao falhe.
+- Agachar, deslizar e escalar ainda sem animacao propria ate o retarget ser concluido (a malha so abaixa/sobe). Efeitos visuais sao linhas de depuracao (so aparecem em builds de desenvolvimento).
+- Subir em beirada e escalar parede so foram testados por codigo, nao a mao.
+- Sem Data Assets de herois reais ainda; sem menu de admin, menu grafico, DLSS, selecao de heroi.
+- HP do jogador e dos inimigos (bonecos de treino) ainda com barra simples de depuracao; o dono pediu barra mais bonita e HP do inimigo tambem (imagens de referencia nao puderam ser lidas por este agente - descrever em texto).
+- Ataques variados: hitscan nao sera o unico tipo. Havera habilidades no estilo de Wuyang e Moira (Overwatch), alem de armas com recuo e spread. Essas configuracoes devem ficar no script (Data Asset) de cada personagem (FValdoriaWeaponStats / habilidades GAS).
+- Modelos 3D das armas e imagens de conceito (Gemini) ainda nao integrados; o dono tem um pacote de armas FBX/GLB pronto para exportar.
+- Sem menu de admin, menu grafico, DLSS, selecao de heroi (pendente).
+## Proximos passos sugeridos
+1. Dono testar no editor (Play) e ajustar sensacao de movimento.
+2. Finalizar o retarget das animacoes do Quaternius (LayToIdle, ClimbUp_1m, Swim_Fwd_Loop, Slide_*) e aplicar a logica de tocar/reter no UpdateMovementAnimation() (pose deitado ao entrar, anim de levantar ao sair, loop de rastejar com sway, loop de escalada). Testar com -ValdoriaAutoTest + prints.
+3. Barra de HP do jogador e dos inimigos (bonecos de treino) mais bonita (aguardando descricao/imagens do dono; este agente nao consegue ler imagens).
+4. Menu de administrador (trocar heroi, imortal, sem recarga, dano, teleporte, editar alvo mirado).
+5. Menu de configuracoes graficas + plugin DLSS da NVIDIA (download precisa de aprovacao do dono).
+6. Primeiros herois reais (1 por funcao) como Data Assets, com a aprovacao do dono; ataques variados (Wuyang/Moira-like, recuo, spread) configurados por personagem.
+7. Integrar modelos 3D das armas (FBX/GLB do dono) e imagens de conceito.
+8. Efeitos visuais de verdade (assets livres aprovados).
 ## Controles atuais
 WASD mover · Mouse mirar · Botão esquerdo atirar · Botão direito secundário · R recarregar ·
 Shift correr/impulso · Ctrl agachar (correndo = deslizar) · X deitar · Espaço pular/subir/escalar ·
@@ -111,3 +115,46 @@ F habilidade 1 · E habilidade 2 · Q ultimate
 - Scripts/setup_animations.py: marca o esqueleto do plugin como compatível com o SK_Mannequin do projeto (alterou o asset do esqueleto).
 - **Deitar/rastejar e escalar parede seguem sem animação**: a Epic não tem gratuitas. Proposto ao dono o pacote CC0 Quaternius Universal Animation Library 1 e 2; aguardando aprovação para baixar.
 - Teste automático: agachar toca MM_Unarmed_Crouch_Walk_Fwd; print em Saved/Screenshots/AutoTest_Agachado.png.
+
+### Turno 11 - OpenCode/Beam - 18/11/2026 (anotacao de escopo, sem codigo)
+**Falas do dono:**
+> "sim ignore, voce consegue arrumar a animacao de deitar e escalar? as imagens sao conceitos para
+> criar o modelo 3D se quiser pode olhar elas e aqui ja temos o modelo 3d das armas" (imagem anexada)
+> "eu baixei os 2 universal packs do quaternius estao na pasta"
+> "falta esses menu de admin, menu grafico + DLSS, selecao de heroi, herois reais em Data Assets,
+> se conseguir arrumar e uma boa, sobre o hitscan nao sera o unico tipo teremos ataques variados como
+> os personagen wuiang de ow(exemplo) e moira(exemplo) alem de alguns ter recuo e spread, essas
+> configuracoes vao ficar no script de cada personagem de preferencia"
+> "falta a barra de hp mais bonita e hp do inimigo tambem, vou mandar imagens pra referencia,
+> no momento nao faca nada so leia o projeto e me diga o que voce entendeu"
+> "nao no momento so anota nos logs e claude md o que eu e o chat aqui falamos/fizemos pro claude
+> ler depois"
+
+- **O que foi feito (sem alterar codigo do jogo):**
+  - Aprovado o uso dos packs CC0 da Quaternius (Universal Animation Library 1 e 2). Ambos baixados
+    pelo dono em "Projeto Padrao/Universal Animation Library[Standard]" e "... 2[Standard]".
+  - Importados no Unreal em /Game/Valdoria/Animations/UAL1 e UAL2 (86 animacoes, 96 arquivos,
+    ~37 MB). Criados IK Rigs (IK_UAL1, IK_UAL2) e retargeters (RTG_UAL1, RTG_UAL2) com chains
+    geradas automaticamente (Spine, Neck, Head, LeftArm, RightArm, LeftLeg, RightLeg, dedos).
+    Passo final de batch retarget em depuracao (Scripts/retarget_ual.py).
+  - Fallback sem download desenhado: pose deitado (anim de morte segurada + sway procedural) e
+    MM_Zipline_Loop para escalar. A ser usado se o retarget falhar.
+  - Lido o projeto inteiro (codigo, HUD, bonecos de treino, tipos) para entender o escopo.
+- **Novos pedidos registrados (decisao do dono, a implementar quando autorizado):**
+  1. Barra de HP mais bonita para o jogador e para os inimigos (bonecos de treino). O dono vai
+     mandar imagens de referencia; este agente nao consegue ler imagens, entao descrever em texto.
+  2. Ataques variados (nao so hitscan): habilidades no estilo de Wuyang e Moira (Overwatch) e
+     armas com recuo e spread; configuracoes por personagem, nos Data Assets (FValdoriaWeaponStats
+     e habilidades GAS).
+  3. Menu de administrador (F1): trocar heroi, imortal, sem recarga, dano, teleporte, editar alvo
+     mirado.
+  4. Menu de configuracoes graficas + plugin NVIDIA DLSS (download precisa de aprovacao do dono).
+  5. Selecao de heroi.
+  6. Herois reais em Data Assets (1 por funcao, com aprovacao do dono).
+  7. Integracao dos modelos 3D das armas (FBX/GLB do dono, de ferramenta no navegador) e das
+     imagens de conceito (Gemini).
+- **Observacao:** este agente nao consegue ler imagens (erro ao abrir os arquivos
+  Gemini_Generated_Image_*.jpg). Descrever referencias em texto.
+- **Arquivos tocados:** LOG.md, CLAUDE.md (Unreal) e, para descoberta, log.md/CLAUDE.md (Godot).
+  Nenhum codigo do jogo foi alterado neste turno; as mudancas de animacao estao pendentes de
+  finalizacao.

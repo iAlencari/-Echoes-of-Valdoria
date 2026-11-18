@@ -50,3 +50,21 @@ português simples. **Leia `LOG.md` inteiro antes de mexer.**
 - `.uasset`, `.umap`, imagens, áudio e modelos vão pelo **Git LFS** (`.gitattributes`).
 - Não versionar `Binaries/`, `Intermediate/`, `Saved/`, `DerivedDataCache/`.
 - Commits em português; não envie (`push`) sem o dono pedir.
+
+## Pendências atuais (decisão do dono) — ver LOG.md (Turno 11)
+- Animações de deitar/rastejar e escalar: retarget dos packs CC0 do Quaternius em andamento
+  (`/Game/Valdoria/Animations/UAL1` e `UAL2` já importados; IK Rigs e retargeters criados).
+- Barra de HP mais bonita para o jogador e para os inimigos (bonecos de treino); o dono vai
+  mandar imagens de referência (este agente não consegue ler imagens — descrever em texto).
+- Ataques variados (não só hitscan): habilidades no estilo de Wuyang e Moira (Overwatch), armas
+  com recuo e spread; configurações por personagem, nos Data Assets.
+- Menu de administrador (F1), menu gráfico + plugin NVIDIA DLSS, seleção de herói, heróis reais
+  em Data Assets.
+- Integração dos modelos 3D das armas (FBX/GLB do dono) e das imagens de conceito (Gemini).
+- Efeitos visuais de verdade (assets livres aprovados).
+
+## Lembrete
+- **Balanceamento é decisão do dono**; não altere números por conta própria.
+- **Andarilha**: ideia do dono, adiada — não descartada; não implemente sem ele pedir.
+- Todo turno: atualize o `LOG.md` (estado atual + bloco do turno) e faça commit."oldString">
+- Commits em português; não envie (`push`) sem o dono pedir.
