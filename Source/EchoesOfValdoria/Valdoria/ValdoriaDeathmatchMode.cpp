@@ -55,7 +55,7 @@ void AValdoriaDeathmatchMode::SpawnBots()
 		}
 		Bot->TeamId = static_cast<uint8>(100 + i); // free-for-all: everyone is an enemy
 		Bot->BotDifficulty = Rules->BotDifficulty;
-		Bot->bForceStrafe = true;
+		Bot->bHunter = true;
 		Bot->bNoAutoHeal = true;
 		if (PC && Rules->BotHeroes.Num() > 0)
 		{

@@ -42,6 +42,10 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Treino")
 	bool bNoAutoHeal = false;
 
+	/** Hunter (deathmatch): moves, keeps distance, strafes, jumps and targets the nearest enemy (bots too). */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Treino")
+	bool bHunter = false;
+
 	virtual void Tick(float DeltaSeconds) override;
 	void ScheduleRevive();
 
@@ -52,6 +56,8 @@ protected:
 	FVector StartLocation;
 	float StrafeTime = 0.f;
 	float NextBotShotTime = 0.f;
+	float NextTargetPick = 0.f;
+	TWeakObjectPtr<AValdoriaHeroCharacter> BotTarget;
 	void TickBot(float DeltaSeconds);
 	FTimerHandle ReviveTimer;
 };
