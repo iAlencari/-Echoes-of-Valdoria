@@ -10,6 +10,8 @@
 #include "DrawDebugHelpers.h"
 #include "Engine/LocalPlayer.h"
 #include "Engine/SkeletalMesh.h"
+#include "Engine/StaticMesh.h"
+#include "Components/StaticMeshComponent.h"
 #include "EnhancedInputComponent.h"
 #include "EnhancedInputSubsystems.h"
 #include "GameFramework/CharacterMovementComponent.h"
@@ -69,6 +71,11 @@ AValdoriaHeroCharacter::AValdoriaHeroCharacter()
 	FollowCamera->SetupAttachment(CameraBoom, USpringArmComponent::SocketName);
 	FollowCamera->bUsePawnControlRotation = false;
 	FollowCamera->SetFieldOfView(95.f);
+
+	WeaponComponent = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("Weapon"));
+	WeaponComponent->SetupAttachment(GetMesh());
+	WeaponComponent->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+	WeaponComponent->SetCastShadow(true);
 
 	AbilitySystem = CreateDefaultSubobject<UAbilitySystemComponent>(TEXT("AbilitySystem"));
 	AbilitySystem->SetIsReplicated(true);
@@ -177,6 +184,15 @@ void AValdoriaHeroCharacter::ApplyHeroDefinition()
 		GetMesh()->SetAnimInstanceClass(Anim);
 	}
 	GetMesh()->SetRelativeScale3D(FVector(Def->MeshScale));
+	// Arma na mão (modelo 3D do Data Asset).
+	UStaticMesh* Gun = Def->WeaponMesh.IsNull() ? nullptr : Def->WeaponMesh.LoadSynchronous();
+	WeaponComponent->SetStaticMesh(Gun);
+	WeaponComponent->SetVisibility(Gun != nullptr);
+	if (Gun)
+	{
+		WeaponComponent->AttachToComponent(GetMesh(), FAttachmentTransformRules::SnapToTargetNotIncludingScale, Def->WeaponSocket);
+		WeaponComponent->SetRelativeTransform(Def->WeaponOffset);
+	}
 	GetMesh()->SetRelativeLocation(FVector(0.f, 0.f, -Def->CapsuleHalfHeight));
 
 	if (HasAuthority())

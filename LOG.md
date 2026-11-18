@@ -227,3 +227,23 @@ Referências do dono (imagens, descritas em texto): barra de aliado ciano e de i
 - Personagem: `SetNoclip`, `DealDamageTo` (dano via GAS, usado pelos bots). Boneco: `BotDifficulty`, `bForceStrafe`, `bNoAutoHeal`.
 - **Deitar (X) sem ação** por enquanto (`bCanProne = false` no Recruta) e sem animação de natação; **escalar parede sem animação** (a anterior esticava o corpo). Os campos continuam no Data Asset para quando houver animações boas.
 - Teste automático passou com o painel novo (print `AutoTest_Admin.png`).
+
+### Turno 17 — Claude Code — 18/11/2026 (chat /adm, painel livre, dano em aliado, mapa Nova Paulicéia, armas)
+**Falas do dono:**
+> "deixa ativar o modo de adm por comando de chat /adm por exemplo, e deixa mexer o boneco e a mira mesmo com o menu aberto pra eu poder mirar, tá faltando uma opções pq eu n consigo tirar vida do aliado pra testar a cura, tem uma parte verde do mapa que tá com barra de hp, imagens de conceito do mapa gemini sugeriu Nova Paulicéia, eu abreviei pra np"
+>
+> "n esquece de arrumar as armas, eu n consigo n"
+
+- **Chat (Enter)** com comandos (`ValdoriaChat.cpp`): `/adm` liga/desliga o modo administrador e abre o painel; `/ajuda`; com admin: `/imortal`, `/recarga`, `/municao`, `/voar`, `/bots 0-3`, `/dano N`, `/vida`, `/ult`, `/tempo N`, `/mapa np|treino`. Linhas do chat aparecem no HUD.
+- **Painel de admin não prende o mouse**: com ele aberto você anda e mira; **segure Alt** para clicar nele. Pausa, configurações, ajuda (K) e chat continuam soltando o cursor.
+- **Testar cura**: "Tirar 50 de vida de mim", "Tirar 50 de vida (aliado ou inimigo)" no alvo, e "+ Aliado ferido" (boneco do seu time com 30% de vida e sem regenerar). `/dano N` no chat.
+- **Bug da barra na parte verde**: barras de inimigo atrás de parede não aparecem mais (teste de linha de visão); aliados continuam visíveis através das paredes.
+- **Mapa Nova Paulicéia (NP)** — blockout jogável gerado por `Scripts/build_np_map.py` a partir da arte conceitual isométrica do dono (`Projeto Padrão/np isometrica conceito inicial.jpg`): `/Game/Maps/NP_NovaPauliceia`, ~120 x 80 m.
+  - Spawn esquerdo (time 1): estação de metrô subterrânea com escada para a avenida. Spawn direito (`Time2`): prédio-torre com heliporto e rampa.
+  - Rota A: elevado tipo Minhocão (6 m) com pilares, rampas nas pontas, postes; telhados com heliportos ligados por passarelas.
+  - Meio: avenida larga com faixas, veículo (cobertura), canteiro, barracas de comida, **praça amarela (objetivo)** sob viaduto curvo com pilares, barreiras de concreto e caixotes.
+  - Rota C: mercado coberto com bancas e lonas, becos com painéis de grafite neon, caixa d'água.
+  - Marco: arranha-céu de 90 m com antena e luz vermelha. Clima: sol poente laranja, neblina roxa, neons azul/roxo/rosa, chão de asfalto "molhado".
+  - Materiais `M_NP_Blockout` + instâncias em `/Game/Maps/NP_Materials`. O modo de jogo escolhe o spawn sem etiqueta (time 1). Abre pelo painel (Mapa) ou `/mapa np`.
+- **Armas**: `Scripts/split_weapons.py` agora separa as 158 peças do FBX por região (vista de frente) em 11 malhas: `SM_Arma_Rifle`, `Martelo`, `EscudoA`, `EscudoB`, `CajadoA`, `CajadoB`, `Bastao`, `LaminasA`, `LaminasB`, `PecaPequena`, `Extras` (uma placa grande). O Recruta segura o **rifle** (novo campo `WeaponMesh`/`WeaponSocket`/`WeaponOffset` no Data Asset; escala 2,2, rotação Pitch 90 no `hand_r`). A pose de segurar ainda é a de mãos livres (falta animação de arma).
+- Teste automático completo passou no mapa NP (tiro, correr, deitar sem ação, impulso, ultimate, agachar, admin, ajuda, pausa/configurações).

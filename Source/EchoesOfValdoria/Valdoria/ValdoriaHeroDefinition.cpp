@@ -3,6 +3,7 @@
 #include "ValdoriaHeroDefinition.h"
 #include "Animation/AnimInstance.h"
 #include "Engine/SkeletalMesh.h"
+#include "Engine/StaticMesh.h"
 #include "ValdoriaGameplayAbility.h"
 
 UValdoriaHeroDefinition::UValdoriaHeroDefinition()
@@ -84,6 +85,9 @@ UValdoriaHeroDefinition* UValdoriaHeroDefinition::CreateFallbackRecruit(UObject*
 	Ult.AbilityClass = UValdoriaGA_Shockwave::StaticClass();
 	Def->Abilities.Add(Ult);
 
+	// Rifle (Kael) do pacote de armas do Meshy, separado por Scripts/split_weapons.py.
+	Def->WeaponMesh = TSoftObjectPtr<UStaticMesh>(FSoftObjectPath(TEXT("/Game/Valdoria/Weapons/Merged/SM_Arma_Rifle.SM_Arma_Rifle")));
+	Def->WeaponOffset = FTransform(FRotator(90.f, 0.f, 0.f), FVector(0.f, 0.f, 0.f), FVector(2.2f));
 	Def->PassiveName = NSLOCTEXT("Valdoria", "RecruitPassive", "Treinamento básico");
 	Def->PassiveDescription = NSLOCTEXT("Valdoria", "RecruitPassiveDesc", "Shift: segurar corre, dois toques dão um impulso (2 cargas). Ctrl agacha (correndo, desliza), X deita, Espaço sobe em beiradas e escala paredes.");
 	return Def;

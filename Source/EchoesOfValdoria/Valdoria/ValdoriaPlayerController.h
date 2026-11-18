@@ -75,7 +75,16 @@ protected:
 	void ApplyOptionsToGame();
 	TSharedPtr<SWidget> SettingsWidget;
 
-	/** Modo administrador: ligado pelo menu de pausa; só com ele o F1 abre o painel. */
+	// --- Chat (Enter) com comandos: /adm, /ajuda... (ValdoriaChat.cpp)
+	void OpenChat();
+	void CloseChat();
+	void SubmitChat(const FString& Text);
+	void RunChatCommand(const FString& Command);
+	void ChatPrint(const FString& Line, const FLinearColor& Color = FLinearColor(0.8f, 0.9f, 1.f));
+	TSharedPtr<SWidget> ChatWidget;
+	TSharedPtr<class SEditableTextBox> ChatBox;
+
+	/** Modo administrador: ligado pelo menu de pausa ou por /adm; só com ele o F1 abre o painel. */
 	bool bAdminMode = false;
 
 	TSharedPtr<SWidget> PauseWidget;

@@ -122,6 +122,7 @@ void AValdoriaHUD::DrawHUD()
 	{
 		DrawDamageMeter(W, H);
 	}
+	DrawChat(W, H);
 	if (!Hero || !Hero->GetHeroDefinition())
 	{
 		return;
@@ -221,6 +222,20 @@ void AValdoriaHUD::DrawWorldHealthBars(AValdoriaHeroCharacter* Viewer)
 			continue;
 		}
 		const bool bEnemy = !Viewer || Viewer->IsEnemy(Other);
+		// Inimigo atrás de parede não mostra barra (aliado aparece sempre, estilo hero shooter).
+		if (bEnemy && PlayerOwner)
+		{
+			FVector CamLoc;
+			FRotator CamRot;
+			PlayerOwner->GetPlayerViewPoint(CamLoc, CamRot);
+			FCollisionQueryParams Params(SCENE_QUERY_STAT(ValdoriaHudLos), false, Viewer);
+			Params.AddIgnoredActor(Other);
+			FHitResult Block;
+			if (GetWorld()->LineTraceSingleByChannel(Block, CamLoc, Head, ECC_Visibility, Params))
+			{
+				continue;
+			}
+		}
 		const FLinearColor Color = bEnemy ? EnemyColor : AllyColor;
 		const float BarW = FMath::Clamp(140.f * 1200.f / FMath::Max(Dist, 1.f), 70.f, 150.f) * S;
 		const float BarH = 9.f * S;
@@ -412,4 +427,31 @@ void AValdoriaHUD::DrawDamageMeter(float W, float H)
 	DrawLabel(TEXT("MEDIDOR DE DANO"), X, Y, FLinearColor(1.f, 0.62f, 0.4f), 0.9f * S);
 	DrawLabel(FString::Printf(TEXT("DPS (últimos 5 s): %.0f"), Last5 / 5.f), X, Y + 24.f * S, FLinearColor::White, 1.f * S);
 	DrawLabel(FString::Printf(TEXT("Total: %.0f  •  média %.0f/s"), TotalDamage, TotalDamage / Elapsed), X, Y + 50.f * S, FLinearColor(0.8f, 0.82f, 0.88f), 0.9f * S);
+}
+void AValdoriaHUD::AddChatLine(const FString& Line, const FLinearColor& Color)
+{
+	ChatLines.Add({ Line, Color, GetWorld() ? static_cast<float>(GetWorld()->GetTimeSeconds()) : 0.f });
+	if (ChatLines.Num() > 8)
+	{
+		ChatLines.RemoveAt(0);
+	}
+}
+
+void AValdoriaHUD::DrawChat(float W, float H)
+{
+	const float S = Scale;
+	const float Now = GetWorld()->GetTimeSeconds();
+	float Y = H - 330.f * S;
+	for (int32 i = ChatLines.Num() - 1; i >= 0; --i)
+	{
+		const FChatLine& L = ChatLines[i];
+		const float Age = Now - L.Time;
+		if (Age > 12.f && !bChatOpen)
+		{
+			continue;
+		}
+		const float Alpha = bChatOpen ? 1.f : FMath::Clamp(12.f - Age, 0.f, 1.f);
+		DrawLabel(L.Text, 48.f * S, Y, L.Color * FLinearColor(1.f, 1.f, 1.f, Alpha), 0.95f * S);
+		Y -= 24.f * S;
+	}
 }

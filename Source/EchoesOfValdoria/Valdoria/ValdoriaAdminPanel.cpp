@@ -273,7 +273,7 @@ TSharedRef<SWidget> AValdoriaPlayerController::BuildAdminPanel()
 	];
 	Box->AddSlot().AutoHeight()
 	[
-		SNew(STextBlock).Text(LOCTEXT("Hint", "F1 fecha  •  o jogo continua rodando  •  mire em alguém e use 'Pegar alvo'")).Font(Font(10)).ColorAndOpacity(FLinearColor(0.7f, 0.72f, 0.78f))
+		SNew(STextBlock).Text(LOCTEXT("Hint", "F1 fecha  •  segure Alt para clicar aqui  •  sem Alt você anda e mira normalmente")).Font(Font(10)).ColorAndOpacity(FLinearColor(0.7f, 0.72f, 0.78f))
 	];
 
 	// --- Herói
@@ -306,6 +306,7 @@ TSharedRef<SWidget> AValdoriaPlayerController::BuildAdminPanel()
 		Row->AddSlot()[Button(LOCTEXT("FillUlt", "Ultimate cheia"), [Hero]() { if (Hero()) Hero()->AdminFillUltimate(); })];
 		Row->AddSlot()[Button(LOCTEXT("Restore", "Vida cheia"), [Hero]() { if (Hero()) Hero()->AdminRestoreAll(); })];
 		Row->AddSlot()[Button(LOCTEXT("ResetCd", "Zerar recargas"), [Hero]() { if (Hero()) Hero()->ResetCombatState(); })];
+		Row->AddSlot()[Button(LOCTEXT("HurtMe", "Tirar 50 de vida de mim"), [Hero]() { if (AValdoriaHeroCharacter* H = Hero()) { const bool bGod = H->bGodMode; H->bGodMode = false; H->DealDamageTo(H, 50.f); H->bGodMode = bGod; } })];
 		Box->AddSlot().AutoHeight()[Row];
 	}
 
@@ -343,6 +344,7 @@ TSharedRef<SWidget> AValdoriaPlayerController::BuildAdminPanel()
 				T->HandleDeath(nullptr);
 			}
 		})];
+		Row->AddSlot()[Button(LOCTEXT("HurtTarget", "Tirar 50 de vida (aliado ou inimigo)"), [Hero, Target]() { if (Hero() && Target()) Hero()->DealDamageTo(Target(), 50.f); })];
 		Row->AddSlot()[Button(LOCTEXT("Revive", "Reviver / curar"), [Target]() { if (AValdoriaHeroCharacter* T = Target()) T->ResetCombatState(); })];
 		Row->AddSlot()[Button(LOCTEXT("TgtGod", "Imortal sim/não"), [Target]() { if (AValdoriaHeroCharacter* T = Target()) T->bGodMode = !T->bGodMode; })];
 		Row->AddSlot()[Button(LOCTEXT("Freeze", "Congelar sim/não"), [Target]()
@@ -501,6 +503,22 @@ TSharedRef<SWidget> AValdoriaPlayerController::BuildAdminPanel()
 		{
 			if (!WeakThis.IsValid()) return;
 			for (TActorIterator<AValdoriaTrainingDummy> It(WeakThis->GetWorld()); It; ++It) { It->bGodMode = !It->bGodMode; }
+		})];
+		Row->AddSlot()[Button(LOCTEXT("HurtAlly", "+ Aliado ferido (testar cura)"), [WeakThis, Hero]()
+		{
+			if (!WeakThis.IsValid() || !Hero()) return;
+			AValdoriaGameMode* GM = WeakThis->GetWorld()->GetAuthGameMode<AValdoriaGameMode>();
+			if (!GM) return;
+			const FVector Where = WeakThis->GetAimPoint() + FVector(0.f, 0.f, 100.f);
+			if (AValdoriaTrainingDummy* D = Cast<AValdoriaTrainingDummy>(GM->SpawnDummyAt(Where, (Hero()->GetActorLocation() - Where).GetSafeNormal2D().Rotation(), 0)))
+			{
+				D->TeamId = Hero()->TeamId;
+				D->bNoAutoHeal = true;
+				if (UAbilitySystemComponent* ASC = D->GetAbilitySystemComponent())
+				{
+					ASC->SetNumericAttributeBase(UValdoriaAttributeSet::GetHealthAttribute(), D->GetMaxHealth() * 0.3f);
+				}
+			}
 		})];
 		Row->AddSlot()[Button(LOCTEXT("AimTrainer", "Treino de mira: 6 alvos"), [WeakThis]()
 		{

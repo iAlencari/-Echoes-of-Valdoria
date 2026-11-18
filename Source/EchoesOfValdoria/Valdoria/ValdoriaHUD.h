@@ -34,6 +34,10 @@ public:
 	bool bShowDamageMeter = false;
 	void ResetDamageMeter() { TotalDamage = 0.f; RecentDamage.Reset(); MeterStartTime = GetWorld() ? GetWorld()->GetTimeSeconds() : 0.f; }
 
+	/** Chat: linhas recentes (comandos e respostas). */
+	void AddChatLine(const FString& Line, const FLinearColor& Color = FLinearColor::White);
+	bool bChatOpen = false;
+
 	UPROPERTY(EditAnywhere, Category = "Valdoria")
 	FLinearColor AllyColor = FLinearColor(0.2f, 0.85f, 1.f);
 
@@ -58,6 +62,9 @@ protected:
 	TArray<TPair<float, float>> RecentDamage; // (tempo, dano)
 	void DrawDamageMeter(float W, float H);
 	float Scale = 1.f;
+	struct FChatLine { FString Text; FLinearColor Color; float Time; };
+	TArray<FChatLine> ChatLines;
+	void DrawChat(float W, float H);
 
 	void DrawRect(float X, float Y, float W, float H, const FLinearColor& Color);
 	void DrawFrame(float X, float Y, float W, float H, const FLinearColor& Color, float Thickness = 2.f);

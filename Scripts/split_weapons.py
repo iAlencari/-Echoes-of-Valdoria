@@ -30,36 +30,42 @@ for path in unreal.EditorAssetLibrary.list_assets(SRC, recursive=False):
         b = a.get_bounding_box()
         parts.append({"mesh": a, "min": b.min, "max": b.max})
 
-def touches(p, q):
-    return (p["min"].x - GAP <= q["max"].x and q["min"].x - GAP <= p["max"].x and
-            p["min"].y - GAP <= q["max"].y and q["min"].y - GAP <= p["max"].y and
-            p["min"].z - GAP <= q["max"].z and q["min"].z - GAP <= p["max"].z)
-
-# União de grupos (union-find).
-parent = list(range(len(parts)))
-def find(i):
-    while parent[i] != i:
-        parent[i] = parent[parent[i]]
-        i = parent[i]
-    return i
-for i in range(len(parts)):
-    for j in range(i + 1, len(parts)):
-        if touches(parts[i], parts[j]):
-            parent[find(i)] = find(j)
+# Regiões de cada arma na vista de frente (x, z em cm) do FBX do Meshy, tiradas do desenho
+# das peças. Cada peça vai para a região que contém o centro dela.
+REGIONS = [
+    ("Rifle",          (-52, -4), (36, 60)),
+    ("PecaPequena",    (-5, 1.5), (38, 60)),
+    ("LaminasA",       (9, 36.5), (38, 57)),
+    ("LaminasB",       (36.5, 46), (33, 60)),
+    ("Martelo",        (-52, -18), (15, 31)),
+    ("EscudoA",        (-18, 3), (8, 37)),
+    ("Bastao",         (4, 24.5), (8, 37)),
+    ("EscudoB",        (24.5, 45), (8, 37)),
+    ("CajadoA",        (-52, 4), (-1, 11)),
+    ("CajadoB",        (4, 48), (-1, 11)),
+]
 groups = {}
-for i in range(len(parts)):
-    groups.setdefault(find(i), []).append(parts[i])
-clusters = sorted(groups.values(), key=lambda g: (-round(min(p["min"].z for p in g) / 10.0), min(p["min"].x for p in g)))
-out.append("grupos: %d" % len(clusters))
-
+for p in parts:
+    cx = (p["min"].x + p["max"].x) * 0.5
+    cz = (p["min"].z + p["max"].z) * 0.5
+    sx = p["max"].x - p["min"].x
+    name = "Extras"
+    if sx < 40:  # placas grandes que ligam tudo ficam de fora
+        for rname, (x0, x1), (z0, z1) in REGIONS:
+            if x0 <= cx <= x1 and z0 <= cz <= z1:
+                name = rname
+                break
+    groups.setdefault(name, []).append(p)
+clusters = sorted(groups.items())
+out.append("grupos: %s" % [(k, len(v)) for k, v in clusters])
 unreal.EditorAssetLibrary.make_directory(OUT)
 mat = unreal.load_asset(SRC + "/Material")
-for idx, group in enumerate(clusters):
+for idx, (gname, group) in enumerate(clusters):
     mn = unreal.Vector(min(p["min"].x for p in group), min(p["min"].y for p in group), min(p["min"].z for p in group))
     mx = unreal.Vector(max(p["max"].x for p in group), max(p["max"].y for p in group), max(p["max"].z for p in group))
     center = (mn + mx) * 0.5
     size = mx - mn
-    name = "SM_Arma_%02d" % idx
+    name = "SM_Arma_" + gname
     try:
         merged = unreal.DynamicMesh()
         for p in group:

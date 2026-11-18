@@ -28,6 +28,19 @@ AValdoriaGameMode::AValdoriaGameMode()
 	HUDClass = AValdoriaHUD::StaticClass();
 }
 
+AActor* AValdoriaGameMode::ChoosePlayerStart_Implementation(AController* Player)
+{
+	// Time 1 nasce nos spawns sem etiqueta; "Time2" fica para o outro time (multiplayer).
+	for (TActorIterator<APlayerStart> It(GetWorld()); It; ++It)
+	{
+		if (It->PlayerStartTag.IsNone())
+		{
+			return *It;
+		}
+	}
+	return Super::ChoosePlayerStart_Implementation(Player);
+}
+
 APawn* AValdoriaGameMode::SpawnDefaultPawnFor_Implementation(AController* NewPlayer, AActor* StartSpot)
 {
 	APawn* Pawn = Super::SpawnDefaultPawnFor_Implementation(NewPlayer, StartSpot);
@@ -235,10 +248,9 @@ void AValdoriaGameMode::RunAutoTestStep()
 void AValdoriaGameMode::SpawnTrainingDummies()
 {
 	FTransform Origin = FTransform::Identity;
-	for (TActorIterator<APlayerStart> It(GetWorld()); It; ++It)
+	if (AActor* Start = ChoosePlayerStart_Implementation(nullptr))
 	{
-		Origin = It->GetActorTransform();
-		break;
+		Origin = Start->GetActorTransform();
 	}
 	const FVector Forward = Origin.GetRotation().GetForwardVector().GetSafeNormal2D();
 	const FVector Right = FVector::CrossProduct(FVector::UpVector, Forward);

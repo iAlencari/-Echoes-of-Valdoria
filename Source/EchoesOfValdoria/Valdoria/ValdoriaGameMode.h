@@ -36,6 +36,7 @@ public:
 	AActor* SpawnDummyAt(const FVector& Location, const FRotator& Facing, uint8 Kind);
 
 protected:
+	virtual AActor* ChoosePlayerStart_Implementation(AController* Player) override;
 	virtual APawn* SpawnDefaultPawnFor_Implementation(AController* NewPlayer, AActor* StartSpot) override;
 	void SpawnTrainingDummies();
 	void RespawnPlayer(AController* Controller);

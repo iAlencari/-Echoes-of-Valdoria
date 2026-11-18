@@ -233,6 +233,9 @@ protected:
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Componentes")
 	TObjectPtr<UAbilitySystemComponent> AbilitySystem;
 
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Componentes")
+	TObjectPtr<UStaticMeshComponent> WeaponComponent;
+
 	UPROPERTY()
 	TObjectPtr<UValdoriaAttributeSet> Attributes;
 

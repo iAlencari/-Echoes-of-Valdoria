@@ -8,6 +8,7 @@
 #include "ValdoriaHeroDefinition.generated.h"
 
 class USkeletalMesh;
+class UStaticMesh;
 class UAnimInstance;
 
 /**
@@ -122,6 +123,17 @@ public:
 
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Visual")
 	float MeshScale = 1.f;
+
+	/** Modelo 3D da arma (malha estática) e onde ela fica presa na malha do herói. */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Visual|Arma")
+	TSoftObjectPtr<UStaticMesh> WeaponMesh;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Visual|Arma")
+	FName WeaponSocket = TEXT("hand_r");
+
+	/** Posição, rotação e escala da arma em relação ao osso/soquete. */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Visual|Arma")
+	FTransform WeaponOffset;
 
 	/** Animações de agachar, deslizar, deitar, escalar e impulso. */
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Visual")

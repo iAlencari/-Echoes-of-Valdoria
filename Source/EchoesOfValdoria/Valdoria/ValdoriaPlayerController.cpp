@@ -44,14 +44,16 @@ void AValdoriaPlayerController::SetupInputComponent()
 	AltUp.bExecuteWhenPaused = true;
 	FInputKeyBinding& Admin = InputComponent->BindKey(EKeys::F1, IE_Pressed, this, &AValdoriaPlayerController::ToggleAdminPanel);
 	Admin.bExecuteWhenPaused = true;
+	InputComponent->BindKey(EKeys::Enter, IE_Pressed, this, &AValdoriaPlayerController::OpenChat);
 	InputComponent->BindKey(EKeys::K, IE_Pressed, this, &AValdoriaPlayerController::HelpPressed);
 	InputComponent->BindKey(EKeys::K, IE_Released, this, &AValdoriaPlayerController::HelpReleased);
 }
 
 void AValdoriaPlayerController::RefreshInputMode()
 {
-	// Cursor solto enquanto houver menu aberto ou Alt segurado.
-	if (PauseWidget.IsValid() || AdminWidget.IsValid() || HelpWidget.IsValid() || SettingsWidget.IsValid() || bAltHeld)
+	// Cursor solto só com menus que pedem clique (pausa, configurações, ajuda, chat) ou com Alt.
+	// O painel de admin NÃO prende o mouse: dá para mirar e andar com ele aberto; Alt para clicar nele.
+	if (PauseWidget.IsValid() || HelpWidget.IsValid() || SettingsWidget.IsValid() || ChatWidget.IsValid() || bAltHeld)
 	{
 		ApplyCursorInput();
 	}
@@ -75,7 +77,11 @@ void AValdoriaPlayerController::ApplyCursorInput()
 	FInputModeGameAndUI Mode;
 	Mode.SetLockMouseToViewportBehavior(EMouseLockMode::DoNotLock);
 	Mode.SetHideCursorDuringCapture(false);
-	if (PauseWidget.IsValid())
+	if (ChatBox.IsValid() && ChatWidget.IsValid())
+	{
+		Mode.SetWidgetToFocus(ChatBox);
+	}
+	else if (PauseWidget.IsValid())
 	{
 		Mode.SetWidgetToFocus(PauseWidget);
 	}
@@ -101,6 +107,11 @@ void AValdoriaPlayerController::FreeCursorReleased()
 
 void AValdoriaPlayerController::TogglePauseMenu()
 {
+	if (ChatWidget.IsValid())
+	{
+		CloseChat();
+		return;
+	}
 	if (SettingsWidget.IsValid())
 	{
 		CloseSettings();
