@@ -681,6 +681,8 @@ void AValdoriaHeroCharacter::OnDamageTaken(AValdoriaHeroCharacter* DamageInstiga
 	LastDamageTakenTime = GetWorld()->GetTimeSeconds();
 	if (DamageInstigator && DamageInstigator != this)
 	{
+		LastAttacker = DamageInstigator;
+		LastAttackedTime = LastDamageTakenTime;
 		if (const APlayerController* PC = Cast<APlayerController>(Controller))
 		{
 			if (AValdoriaHUD* HUD = Cast<AValdoriaHUD>(PC->GetHUD()))
@@ -790,7 +792,8 @@ float AValdoriaHeroCharacter::DealTypedDamage(AActor* Target, float BaseDamage, 
 	// Resistências e passiva de quem apanha.
 	Physical *= 1.f - FMath::Clamp(Victim->GetPhysicalResistance(), 0.f, 0.9f);
 	Magical *= 1.f - FMath::Clamp(Victim->GetMagicResistance(), 0.f, 0.9f);
-	float Total = (Physical + Magical) * Scale * (1.f - Victim->GetPassiveDamageReduction());
+	float Total = (Physical + Magical) * Scale * (1.f - Victim->GetPassiveDamageReduction())
+		* (1.f - Victim->GetTeamDamageReduction()) * (1.f + GetTeamDamageBonus());
 	// Absorver: parte do dano some e vira carga de ultimate.
 	if (Victim->IsAbsorbing() && Total > 0.f)
 	{
@@ -1022,6 +1025,10 @@ void AValdoriaHeroCharacter::TickStatusEffects(float DeltaSeconds)
 	}
 	const float Step = PassiveTimer;
 	PassiveTimer = 0.f;
+	if (GetTeamRegen() > 0.f)
+	{
+		HealTarget(this, GetTeamRegen() * Step);
+	}
 	const FValdoriaPassiveRules& P = GetPassive();
 	if (P.DamageReductionPerAlly <= 0.f && P.AuraHealPerSecond <= 0.f && P.AllyDamageShare <= 0.f)
 	{
@@ -2409,7 +2416,8 @@ void AValdoriaHeroCharacter::TickAutopilot(float DeltaSeconds)
 		float Best = 5000.f;
 		for (TActorIterator<AValdoriaHeroCharacter> It(GetWorld()); It; ++It)
 		{
-			if (!IsEnemy(*It) || It->IsHiddenByStealth())
+			if (!IsEnemy(*It) || It->IsHiddenByStealth()
+				|| (LeashRadius > 0.f && FVector::Dist2D(It->GetActorLocation(), LeashCenter) > LeashRadius))
 			{
 				continue;
 			}
@@ -2421,8 +2429,36 @@ void AValdoriaHeroCharacter::TickAutopilot(float DeltaSeconds)
 			}
 		}
 	}
+	// Guardians: an enemy who just hit an ally inside the area takes priority.
+	if (LeashRadius > 0.f)
+	{
+		for (TActorIterator<AValdoriaHeroCharacter> It(GetWorld()); It; ++It)
+		{
+			AValdoriaHeroCharacter* Attacker = It->LastAttacker.Get();
+			if (*It != this && It->TeamId == TeamId && Now - It->LastAttackedTime < 3.f && Attacker && IsEnemy(Attacker)
+				&& FVector::Dist2D(It->GetActorLocation(), LeashCenter) <= LeashRadius
+				&& FVector::Dist2D(Attacker->GetActorLocation(), LeashCenter) <= LeashRadius)
+			{
+				AutopilotTarget = Attacker;
+				break;
+			}
+		}
+	}
 	AValdoriaHeroCharacter* Target = AutopilotTarget.Get();
 	const FVector Fwd = GetActorForwardVector().GetSafeNormal2D();
+	if (LeashRadius > 0.f && (!Target || Target->IsDead()) && FVector::Dist2D(GetActorLocation(), LeashCenter) > 200.f)
+	{
+		// Nothing to fight: walk back to the middle of the area.
+		const FVector Home = (LeashCenter - GetActorLocation()).GetSafeNormal2D();
+		AutopilotAim = FRotator(0.f, Home.Rotation().Yaw, 0.f);
+		SetActorRotation(AutopilotAim);
+		AddMovementInput(Home, 0.8f);
+		return;
+	}
+	if (LeashRadius > 0.f && FVector::Dist2D(GetActorLocation(), LeashCenter) > LeashRadius)
+	{
+		AddMovementInput((LeashCenter - GetActorLocation()).GetSafeNormal2D(), 1.f); // never leave the area
+	}
 	if (!Target || Target->IsDead())
 	{
 		// Roam: walk forward, turn slowly, jump at walls.
@@ -2498,4 +2534,30 @@ void AValdoriaHeroCharacter::TickAutopilot(float DeltaSeconds)
 			TryActivateSlot(EValdoriaAbilitySlot::Ultimate);
 		}
 	}
+}
+
+// ------------------------------------------------------------------ team buffs (MOBA spots)
+
+void AValdoriaHeroCharacter::ApplyTeamBuff(uint8 Type, float Value, float Seconds)
+{
+	if (Type < 3)
+	{
+		TeamBuffValue[Type] = Value;
+		TeamBuffEnd[Type] = GetWorld()->GetTimeSeconds() + Seconds;
+	}
+}
+
+float AValdoriaHeroCharacter::GetTeamDamageReduction() const
+{
+	return GetWorld()->GetTimeSeconds() < TeamBuffEnd[0] ? FMath::Clamp(TeamBuffValue[0], 0.f, 0.9f) : 0.f;
+}
+
+float AValdoriaHeroCharacter::GetTeamDamageBonus() const
+{
+	return GetWorld()->GetTimeSeconds() < TeamBuffEnd[1] ? FMath::Max(0.f, TeamBuffValue[1]) : 0.f;
+}
+
+float AValdoriaHeroCharacter::GetTeamRegen() const
+{
+	return GetWorld()->GetTimeSeconds() < TeamBuffEnd[2] ? FMath::Max(0.f, TeamBuffValue[2]) : 0.f;
 }

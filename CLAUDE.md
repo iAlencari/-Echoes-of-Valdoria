@@ -72,6 +72,7 @@ português simples. **Leia `LOG.md` inteiro antes de mexer.**
   inclusive como rampa no ar no futuro), arma de feixe contínuo que trava no alvo e cura aliados
   (5º herói), habilidades em dupla entre heróis, cartas/talentos que modificam habilidades.
   Lista de padrões de habilidades: `docs/HabilidadesReferencia.md`.
+- **MOBA spots (owner's decision, 2026-11-18)**: instead of towers, each lane has 3 **spots** = guardian monsters/bosses that move inside their area and focus the enemy hero who attacks an allied hero there. Each spot gives its team a different buff while alive. Spot 1: 50% damage reduction during the first minute, fading to 0% at minute 5 (configurable). Spots 2 and 3: buffs to be decided by the owner. Code: AValdoriaGuardian (ValdoriaGuardian.h), /spot to test.
 - **Modos de jogo**: vários, incluindo **MOBA 6v6 com 3 lanes** (a NP já tem 3 rotas). Plano: um
   GameMode por modo, com as regras do modo num arquivo de dados.
 - **Corpo e locomoção**: heróis baixos, altos, largos; `CapsuleRadius`/`CapsuleHalfHeight` =

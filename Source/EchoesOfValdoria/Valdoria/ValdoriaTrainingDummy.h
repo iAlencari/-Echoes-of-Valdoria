@@ -47,7 +47,7 @@ public:
 	bool bHunter = false;
 
 	virtual void Tick(float DeltaSeconds) override;
-	void ScheduleRevive();
+	virtual void ScheduleRevive();
 
 protected:
 	virtual void BeginPlay() override;

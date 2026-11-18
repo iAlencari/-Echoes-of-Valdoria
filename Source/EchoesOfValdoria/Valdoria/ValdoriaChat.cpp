@@ -11,6 +11,7 @@
 #include "ValdoriaHUD.h"
 #include "ValdoriaHeroCharacter.h"
 #include "ValdoriaTrainingDummy.h"
+#include "ValdoriaGuardian.h"
 #include "Widgets/Input/SEditableTextBox.h"
 #include "Widgets/Layout/SBox.h"
 
@@ -224,6 +225,18 @@ void AValdoriaPlayerController::RunChatCommand(const FString& Command)
 	else if (!Hero)
 	{
 		ChatPrint(TEXT("Sem herói agora."), Bad);
+	}
+	else if (Cmd == TEXT("spot"))
+	{
+		// Test a MOBA spot guardian: /spot (your team) or /spot inimigo (enemy team).
+		const bool bEnemy = Arg == TEXT("inimigo") || Arg == TEXT("enemy");
+		FActorSpawnParameters P;
+		P.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AdjustIfPossibleButAlwaysSpawn;
+		if (AValdoriaGuardian* Spot = GetWorld()->SpawnActor<AValdoriaGuardian>(AValdoriaGuardian::StaticClass(), GetAimPoint() + FVector(0.f, 0.f, 120.f), FRotator::ZeroRotator, P))
+		{
+			Spot->SetupSpot(bEnemy ? 200 : Hero->TeamId, 1500.f);
+			ChatPrint(bEnemy ? TEXT("Enemy spot guardian placed.") : TEXT("Allied spot guardian placed: -50% damage taken for your team (fades from minute 1 to 5)."), Ok);
+		}
 	}
 	else if (Cmd == TEXT("auto") || Cmd == TEXT("bot"))
 	{

@@ -188,6 +188,16 @@ public:
 	/** Autopilot: the hero plays by itself with its real kit (bots, and /auto for the player). Skill 0..1 = aim. */
 	void SetAutopilot(bool bEnable, float Skill = 0.6f);
 	bool IsAutopilot() const { return bAutopilot; }
+	/** Autopilot stays within Radius of Center (MOBA spot guardians). Radius 0 = free. */
+	void SetLeash(const FVector& Center, float Radius) { LeashCenter = Center; LeashRadius = Radius; }
+	/** Team buff from a MOBA spot: 0 damage reduction, 1 damage bonus, 2 regeneration per second. Lasts Seconds. */
+	void ApplyTeamBuff(uint8 Type, float Value, float Seconds);
+	float GetTeamDamageReduction() const;
+	float GetTeamDamageBonus() const;
+	float GetTeamRegen() const;
+	/** Who hit this hero last, and when (guardians defend allies under attack). */
+	TWeakObjectPtr<AValdoriaHeroCharacter> LastAttacker;
+	float LastAttackedTime = -100.f;
 	/** Reaplica as teclas das habilidades (ao trocar o esquema nas Configurações). */
 	void RefreshKeyScheme();
 	/** Animação de base agora (o animador em C++ pergunta isto a cada quadro). */
@@ -393,6 +403,10 @@ protected:
 	float AutopilotNextPick = 0.f;
 	float AutopilotNextAbility = 0.f;
 	float AutopilotStrafe = 0.f;
+	FVector LeashCenter = FVector::ZeroVector;
+	float LeashRadius = 0.f;
+	float TeamBuffValue[3] = { 0.f, 0.f, 0.f };
+	float TeamBuffEnd[3] = { 0.f, 0.f, 0.f };
 	float SkateEndTime = 0.f;
 	bool bWasSkating = false;
 	float FlightLeanAlpha = 0.f;
