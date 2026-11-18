@@ -13,6 +13,26 @@ UValdoriaHeroDefinition::UValdoriaHeroDefinition()
 	// Mannequin do modelo Third Person da Unreal (apenas para testes).
 	Mesh = TSoftObjectPtr<USkeletalMesh>(FSoftObjectPath(TEXT("/Game/Characters/Mannequins/Meshes/SKM_Manny_Simple.SKM_Manny_Simple")));
 	AnimClass = TSoftClassPtr<UAnimInstance>(FSoftObjectPath(TEXT("/Game/Characters/Mannequins/Anims/Unarmed/ABP_Unarmed.ABP_Unarmed_C")));
+
+	// Animações gratuitas da Epic (plugin MoverExamples, esqueleto UE5 Mannequin).
+	auto Anim = [](const TCHAR* Name)
+	{
+		const FString Path = FString::Printf(TEXT("/MoverExamples/Characters/Mannequins/Animations/Manny/%s.%s"), Name, Name);
+		return TSoftObjectPtr<UAnimSequenceBase>(FSoftObjectPath(Path));
+	};
+	Animations.CrouchIdle = Anim(TEXT("MM_Unarmed_Crouch_Idle"));
+	Animations.CrouchWalkForward = Anim(TEXT("MM_Unarmed_Crouch_Walk_Fwd"));
+	Animations.CrouchWalkBackward = Anim(TEXT("MM_Unarmed_Crouch_Walk_Bwd"));
+	Animations.CrouchWalkLeft = Anim(TEXT("MM_Unarmed_Crouch_Walk_Left"));
+	Animations.CrouchWalkRight = Anim(TEXT("MM_Unarmed_Crouch_Walk_Right"));
+	Animations.Slide = Anim(TEXT("MM_Unarmed_Crouch_Entry"));
+	Animations.Mantle = Anim(TEXT("VaultOver"));
+	Animations.DashForward = Anim(TEXT("MM_Dash_Forward"));
+	Animations.DashBackward = Anim(TEXT("MM_Dash_Backward"));
+	Animations.DashLeft = Anim(TEXT("MM_Dash_Left"));
+	Animations.DashRight = Anim(TEXT("MM_Dash_Right"));
+	// Deitar/rastejar e escalar parede: sem animação gratuita da Epic. Aguardando
+	// aprovação do pacote CC0 (Quaternius Universal Animation Library).
 }
 
 FPrimaryAssetId UValdoriaHeroDefinition::GetPrimaryAssetId() const

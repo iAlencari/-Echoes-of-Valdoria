@@ -119,6 +119,21 @@ void AValdoriaGameMode::RunAutoTestStep()
 		UE_LOG(LogValdoria, Display, TEXT("AUTOTEST ultimate: carga=%.0f%% boneco vida=%.0f"), Hero->GetUltimatePercent() * 100.f, Target->GetHealth());
 		PC->SetControlRotation((Target->GetActorLocation() - Hero->GetActorLocation()).Rotation() + FRotator(-8.f, 0.f, 0.f));
 	}
+	else if (AutoTestStep == 22)
+	{
+		Hero->Crouch();
+	}
+	else if (AutoTestStep == 24)
+	{
+		UE_LOG(LogValdoria, Display, TEXT("AUTOTEST agachar: agachado=%d animacao=%s"), Hero->bIsCrouched,
+			*GetNameSafe(Hero->CurrentMovementAnim.Get()));
+		const FString CrouchPath = FPaths::ConvertRelativePathToFull(FPaths::ProjectSavedDir() / TEXT("Screenshots/AutoTest_Agachado.png"));
+		FScreenshotRequest::RequestScreenshot(CrouchPath, true, false);
+	}
+	else if (AutoTestStep == 25)
+	{
+		Hero->UnCrouch();
+	}
 	else if (AutoTestStep == 26)
 	{
 		const FString Path = FPaths::ConvertRelativePathToFull(FPaths::ProjectSavedDir() / TEXT("Screenshots/AutoTest.png"));

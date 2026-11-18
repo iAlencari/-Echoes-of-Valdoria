@@ -1,39 +1,43 @@
 {
-	"FileVersion": 3,
-	"EngineAssociation": "{8AC1780A-4333-C61D-9CA4-82B49F015826}",
-	"Category": "",
-	"Description": "",
-	"Modules": [
-		{
-			"Name": "EchoesOfValdoria",
-			"Type": "Runtime",
-			"LoadingPhase": "Default",
-			"AdditionalDependencies": [
-				"Engine",
-				"AIModule",
-				"UMG"
-			]
-		}
-	],
-	"Plugins": [
-		{
-			"Name": "ModelingToolsEditorMode",
-			"Enabled": true,
-			"TargetAllowList": [
-				"Editor"
-			]
-		},
-		{
-			"Name": "StateTree",
-			"Enabled": true
-		},
-		{
-			"Name": "GameplayStateTree",
-			"Enabled": true
-		},
-		{
-			"Name": "GameplayAbilities",
-			"Enabled": true
-		}
-	]
+    "FileVersion":  3,
+    "EngineAssociation":  "{8AC1780A-4333-C61D-9CA4-82B49F015826}",
+    "Category":  "",
+    "Description":  "",
+    "Modules":  [
+                    {
+                        "Name":  "EchoesOfValdoria",
+                        "Type":  "Runtime",
+                        "LoadingPhase":  "Default",
+                        "AdditionalDependencies":  [
+                                                       "Engine",
+                                                       "AIModule",
+                                                       "UMG"
+                                                   ]
+                    }
+                ],
+    "Plugins":  [
+                    {
+                        "Name":  "ModelingToolsEditorMode",
+                        "Enabled":  true,
+                        "TargetAllowList":  [
+                                                "Editor"
+                                            ]
+                    },
+                    {
+                        "Name":  "StateTree",
+                        "Enabled":  true
+                    },
+                    {
+                        "Name":  "GameplayStateTree",
+                        "Enabled":  true
+                    },
+                    {
+                        "Name":  "GameplayAbilities",
+                        "Enabled":  true
+                    },
+                    {
+                        "Name":  "MoverExamples",
+                        "Enabled":  true
+                    }
+                ]
 }

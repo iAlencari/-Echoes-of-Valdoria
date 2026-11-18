@@ -103,3 +103,11 @@ F habilidade 1 · E habilidade 2 · Q ultimate
 - **Segurar Alt** solta o cursor (para arrastar a janela); soltar o Alt volta a prender. Com o cursor solto, cliques e movimento do mouse não atiram nem giram a câmera.
 - Módulo SlateCore adicionado. Teste automático agora também abre o menu de pausa (passou: menu aberto=1, jogo pausado=1).
 - Obs.: no editor (Play), o Esc encerra a sessão por padrão da Unreal; o menu de pausa vale no jogo aberto pelo atalho. No editor, Shift+F1 solta o mouse.
+
+### Turno 10 — Claude Code — 18/11/2026 (animações de movimento)
+**Fala do dono:** > "notei que não tem animação de agachar ou deitar o boneco fica parado e a camera abaixa escalar também não tem animação"
+- Novo **FValdoriaAnimationSet** no Data Asset do herói (Visual > Animations): agachar parado e andando nas 4 direções, deslizar, deitar parado/rastejando, subir em beirada, escalar parede, impulso nas 4 direções. Tocam por cima do Animation Blueprint no slot DefaultSlot, sem root motion; servem para qualquer malha no esqueleto padrão UE5 Mannequin (os heróis de IA devem usar esse esqueleto).
+- Animações gratuitas da Epic ligadas pelo plugin **MoverExamples** (vem com a Unreal): agachar (4 direções), deslizar (entrada do agachar), subir em beirada (VaultOver), impulso (4 direções).
+- Scripts/setup_animations.py: marca o esqueleto do plugin como compatível com o SK_Mannequin do projeto (alterou o asset do esqueleto).
+- **Deitar/rastejar e escalar parede seguem sem animação**: a Epic não tem gratuitas. Proposto ao dono o pacote CC0 Quaternius Universal Animation Library 1 e 2; aguardando aprovação para baixar.
+- Teste automático: agachar toca MM_Unarmed_Crouch_Walk_Fwd; print em Saved/Screenshots/AutoTest_Agachado.png.

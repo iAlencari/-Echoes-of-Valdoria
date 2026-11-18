@@ -3,6 +3,7 @@
 #include "ValdoriaHeroCharacter.h"
 #include "AbilitySystemComponent.h"
 #include "Animation/AnimInstance.h"
+#include "Animation/AnimSequenceBase.h"
 #include "Camera/CameraComponent.h"
 #include "Components/CapsuleComponent.h"
 #include "Components/SkeletalMeshComponent.h"
@@ -620,6 +621,10 @@ void AValdoriaHeroCharacter::Tick(float DeltaSeconds)
 {
 	Super::Tick(DeltaSeconds);
 	TickMovementFeatures(DeltaSeconds);
+	if (!bIsDead)
+	{
+		UpdateMovementAnimation();
+	}
 
 	if (bFireHeld && IsLocallyControlled() && GetWeaponStats().bAutomatic)
 	{
@@ -861,6 +866,7 @@ void AValdoriaHeroCharacter::PerformDash(const FVector& Direction)
 		SetProne(false);
 	}
 	--DashChargesLeft;
+	PlayDashAnimation(Direction);
 	const bool bGrounded = GetCharacterMovement()->IsMovingOnGround();
 	LaunchCharacter(Direction * GetMovementRules().DashImpulse + FVector(0.f, 0.f, bGrounded ? 120.f : 0.f), true, true);
 	DrawArea(GetActorLocation(), 120.f, FLinearColor(0.6f, 0.9f, 1.f));
@@ -1212,4 +1218,104 @@ void AValdoriaHeroCharacter::Landed(const FHitResult& Hit)
 	Super::Landed(Hit);
 	WallClimbTimeUsed = 0.f;
 	bWallClimbing = false;
+}
+
+// ------------------------------------------------------------------ animações de movimento
+// Tocadas por cima do Animation Blueprint (slot do FValdoriaAnimationSet). Assim o mesmo
+// conjunto serve para qualquer malha no esqueleto padrão da Unreal.
+
+UAnimSequenceBase* AValdoriaHeroCharacter::PickMovementAnimation(bool& bOutLoop) const
+{
+	bOutLoop = true;
+	if (!ActiveDefinition)
+	{
+		return nullptr;
+	}
+	const FValdoriaAnimationSet& Set = ActiveDefinition->Animations;
+	const FVector Velocity = GetVelocity();
+	const float Speed = Velocity.Size2D();
+	auto Load = [](const TSoftObjectPtr<UAnimSequenceBase>& Ptr) { return Ptr.IsNull() ? nullptr : Ptr.LoadSynchronous(); };
+
+	if (bMantling)
+	{
+		bOutLoop = false;
+		return Load(Set.Mantle);
+	}
+	if (bWallClimbing)
+	{
+		return Load(Set.WallClimb);
+	}
+	if (bIsProne)
+	{
+		UAnimSequenceBase* Crawl = Load(Set.ProneCrawl);
+		return (Speed > 20.f && Crawl) ? Crawl : Load(Set.ProneIdle);
+	}
+	if (bSliding)
+	{
+		UAnimSequenceBase* SlideAnim = Load(Set.Slide);
+		return SlideAnim ? SlideAnim : Load(Set.CrouchIdle);
+	}
+	if (bIsCrouched)
+	{
+		if (Speed < 20.f)
+		{
+			return Load(Set.CrouchIdle);
+		}
+		const float Fwd = FVector::DotProduct(Velocity, GetActorForwardVector());
+		const float Right = FVector::DotProduct(Velocity, GetActorRightVector());
+		if (FMath::Abs(Fwd) >= FMath::Abs(Right))
+		{
+			return Load(Fwd >= 0.f ? Set.CrouchWalkForward : Set.CrouchWalkBackward);
+		}
+		return Load(Right >= 0.f ? Set.CrouchWalkRight : Set.CrouchWalkLeft);
+	}
+	return nullptr;
+}
+
+void AValdoriaHeroCharacter::UpdateMovementAnimation()
+{
+	UAnimInstance* AnimInstance = GetMesh() ? GetMesh()->GetAnimInstance() : nullptr;
+	if (!AnimInstance || !ActiveDefinition)
+	{
+		return;
+	}
+	// As animações extras não devem mover o personagem (o movimento é do código).
+	AnimInstance->SetRootMotionMode(ERootMotionMode::IgnoreRootMotion);
+
+	bool bLoop = true;
+	UAnimSequenceBase* Desired = PickMovementAnimation(bLoop);
+	if (Desired == CurrentMovementAnim.Get())
+	{
+		return;
+	}
+	const FName Slot = ActiveDefinition->Animations.SlotName;
+	CurrentMovementAnim = Desired;
+	if (Desired)
+	{
+		AnimInstance->PlaySlotAnimationAsDynamicMontage(Desired, Slot, 0.15f, 0.2f, 1.f, bLoop ? 10000 : 1);
+	}
+	else
+	{
+		AnimInstance->StopSlotAnimation(0.2f, Slot);
+	}
+}
+
+void AValdoriaHeroCharacter::PlayDashAnimation(const FVector& Direction)
+{
+	UAnimInstance* AnimInstance = GetMesh() ? GetMesh()->GetAnimInstance() : nullptr;
+	if (!AnimInstance || !ActiveDefinition || CurrentMovementAnim.IsValid())
+	{
+		return; // agachado/deitado já tem animação própria
+	}
+	const FValdoriaAnimationSet& Set = ActiveDefinition->Animations;
+	const float Fwd = FVector::DotProduct(Direction, GetActorForwardVector());
+	const float Right = FVector::DotProduct(Direction, GetActorRightVector());
+	const TSoftObjectPtr<UAnimSequenceBase>& Ptr = FMath::Abs(Fwd) >= FMath::Abs(Right)
+		? (Fwd >= 0.f ? Set.DashForward : Set.DashBackward)
+		: (Right >= 0.f ? Set.DashRight : Set.DashLeft);
+	if (UAnimSequenceBase* Anim = Ptr.IsNull() ? nullptr : Ptr.LoadSynchronous())
+	{
+		AnimInstance->SetRootMotionMode(ERootMotionMode::IgnoreRootMotion);
+		AnimInstance->PlaySlotAnimationAsDynamicMontage(Anim, Set.SlotName, 0.05f, 0.25f, 1.2f, 1);
+	}
 }

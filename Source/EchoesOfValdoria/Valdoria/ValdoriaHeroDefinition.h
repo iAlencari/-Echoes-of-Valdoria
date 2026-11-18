@@ -116,6 +116,10 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Visual")
 	float MeshScale = 1.f;
 
+	/** Animações de agachar, deslizar, deitar, escalar e impulso. */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Visual")
+	FValdoriaAnimationSet Animations;
+
 	/** Câmera por cima do ombro: distância e deslocamento lateral/altura (cm). */
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Câmera")
 	float CameraDistance = 300.f;

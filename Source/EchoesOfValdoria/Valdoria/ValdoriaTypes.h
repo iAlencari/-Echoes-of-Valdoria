@@ -6,6 +6,7 @@
 #include "ValdoriaTypes.generated.h"
 
 class UValdoriaGameplayAbility;
+class UAnimSequenceBase;
 
 /** Funções (roles). São só etiquetas: os atributos vêm de cada personagem. */
 UENUM(BlueprintType)
@@ -191,6 +192,57 @@ struct FValdoriaMovementRules
 	/** Quanto tempo aguenta subindo antes de soltar (s). */
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Escalar", meta = (EditCondition = "bCanWallClimb"))
 	float MaxWallClimbTime = 1.6f;
+};
+
+/**
+ * Animações extras de movimento de um herói (tocadas por cima do Animation Blueprint,
+ * no slot "DefaultSlot"). Servem para qualquer malha no esqueleto padrão da Unreal
+ * (UE5 Mannequin / Manny), inclusive os heróis gerados por IA. Vazio = sem animação.
+ */
+USTRUCT(BlueprintType)
+struct FValdoriaAnimationSet
+{
+	GENERATED_BODY()
+
+	/** Nome do slot no Animation Blueprint onde as animações tocam. */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Animações")
+	FName SlotName = TEXT("DefaultSlot");
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Animações|Agachar")
+	TSoftObjectPtr<UAnimSequenceBase> CrouchIdle;
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Animações|Agachar")
+	TSoftObjectPtr<UAnimSequenceBase> CrouchWalkForward;
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Animações|Agachar")
+	TSoftObjectPtr<UAnimSequenceBase> CrouchWalkBackward;
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Animações|Agachar")
+	TSoftObjectPtr<UAnimSequenceBase> CrouchWalkLeft;
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Animações|Agachar")
+	TSoftObjectPtr<UAnimSequenceBase> CrouchWalkRight;
+
+	/** Deslizando (se vazio, usa CrouchIdle). */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Animações|Deslizar")
+	TSoftObjectPtr<UAnimSequenceBase> Slide;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Animações|Deitar")
+	TSoftObjectPtr<UAnimSequenceBase> ProneIdle;
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Animações|Deitar")
+	TSoftObjectPtr<UAnimSequenceBase> ProneCrawl;
+
+	/** Subir em beirada (toca uma vez). */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Animações|Escalar")
+	TSoftObjectPtr<UAnimSequenceBase> Mantle;
+	/** Escalando parede (repete). */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Animações|Escalar")
+	TSoftObjectPtr<UAnimSequenceBase> WallClimb;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Animações|Impulso")
+	TSoftObjectPtr<UAnimSequenceBase> DashForward;
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Animações|Impulso")
+	TSoftObjectPtr<UAnimSequenceBase> DashBackward;
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Animações|Impulso")
+	TSoftObjectPtr<UAnimSequenceBase> DashLeft;
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Animações|Impulso")
+	TSoftObjectPtr<UAnimSequenceBase> DashRight;
 };
 
 /** Uma habilidade concedida ao personagem. */

@@ -13,6 +13,7 @@
 class UAbilitySystemComponent;
 class UValdoriaAttributeSet;
 class UValdoriaHeroDefinition;
+class UAnimSequenceBase;
 class USpringArmComponent;
 class UCameraComponent;
 class UInputAction;
@@ -165,6 +166,10 @@ protected:
 	bool IsFacingWall(float Distance) const;
 	void StartMantle(const FVector& Target);
 	void TickMovementFeatures(float DeltaSeconds);
+	UAnimSequenceBase* PickMovementAnimation(bool& bOutLoop) const;
+	void UpdateMovementAnimation();
+	void PlayDashAnimation(const FVector& Direction);
+	TWeakObjectPtr<UAnimSequenceBase> CurrentMovementAnim;
 	virtual void Landed(const FHitResult& Hit) override;
 
 	UFUNCTION(Server, Reliable) void ServerSetSprinting(bool bNewSprinting);
