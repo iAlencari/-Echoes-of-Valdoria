@@ -89,6 +89,10 @@ void AValdoriaGameMode::RunAutoTestStep()
 	{
 		Hero->TryActivateSlot(EValdoriaAbilitySlot::PrimaryFire);
 	}
+	else if (AutoTestStep == 13)
+	{
+		FScreenshotRequest::RequestScreenshot(FPaths::ConvertRelativePathToFull(FPaths::ProjectSavedDir() / TEXT("Screenshots/AutoTest_HUD.png")), true, false);
+	}
 	else if (AutoTestStep == 14)
 	{
 		UE_LOG(LogValdoria, Display, TEXT("AUTOTEST tiro: boneco vida=%.0f/%.0f municao=%d"), Target->GetHealth(), Target->GetMaxHealth(), Hero->GetAmmo());

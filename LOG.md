@@ -170,3 +170,16 @@ F habilidade 1 · E habilidade 2 · Q ultimate
 - `CREDITS.md` criado (Epic, Quaternius CC0, licença MIT do projeto).
 - Armas do Meshy: pasta `SourceArt\Armas` criada, mas o arquivo `Armas_Herois.fbx` ainda não apareceu nela.
 - Teste automático completo passou (tiro, correr, deitar, impulso, ultimate, agachar, deitado, escalar, pausa).
+
+### Turno 13 — Claude Code — 18/11/2026 (HUD no estilo das referências do dono)
+Referências do dono (imagens, descritas em texto): barra de aliado ciano e de inimigo vermelha com caveira; barra de cada herói no estilo dele (Brasa laranja com escudo e 600 de vida, Kael verde-azulado 200, Iara turquesa com conchas 200, Vex roxa 150); ícone de passiva, 3 habilidades e ultimate com moldura; munição em três estilos (30/90 ciano, 24/72 dourado, 08/24 laranja) com ícones de balas.
+
+- `ValdoriaHUD` reescrito (ainda desenhado em código, sem imagens):
+  - Barra de vida **segmentada** (divisão a cada 25), vida na cor do herói (`ThemeColor`), armadura laranja e escudo azul em sequência, moldura na cor do herói, nome grande, funções, número atual / máximo.
+  - **Barras sobre a cabeça** de todos os personagens: inimigo em vermelho com caveira, aliado em ciano, com o total de vida.
+  - Fileira central: passiva (P), botão direito, F, E e **ultimate com moldura dupla**, preenchimento pela carga e pulsando quando pronta; recarga escurece o quadrado e mostra os segundos.
+  - **Munição** grande na cor do herói (`18 / ∞`), ícones de balas que apagam ao atirar, nome da arma.
+  - Cargas de impulso e estado do movimento ao lado da barra.
+- Novo campo `ReserveAmmo` na arma (0 = infinita; por enquanto só visual).
+- Teste automático ganhou o print `Saved/Screenshots/AutoTest_HUD.png`.
+- Pendente: ícones de verdade (imagens) para passiva/habilidades/heróis quando houver arte; Data Assets dos heróis reais (Brasa, Kael, Iara, Vex) com as cores e vidas das referências, quando o dono aprovar os números.

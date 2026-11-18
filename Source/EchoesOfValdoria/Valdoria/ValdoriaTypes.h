@@ -68,6 +68,10 @@ struct FValdoriaWeaponStats
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Arma", meta = (ClampMin = "1"))
 	int32 MagazineSize = 30;
 
+	/** Munição reserva mostrada no HUD (0 = infinita). Por enquanto só visual. */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Arma", meta = (ClampMin = "0"))
+	int32 ReserveAmmo = 0;
+
 	/** Segundos para recarregar. */
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Arma", meta = (ClampMin = "0"))
 	float ReloadTime = 1.5f;
