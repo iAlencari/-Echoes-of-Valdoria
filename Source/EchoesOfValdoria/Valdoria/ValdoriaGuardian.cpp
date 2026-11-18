@@ -6,6 +6,8 @@
 #include "ValdoriaAttributeSet.h"
 #include "AbilitySystemComponent.h"
 #include "ValdoriaHeroDefinition.h"
+#include "ValdoriaWorldActors.h"
+#include "ValdoriaAudio.h"
 
 AValdoriaGuardian::AValdoriaGuardian()
 {
@@ -57,6 +59,10 @@ float AValdoriaGuardian::GetCurrentBuff() const
 void AValdoriaGuardian::Tick(float DeltaSeconds)
 {
 	Super::Tick(DeltaSeconds);
+	if (HasAuthority() && !IsDead())
+	{
+		StrikeRiders();
+	}
 	BuffTimer += DeltaSeconds;
 	if (!HasAuthority() || IsDead() || BuffTimer < 0.5f)
 	{
@@ -85,5 +91,45 @@ void AValdoriaGuardian::SetupSpot(uint8 Team, float Radius)
 	{
 		AbilitySystem->SetNumericAttributeBase(UValdoriaAttributeSet::GetMaxHealthAttribute(), GuardianHealth);
 		AbilitySystem->SetNumericAttributeBase(UValdoriaAttributeSet::GetHealthAttribute(), GuardianHealth);
+	}
+}
+void AValdoriaGuardian::StrikeRiders()
+{
+	// Enemies riding a trail over this area get brought down (owner's design, per guardian style).
+	const float Now = GetWorld()->GetTimeSeconds();
+	if (Now < NextRiderStrike)
+	{
+		return;
+	}
+	for (TActorIterator<AValdoriaHeroCharacter> It(GetWorld()); It; ++It)
+	{
+		AValdoriaHeroCharacter* Rider = *It;
+		if (!Rider->IsRiding() || !IsEnemy(Rider) || FVector::Dist2D(Rider->GetActorLocation(), StartLocation) > AreaRadius)
+		{
+			continue;
+		}
+		NextRiderStrike = Now + 2.5f;
+		AValdoriaFx::Beam(GetWorld(), GetActorLocation() + FVector(0, 0, 80.f), Rider->GetActorLocation(), FLinearColor(1.f, 0.3f, 0.2f), 8.f, 0.3f);
+		Rider->StopRiding();
+		DealTypedDamage(Rider, 40.f, Style == EValdoriaGuardianStyle::Mage ? EValdoriaDamageType::Magical : EValdoriaDamageType::Physical);
+		switch (Style)
+		{
+		case EValdoriaGuardianStyle::Melee:
+			LaunchCharacter(FVector(0.f, 0.f, 900.f), false, true); // quick charged leap
+			Rider->LaunchCharacter(FVector(0.f, 0.f, -1500.f), true, true);
+			Rider->ApplyStatus(EValdoriaStatus::Stunned, 0.8f);
+			break;
+		case EValdoriaGuardianStyle::Mage:
+			Rider->LaunchCharacter((GetActorLocation() - Rider->GetActorLocation()).GetSafeNormal() * 1400.f, true, true);
+			Rider->ApplyStatus(EValdoriaStatus::Rooted, 1.5f);
+			break;
+		case EValdoriaGuardianStyle::Flyer:
+		case EValdoriaGuardianStyle::Thrower:
+			Rider->LaunchCharacter(FVector(0.f, 0.f, -1800.f), true, true);
+			Rider->ApplyStatus(EValdoriaStatus::Stunned, 1.2f);
+			break;
+		}
+		ValdoriaAudio::PlayAt(this, ValdoriaAudio::Load(TEXT("Impacts"), TEXT("impactPunch_heavy_000")), Rider->GetActorLocation(), 0.9f);
+		return;
 	}
 }

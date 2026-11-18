@@ -191,6 +191,19 @@ public:
 	/** Autopilot stays within Radius of Center (MOBA spot guardians). Radius 0 = free. */
 	void SetLeash(const FVector& Center, float Radius) { LeashCenter = Center; LeashRadius = Radius; }
 	/** With nobody in sight, the autopilot walks these points in order (MOBA lanes). */
+	// --- Aurora Trails (MOBA lane rails)
+	bool TryMountRail();
+	void StopRiding();
+	bool IsRiding() const { return RideRail.IsValid(); }
+	FString GetRideLaneName() const;
+	/** Future surfer hero: can ride enemy trails too. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Herói")
+	bool bCanRideAnyRail = false;
+	/** Combat states: general = hit/healed someone; passive = took damage or control from an enemy. */
+	bool IsInPassiveCombat(float Seconds) const;
+	bool IsInCombat(float Seconds) const { return GetWorld()->GetTimeSeconds() - LastCombatTime < Seconds; }
+	float LastHarmedTime = -100.f;
+	float LastCombatTime = -100.f;
 	void SetAutopilotRoute(const TArray<FVector>& Points) { AutopilotRoute = Points; AutopilotRouteIndex = 0; }
 	void RestartAutopilotRoute() { AutopilotRouteIndex = 0; }
 	/** Team buff from a MOBA spot: 0 damage reduction, 1 damage bonus, 2 regeneration per second. Lasts Seconds. */
@@ -409,6 +422,12 @@ protected:
 	FVector LeashCenter = FVector::ZeroVector;
 	float LeashRadius = 0.f;
 	TArray<FVector> AutopilotRoute;
+	void TickRiding(float DeltaSeconds);
+	TWeakObjectPtr<class AValdoriaLaneRail> RideRail;
+	float RideDistance = 0.f;
+	float RideSpeed = 1800.f;
+	float JumpPressTime = -10.f;
+	bool bTriedMountThisPress = false;
 	int32 AutopilotRouteIndex = 0;
 	float TeamBuffValue[3] = { 0.f, 0.f, 0.f };
 	float TeamBuffEnd[3] = { 0.f, 0.f, 0.f };

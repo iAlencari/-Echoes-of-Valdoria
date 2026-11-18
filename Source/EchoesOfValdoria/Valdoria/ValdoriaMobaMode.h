@@ -66,6 +66,22 @@ public:
 
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "MOBA")
 	float SpotAreaRadius = 1200.f;
+
+	/** Lane names (left, middle, right). Nova Paulicéia uses famous Brazilian avenues. */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Aurora Trails")
+	TArray<FString> LaneNames = { TEXT("Av. Ipiranga"), TEXT("Av. Paulista"), TEXT("Av. Rebouças") };
+
+	/** Calm trail colour per lane (enemy trails get a red accent). */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Aurora Trails")
+	TArray<FLinearColor> LaneColors = { FLinearColor(0.35f, 0.75f, 1.f), FLinearColor(0.75f, 0.55f, 1.f), FLinearColor(0.4f, 1.f, 0.7f) };
+
+	/** How far each trail reaches without minions (0.5 = the middle of the map). */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Aurora Trails")
+	float TrailReach = 0.5f;
+
+	/** Height of the horizontal part over the lane, and of the vertical start at the base (cm). */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Aurora Trails")
+	float TrailHeight = 700.f;
 };
 
 UCLASS()

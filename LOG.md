@@ -398,3 +398,9 @@ Owner's brother is playing Deadlock, so this batch is **built but not run** (no 
 - Chat: `/modo moba` (opens Nova Paulicéia in MOBA mode), `/modo mobabots` (you on autopilot too).
 - Not yet: minions and jungle (Paragon: Minions pack when the owner adds it), real bases/core, lane geometry matched to the NP routes (the layout is generated, may need tuning on screen).
 - Built only (brother playing Deadlock).
+### Turn 37 — Claude Code — 2026-11-18 (Aurora Trails: lane rails) — code only
+- `AValdoriaLaneRail`: polyline rail (vertical at the spawn, then horizontal over the lane) drawn as thin glowing segments with **no collision** (intangible). One per lane per team in the MOBA, reach = `TrailReach` (0.5 = middle) until minions exist. Lane names/colours in `DA_Moba` (Av. Ipiranga / Av. Paulista / Av. Rebouças); enemy trails tinted red.
+- Riding (hero): hold Space 0.4 s looking at a trail (300 cm aim tolerance) to mount; travel 1800 cm/s lying down; direction = where the camera looks along the trail (look back to go home); Space again or the end of the trail drops you. Abilities blocked while riding (basic attack allowed). Hit by an enemy = fall off. Mount locked for 2 s after passive combat.
+- **Combat states**: `LastHarmedTime` (passive: damage or control from an enemy, `ApplyStatus` included) and `LastCombatTime` (general: damage dealt or healing others). `IsInPassiveCombat` / `IsInCombat`.
+- `bCanRideAnyRail` (future surfer hero). Guardians bring down enemy riders over their area every 2.5 s by `EValdoriaGuardianStyle` (Melee leap + knock down/stun, Mage pull + root, Flyer/Thrower slam + stun) with 40 damage; MOBA mixes the styles for now.
+- HUD: "AURORA TRAIL <lane>" while riding. Built only (brother playing).

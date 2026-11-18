@@ -9,6 +9,7 @@
 #include "ValdoriaHeroDefinition.h"
 #include "ValdoriaPlayerController.h"
 #include "ValdoriaTrainingDummy.h"
+#include "ValdoriaLaneRail.h"
 
 UValdoriaMobaRules::UValdoriaMobaRules()
 {
@@ -117,6 +118,7 @@ void AValdoriaMobaMode::BuildLayout()
 					{
 						continue;
 					}
+					Guardian->Style = static_cast<EValdoriaGuardianStyle>(Guardians.Num() % 4); // mix of styles for now
 					Guardian->Buff = Spot.Buffs[g];
 					Guardian->BuffValue = Spot.BuffValues.IsValidIndex(g) ? Spot.BuffValues[g] : 0.f;
 					Guardian->BuffHoldUntil = Spot.BuffHoldUntil;
@@ -126,6 +128,34 @@ void AValdoriaMobaMode::BuildLayout()
 					Guardian->ResetCombatState();
 					Guardians.Add(Guardian);
 				}
+			}
+		}
+	}
+
+	// Aurora Trails: one per lane per team. Vertical at the spawn, then bending into a horizontal
+	// line over the lane, up to the enemy base; it reaches TrailReach of the way (the middle) for now.
+	for (uint8 Team = 0; Team < 2; ++Team)
+	{
+		const FVector Toward = Team == 0 ? Axis : -Axis;
+		for (int32 Lane = -1; Lane <= 1; ++Lane)
+		{
+			const FVector LaneOffset = SideDir * (Lane * Rules->SideLaneOffset);
+			const FVector Spawn = Ground(Base[Team]) + SideDir * (Lane * 250.f);
+			TArray<FVector> Points;
+			Points.Add(Spawn);
+			Points.Add(Spawn + FVector(0.f, 0.f, Rules->TrailHeight * 0.6f));
+			for (int32 k = 1; k <= 12; ++k)
+			{
+				const float A = k / 12.f;
+				const FVector Flat = Base[Team] + Toward * (A * HalfLength * 2.f) + LaneOffset * FMath::Min(1.f, A * 4.f);
+				Points.Add(Ground(Flat) + FVector(0.f, 0.f, Rules->TrailHeight - 120.f));
+			}
+			if (AValdoriaLaneRail* Rail = GetWorld()->SpawnActor<AValdoriaLaneRail>(AValdoriaLaneRail::StaticClass(), Spawn, FRotator::ZeroRotator, P))
+			{
+				const int32 L = Lane + 1;
+				Rail->Setup(Team, Rules->LaneNames.IsValidIndex(L) ? Rules->LaneNames[L] : FString(), Points,
+					Rules->LaneColors.IsValidIndex(L) ? Rules->LaneColors[L] : FLinearColor::White);
+				Rail->SetReach(Rules->TrailReach);
 			}
 		}
 	}

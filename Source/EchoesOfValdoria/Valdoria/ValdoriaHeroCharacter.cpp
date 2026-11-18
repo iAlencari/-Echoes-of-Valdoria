@@ -35,6 +35,7 @@
 #include "ValdoriaPlayerController.h"
 #include "ValdoriaAnimInstance.h"
 #include "ValdoriaAudio.h"
+#include "ValdoriaLaneRail.h"
 #include "Sound/SoundBase.h"
 #include "EngineUtils.h"
 #include "UObject/ConstructorHelpers.h"
@@ -683,6 +684,11 @@ void AValdoriaHeroCharacter::OnDamageTaken(AValdoriaHeroCharacter* DamageInstiga
 	{
 		LastAttacker = DamageInstigator;
 		LastAttackedTime = LastDamageTakenTime;
+		if (IsEnemy(DamageInstigator))
+		{
+			LastHarmedTime = LastDamageTakenTime;
+			StopRiding(); // hit by an enemy: fall off the trail
+		}
 		if (const APlayerController* PC = Cast<APlayerController>(Controller))
 		{
 			if (AValdoriaHUD* HUD = Cast<AValdoriaHUD>(PC->GetHUD()))
@@ -821,6 +827,7 @@ float AValdoriaHeroCharacter::DealTypedDamage(AActor* Target, float BaseDamage, 
 		DealDamageTo(Guard, Shared);
 		break;
 	}
+	LastCombatTime = GetWorld()->GetTimeSeconds();
 	DealDamageTo(Victim, Total, bHeadshot);
 	return Total;
 }
@@ -837,6 +844,10 @@ void AValdoriaHeroCharacter::HealTarget(AActor* Target, float Amount)
 	if (Spec.IsValid())
 	{
 		Spec.Data->SetSetByCallerMagnitude(ValdoriaTags::Data_Heal, Amount * (1.f + ShopBonus.HealingPower));
+		if (Target != this)
+		{
+			LastCombatTime = GetWorld()->GetTimeSeconds(); // healing others counts as general combat
+		}
 		AbilitySystem->ApplyGameplayEffectSpecToTarget(*Spec.Data.Get(), TargetASC);
 	}
 }
@@ -1170,6 +1181,7 @@ void AValdoriaHeroCharacter::Tick(float DeltaSeconds)
 	TickFootsteps(DeltaSeconds);
 	TickFlightPose(DeltaSeconds);
 	TickAutopilot(DeltaSeconds);
+	TickRiding(DeltaSeconds);
 	if (!bIsDead)
 	{
 		UpdateMovementAnimation();
@@ -1642,6 +1654,13 @@ void AValdoriaHeroCharacter::OnRep_IsProne()
 
 void AValdoriaHeroCharacter::Input_JumpPressed()
 {
+	if (IsRiding())
+	{
+		StopRiding(); // tap Space again to get off
+		return;
+	}
+	JumpPressTime = GetWorld()->GetTimeSeconds();
+	bTriedMountThisPress = false;
 	if (HasStatus(EValdoriaStatus::Rooted) || HasStatus(EValdoriaStatus::Stunned))
 	{
 		return;
@@ -1774,6 +1793,10 @@ void AValdoriaHeroCharacter::ServerStartMantle_Implementation(FVector_NetQuantiz
 
 void AValdoriaHeroCharacter::TickMovementFeatures(float DeltaSeconds)
 {
+	if (IsRiding())
+	{
+		return; // the trail moves the hero
+	}
 	if (bIsDead || !ActiveDefinition || bNoclip)
 	{
 		return;
@@ -2098,6 +2121,7 @@ void AValdoriaHeroCharacter::ApplyStatus(EValdoriaStatus Status, float Seconds)
 		return;
 	}
 	const float End = GetWorld()->GetTimeSeconds() + Seconds;
+	LastHarmedTime = GetWorld()->GetTimeSeconds(); // control counts as passive combat
 	float& Current = StatusEndTimes.FindOrAdd(Status);
 	Current = FMath::Max(Current, End);
 	if (Status == EValdoriaStatus::Stunned || Status == EValdoriaStatus::CannotAttack)
@@ -2122,7 +2146,7 @@ bool AValdoriaHeroCharacter::CanUseSlot(EValdoriaAbilitySlot Slot) const
 	{
 		return !HasStatus(EValdoriaStatus::CannotAttack);
 	}
-	return !HasStatus(EValdoriaStatus::Silenced) && !HasStatus(EValdoriaStatus::CannotUseAbilities);
+	return !IsRiding() && !HasStatus(EValdoriaStatus::Silenced) && !HasStatus(EValdoriaStatus::CannotUseAbilities);
 }
 
 void AValdoriaHeroCharacter::AddUltimateCharge(float Amount)
@@ -2581,4 +2605,109 @@ float AValdoriaHeroCharacter::GetTeamDamageBonus() const
 float AValdoriaHeroCharacter::GetTeamRegen() const
 {
 	return GetWorld()->GetTimeSeconds() < TeamBuffEnd[2] ? FMath::Max(0.f, TeamBuffValue[2]) : 0.f;
+}
+// ------------------------------------------------------------------ Aurora Trails (lane rails)
+// Mount: look at a rail and hold Space ~0.4 s. Direction follows the camera (look back to go
+// home). Basic attacks only, no abilities. Falls off when hit by an enemy. Locked for 2 s after
+// "passive combat" (taking damage/control from an enemy).
+
+bool AValdoriaHeroCharacter::IsInPassiveCombat(float Seconds) const
+{
+	return GetWorld()->GetTimeSeconds() - LastHarmedTime < Seconds;
+}
+
+bool AValdoriaHeroCharacter::TryMountRail()
+{
+	if (bIsDead || IsRiding() || IsInPassiveCombat(2.f))
+	{
+		return false;
+	}
+	FVector Start, Dir;
+	GetAimRay(Start, Dir);
+	AValdoriaLaneRail* Best = nullptr;
+	float BestDist = 300.f; // generous hitbox: no need to aim precisely at the thin line
+	float BestAlong = 0.f;
+	for (TActorIterator<AValdoriaLaneRail> It(GetWorld()); It; ++It)
+	{
+		// Own team's rails only, unless this hero can surf any rail (future hero).
+		if (It->Team != TeamId && !bCanRideAnyRail)
+		{
+			continue;
+		}
+		float Along = 0.f;
+		const float Dist = It->DistanceToRay(Start, Dir, 2500.f, Along);
+		if (Dist < BestDist)
+		{
+			BestDist = Dist;
+			Best = *It;
+			BestAlong = Along;
+		}
+	}
+	if (!Best)
+	{
+		return false;
+	}
+	RideRail = Best;
+	RideDistance = BestAlong;
+	GetCharacterMovement()->SetMovementMode(MOVE_Flying);
+	GetCharacterMovement()->StopMovementImmediately();
+	ValdoriaAudio::PlayAt(this, ValdoriaAudio::Load(TEXT("SciFi"), TEXT("forceField_000")), GetActorLocation(), 0.6f);
+	return true;
+}
+
+void AValdoriaHeroCharacter::StopRiding()
+{
+	if (!RideRail.IsValid())
+	{
+		return;
+	}
+	RideRail = nullptr;
+	if (!bNoclip)
+	{
+		GetCharacterMovement()->SetMovementMode(MOVE_Falling);
+	}
+	GetMesh()->SetRelativeLocationAndRotation(FVector(0.f, 0.f, -ActiveDefinition->CapsuleHalfHeight + ActiveDefinition->HoverHeight),
+		FRotator(0.f, -90.f, 0.f));
+}
+
+void AValdoriaHeroCharacter::TickRiding(float DeltaSeconds)
+{
+	// Hold Space ~0.4 s while looking at a rail to get on.
+	if (bJumpHeld && !IsRiding() && GetWorld()->GetTimeSeconds() - JumpPressTime >= 0.4f && !bTriedMountThisPress)
+	{
+		bTriedMountThisPress = true;
+		TryMountRail();
+	}
+	AValdoriaLaneRail* Rail = RideRail.Get();
+	if (!Rail)
+	{
+		return;
+	}
+	if (bIsDead)
+	{
+		StopRiding();
+		return;
+	}
+	// Direction from the camera: look along the rail to go forward, look back to go home.
+	FVector Start, Dir;
+	GetAimRay(Start, Dir);
+	const FVector Tangent = Rail->GetTangentAt(RideDistance);
+	const float Sign = FVector::DotProduct(Dir.GetSafeNormal2D(), Tangent.GetSafeNormal2D()) >= 0.f ? 1.f : -1.f;
+	RideDistance += Sign * RideSpeed * DeltaSeconds;
+	if (RideDistance <= 0.f || RideDistance >= Rail->GetLength())
+	{
+		StopRiding(); // end of the trail: drop off
+		return;
+	}
+	SetActorLocation(Rail->GetPointAt(RideDistance) - FVector(0.f, 0.f, 60.f));
+	SetActorRotation(FRotator(0.f, (Tangent * Sign).Rotation().Yaw, 0.f));
+	// Lying down, facing the travel direction.
+	const FRotator Lie(-80.f, 0.f, 0.f);
+	const FVector FeetOffset(0.f, 0.f, -ActiveDefinition->CapsuleHalfHeight);
+	GetMesh()->SetRelativeLocationAndRotation(Lie.RotateVector(FeetOffset), Lie.Quaternion() * FRotator(0.f, -90.f, 0.f).Quaternion());
+}
+
+FString AValdoriaHeroCharacter::GetRideLaneName() const
+{
+	return RideRail.IsValid() ? RideRail->LaneName : FString();
 }

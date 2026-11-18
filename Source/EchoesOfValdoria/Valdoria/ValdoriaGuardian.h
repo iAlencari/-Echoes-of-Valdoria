@@ -17,6 +17,16 @@ enum class EValdoriaSpotBuff : uint8
 	Regeneration	UMETA(DisplayName = "Health regeneration for allies (per second)")
 };
 
+/** How a guardian brings down enemies riding an Aurora Trail over its area. */
+UENUM(BlueprintType)
+enum class EValdoriaGuardianStyle : uint8
+{
+	Melee		UMETA(DisplayName = "Melee: quick charged leap that knocks the rider down"),
+	Mage		UMETA(DisplayName = "Ranged magic: spell from the ground that pulls and roots"),
+	Flyer		UMETA(DisplayName = "Flyer: grabs the rider and slams them down (stun)"),
+	Thrower		UMETA(DisplayName = "Ranged physical: throws something to knock them down")
+};
+
 UCLASS()
 class ECHOESOFVALDORIA_API AValdoriaGuardian : public AValdoriaTrainingDummy
 {
@@ -41,6 +51,9 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Spot")
 	float RespawnSeconds = 0.f;
 
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Spot")
+	EValdoriaGuardianStyle Style = EValdoriaGuardianStyle::Melee;
+
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Spot|Buff")
 	EValdoriaSpotBuff Buff = EValdoriaSpotBuff::DamageReduction;
 
@@ -64,4 +77,6 @@ public:
 protected:
 	virtual void BeginPlay() override;
 	float BuffTimer = 0.f;
+	float NextRiderStrike = 0.f;
+	void StrikeRiders();
 };
