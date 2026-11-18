@@ -70,7 +70,7 @@ factory = unreal.DataAssetFactory()
 factory.set_editor_property("data_asset_class", unreal.ValdoriaHeroDefinition)
 reset = os.environ.get("VALDORIA_RESET_HEROES") == "1"
 eal.make_directory("/Game/Valdoria/Heroes")
-for hero_id, asset_name in (("brasa", "DA_Brasa"), ("kael", "DA_Kael"), ("iara", "DA_Iara"), ("vex", "DA_Vex")):
+for hero_id, asset_name in (("brasa", "DA_Brasa"), ("kael", "DA_Kael"), ("iara", "DA_Iara"), ("vex", "DA_Vex"), ("lume", "DA_Lume")):
     path = "/Game/Valdoria/Heroes/" + asset_name
     if eal.does_asset_exist(path) and not reset:
         lines.append("ja existe (mantido): " + path)

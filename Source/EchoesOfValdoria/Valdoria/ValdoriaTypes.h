@@ -208,6 +208,14 @@ struct FValdoriaPassiveRules
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Passiva|Mira", meta = (ClampMin = "0"))
 	float HeadshotBonus = 0.f;
 
+	/** Feixe: dano/cura extra máximo ao manter o feixe no mesmo alvo (0.5 = +50%). */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Passiva|Feixe", meta = (ClampMin = "0"))
+	float BeamRampMax = 0.f;
+
+	/** Segundos no mesmo alvo para chegar ao máximo acima. */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Passiva|Feixe", meta = (ClampMin = "0.1"))
+	float BeamRampTime = 3.f;
+
 	/** Dano pelas costas = dano x este valor (1 = sem efeito). */
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Passiva|Furtivo", meta = (ClampMin = "1"))
 	float BackstabMultiplier = 1.f;

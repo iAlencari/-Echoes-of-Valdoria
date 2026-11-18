@@ -541,6 +541,9 @@ void AValdoriaHUD::DrawStatusLine(AValdoriaHeroCharacter* Hero, float W, float H
 	if (Hero->HasStatus(EValdoriaStatus::Silenced)) Lines.Add({ TEXT("SILENCIADO"), Bad });
 	if (Hero->HasStatus(EValdoriaStatus::CannotAttack)) Lines.Add({ TEXT("SEM ATAQUE"), Bad });
 	if (Hero->HasStatus(EValdoriaStatus::CannotUseAbilities)) Lines.Add({ TEXT("SEM HABILIDADES"), Bad });
+	if (Hero->IsReflecting()) Lines.Add({ TEXT("REFLETINDO"), FLinearColor(1.f, 0.9f, 0.5f) });
+	if (Hero->IsAbsorbing()) Lines.Add({ TEXT("ABSORVENDO DANO"), FLinearColor(1.f, 0.8f, 0.4f) });
+	if (Hero->IsIntangible()) Lines.Add({ TEXT("INTANGÍVEL (imune a físico)"), FLinearColor(0.8f, 0.9f, 1.f) });
 	if (Hero->IsStealthActive())
 	{
 		Lines.Add({ Hero->IsHiddenByStealth() ? TEXT("INVISÍVEL") : TEXT("REVELADO (inimigo perto)"), FLinearColor(0.75f, 0.5f, 1.f) });

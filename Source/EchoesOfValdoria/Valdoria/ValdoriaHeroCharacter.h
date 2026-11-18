@@ -74,6 +74,7 @@ public:
 	bool IsUltimateReady() const;
 	float GetUltimatePercent() const;
 	void ConsumeUltimate();
+	void AddUltimateCharge(float Amount);
 
 	// --- Vida e morte
 	bool IsDead() const { return bIsDead; }
@@ -168,6 +169,20 @@ public:
 	float GetMagicPower() const;
 	float GetPhysicalResistance() const;
 	float GetMagicResistance() const;
+	// --- Defesas especiais (habilidades)
+	/** Refletir: projéteis inimigos voltam e metade do dano de tiros volta para quem atirou. */
+	void StartReflect(float Seconds) { ReflectEndTime = GetWorld()->GetTimeSeconds() + Seconds; }
+	bool IsReflecting() const { return GetWorld()->GetTimeSeconds() < ReflectEndTime; }
+	/** Absorver: Fraction do dano recebido é anulado e vira carga de ultimate (x ChargePerPoint). */
+	void StartAbsorb(float Seconds, float Fraction, float ChargePerPoint) { AbsorbEndTime = GetWorld()->GetTimeSeconds() + Seconds; AbsorbFraction = Fraction; AbsorbChargePerPoint = ChargePerPoint; }
+	bool IsAbsorbing() const { return GetWorld()->GetTimeSeconds() < AbsorbEndTime; }
+	/** Intangível: imune a dano físico (o mágico ainda acerta). */
+	void StartIntangible(float Seconds) { IntangibleEndTime = GetWorld()->GetTimeSeconds() + Seconds; }
+	bool IsIntangible() const { return GetWorld()->GetTimeSeconds() < IntangibleEndTime; }
+	/** Feixe contínuo: alvo travado e há quanto tempo. */
+	TWeakObjectPtr<AActor> BeamTarget;
+	float BeamLockTime = 0.f;
+
 	/** Bônus da loja (a loja do jogador chama isto ao comprar e ao renascer). */
 	void SetShopBonus(const FValdoriaShopBonus& Bonus);
 	const FValdoriaShopBonus& GetShopBonus() const { return ShopBonus; }
@@ -348,6 +363,11 @@ protected:
 	void DoLeapSlamImpact();
 	TMap<EValdoriaStatus, float> StatusEndTimes;
 	FValdoriaShopBonus ShopBonus;
+	float ReflectEndTime = 0.f;
+	float AbsorbEndTime = 0.f;
+	float AbsorbFraction = 0.f;
+	float AbsorbChargePerPoint = 0.f;
+	float IntangibleEndTime = 0.f;
 	/** Arma do Data Asset com os bônus da loja (pente maior...). */
 	FValdoriaWeaponStats BoostedWeapon;
 	void RebuildBoostedWeapon();

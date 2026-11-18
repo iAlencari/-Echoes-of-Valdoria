@@ -43,7 +43,7 @@ namespace
 
 TArray<FName> UValdoriaHeroDefinition::GetPresetIds()
 {
-	return { TEXT("brasa"), TEXT("kael"), TEXT("iara"), TEXT("vex") };
+	return { TEXT("brasa"), TEXT("kael"), TEXT("iara"), TEXT("vex"), TEXT("lume") };
 }
 
 UValdoriaHeroDefinition* UValdoriaHeroDefinition::CreatePreset(UObject* Outer, FName PresetId)
@@ -281,6 +281,60 @@ bool UValdoriaHeroDefinition::ApplyPreset(FName PresetId)
 		FValdoriaAbilityEntry& Ult = Add(this, EValdoriaAbilitySlot::Ultimate, UValdoriaGA_BladeDance::StaticClass(), LOCTEXT("VexUlt", "Dança das Lâminas"),
 			LOCTEXT("VexUltDesc", "Golpeia até 5 inimigos à vista num raio de 12 m (100 de dano cada, +50% pelas costas) e aparece atrás do último."), TEXT("Vex_Ult"));
 		Ult.Magnitude = 100.f; Ult.Radius = 1200.f; Ult.SecondaryMagnitude = 5.f;
+		return true;
+	}
+	if (Id == TEXT("lume"))
+	{
+		HeroId = TEXT("lume");
+		DisplayName = LOCTEXT("LumeName", "Lume");
+		Description = LOCTEXT("LumeDesc", "Guardiã de luz que flutua sobre o chão. Seu feixe trava no alvo: queima inimigos ou cura aliados, e fica mais forte quanto mais tempo segura.");
+		Roles.Add(EValdoriaHeroRole::Rearguard);
+		Roles.Add(EValdoriaHeroRole::Warrior);
+		ThemeColor = FLinearColor(1.f, 0.8f, 0.3f);
+		MaxHealth = 175.f;
+		MaxShield = 50.f;
+		MagicResistance = 0.15f;
+		MoveSpeed = 540.f;
+		Mesh = TSoftObjectPtr<USkeletalMesh>(FSoftObjectPath(Quinn));
+		Locomotion = EValdoriaLocomotion::Float;
+		HoverHeight = 30.f;
+		Movement.ShiftMode = EValdoriaShiftMode::Sprint;
+		Movement.bCanGlide = true;
+		UltimateCost = 1600.f;
+
+		Weapon.WeaponName = LOCTEXT("LumeWeapon", "Feixe Solar");
+		Weapon.DamageType = EValdoriaDamageType::Magical;
+		Weapon.Damage = 6.f;          // por pulso: 10 pulsos/s = 60 de dano por segundo
+		Weapon.AllyHeal = 5.f;        // 50 de cura por segundo
+		Weapon.FireRate = 10.f;
+		Weapon.bAutomatic = true;
+		Weapon.MagazineSize = 100;
+		Weapon.ReserveAmmo = 0;
+		Weapon.ReloadTime = 1.8f;
+		Weapon.Range = 1500.f;
+		Weapon.SpreadDegrees = 8.f;
+		WeaponMesh = ::Weapon(TEXT("CajadoB"));
+
+		PassiveName = LOCTEXT("LumePassive", "Foco Crescente");
+		PassiveDescription = LOCTEXT("LumePassiveDesc", "Mantendo o feixe no mesmo alvo, o dano e a cura sobem aos poucos, até +50% depois de 3 s.");
+		Passive.BeamRampMax = 0.5f;
+		Passive.BeamRampTime = 3.f;
+
+		Add(this, EValdoriaAbilitySlot::PrimaryFire, UValdoriaGA_FireBeam::StaticClass(), LOCTEXT("LumeFire", "Feixe Solar"),
+			LOCTEXT("LumeFireDesc", "Segure: um feixe de 15 m trava no alvo mais perto da mira. Inimigos levam 60 de dano mágico por segundo; aliados recebem 50 de cura por segundo. Energia: 100 (10 s de feixe)."));
+		FValdoriaAbilityEntry& Mirror = Add(this, EValdoriaAbilitySlot::SecondaryFire, UValdoriaGA_Reflect::StaticClass(), LOCTEXT("LumeMirror", "Espelho de Luz"),
+			LOCTEXT("LumeMirrorDesc", "Por 2 s, projéteis inimigos que acertam você voltam para quem atirou, e metade do dano de tiros volta também. Você não ataca enquanto reflete. Recarga de 10 s."));
+		Mirror.Cooldown = 10.f; Mirror.Duration = 2.f;
+		FValdoriaAbilityEntry& Prism = Add(this, EValdoriaAbilitySlot::Ability1, UValdoriaGA_Absorb::StaticClass(), LOCTEXT("LumePrism", "Prisma Faminto"),
+			LOCTEXT("LumePrismDesc", "Por 3 s, 60% do dano que você recebe some e vira carga de ultimate (3 de carga por ponto absorvido). Recarga de 12 s."));
+		Prism.Cooldown = 12.f; Prism.Duration = 3.f; Prism.Magnitude = 0.6f; Prism.SecondaryMagnitude = 3.f;
+		FValdoriaAbilityEntry& Phase = Add(this, EValdoriaAbilitySlot::Ability2, UValdoriaGA_Intangible::StaticClass(), LOCTEXT("LumePhase", "Forma de Luz"),
+			LOCTEXT("LumePhaseDesc", "Por 2 s você vira luz: imune a dano físico (o mágico ainda acerta) e 30% mais rápida, mas sem atacar nem usar habilidades. Recarga de 14 s."));
+		Phase.Cooldown = 14.f; Phase.Duration = 2.f; Phase.SecondaryMagnitude = 0.3f;
+		Phase.DamageType = EValdoriaDamageType::Magical;
+		FValdoriaAbilityEntry& Ult = Add(this, EValdoriaAbilitySlot::Ultimate, UValdoriaGA_WeaponSurge::StaticClass(), LOCTEXT("LumeUlt", "Aurora"),
+			LOCTEXT("LumeUltDesc", "Por 6 s o feixe dobra de dano e de cura, não gasta energia e também acerta quem estiver a até 4 m do alvo."));
+		Ult.Duration = 6.f; Ult.Radius = 400.f; Ult.SecondaryMagnitude = 2.f;
 		return true;
 	}
 	return false;

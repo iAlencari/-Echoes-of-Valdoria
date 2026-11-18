@@ -701,10 +701,38 @@ float AValdoriaHeroCharacter::DealTypedDamage(AActor* Target, float BaseDamage, 
 			Scale *= Mine.BackstabMultiplier;
 		}
 	}
+	// Refletir: o dano não entra e metade volta para quem atacou (sem refletir de novo).
+	if (Victim->IsReflecting())
+	{
+		static bool bInReflect = false;
+		if (!bInReflect)
+		{
+			bInReflect = true;
+			Victim->DealTypedDamage(this, BaseDamage * 0.5f, Type, MagicShare, false);
+			bInReflect = false;
+		}
+		return 0.f;
+	}
+	// Intangível: dano físico não acerta; o mágico sim.
+	if (Victim->IsIntangible())
+	{
+		Physical = 0.f;
+	}
 	// Resistências e passiva de quem apanha.
 	Physical *= 1.f - FMath::Clamp(Victim->GetPhysicalResistance(), 0.f, 0.9f);
 	Magical *= 1.f - FMath::Clamp(Victim->GetMagicResistance(), 0.f, 0.9f);
 	float Total = (Physical + Magical) * Scale * (1.f - Victim->GetPassiveDamageReduction());
+	// Absorver: parte do dano some e vira carga de ultimate.
+	if (Victim->IsAbsorbing() && Total > 0.f)
+	{
+		const float Absorbed = Total * FMath::Clamp(Victim->AbsorbFraction, 0.f, 1.f);
+		Total -= Absorbed;
+		Victim->AddUltimateCharge(Absorbed * Victim->AbsorbChargePerPoint);
+	}
+	if (Total <= 0.f)
+	{
+		return 0.f;
+	}
 
 	// Proteção de aliado (ex.: Brasa): um aliado perto do alvo assume parte do dano.
 	for (TActorIterator<AValdoriaHeroCharacter> It(GetWorld()); It; ++It)
@@ -1971,4 +1999,13 @@ bool AValdoriaHeroCharacter::CanUseSlot(EValdoriaAbilitySlot Slot) const
 		return !HasStatus(EValdoriaStatus::CannotAttack);
 	}
 	return !HasStatus(EValdoriaStatus::Silenced) && !HasStatus(EValdoriaStatus::CannotUseAbilities);
+}
+
+void AValdoriaHeroCharacter::AddUltimateCharge(float Amount)
+{
+	if (HasAuthority() && ActiveDefinition && Amount > 0.f)
+	{
+		AbilitySystem->SetNumericAttributeBase(UValdoriaAttributeSet::GetUltimateChargeAttribute(),
+			FMath::Min(ActiveDefinition->UltimateCost, Attributes->GetUltimateCharge() + Amount));
+	}
 }

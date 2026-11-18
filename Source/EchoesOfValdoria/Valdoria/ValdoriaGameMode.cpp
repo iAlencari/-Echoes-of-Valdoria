@@ -517,11 +517,11 @@ void AValdoriaGameMode::RunHeroTestStep()
 	}
 	AValdoriaPlayerController* PC = Cast<AValdoriaPlayerController>(GetWorld()->GetFirstPlayerController());
 	AValdoriaHeroCharacter* Hero = PC ? Cast<AValdoriaHeroCharacter>(PC->GetPawn()) : nullptr;
-	static const TCHAR* Ids[] = { TEXT("brasa"), TEXT("kael"), TEXT("iara"), TEXT("vex") };
+	static const TCHAR* Ids[] = { TEXT("brasa"), TEXT("kael"), TEXT("iara"), TEXT("vex"), TEXT("lume") };
 	const int32 PerHero = 44;
 	const int32 Index = (HeroTestStep - Warmup) / PerHero;
 	const int32 S = (HeroTestStep - Warmup) % PerHero;
-	if (Index >= 4 || !Hero)
+	if (Index >= 5 || !Hero)
 	{
 		UE_LOG(LogValdoria, Display, TEXT("HEROTEST fim"));
 		HeroTestStep = 100000;
@@ -604,14 +604,36 @@ void AValdoriaGameMode::RunHeroTestStep()
 		break;
 	case 11: Report(TEXT("depois do ataque")); Shot(1); break;
 	case 13: Use(EValdoriaAbilitySlot::SecondaryFire, TEXT("botao direito")); break;
+	case 14: case 22: case 25:
+		if (Index == 4 && Enemy)
+		{
+			const float Before = Hero->GetHealth() + Hero->GetShield();
+			const float EnemyBefore = Enemy->GetHealth();
+			const float UltBefore = Hero->GetUltimatePercent();
+			Enemy->DealTypedDamage(Hero, 50.f, EValdoriaDamageType::Physical);
+			UE_LOG(LogValdoria, Display, TEXT("HEROTEST lume defesa (passo %d): refletindo=%d absorvendo=%d intangivel=%d perdeu=%.1f inimigo perdeu=%.1f ult +%.1f%%"),
+				S, Hero->IsReflecting(), Hero->IsAbsorbing(), Hero->IsIntangible(), Before - (Hero->GetHealth() + Hero->GetShield()),
+				EnemyBefore - Enemy->GetHealth(), (Hero->GetUltimatePercent() - UltBefore) * 100.f);
+		}
+		break;
 	case 16: Report(TEXT("depois do botao direito")); Shot(2); break;
 	case 18: Use(EValdoriaAbilitySlot::Ability1, TEXT("F")); break;
 	case 21: Report(TEXT("depois do F")); Shot(3); break;
-	case 24: Use(EValdoriaAbilitySlot::Ability2, TEXT("E")); break;
+	case 23: Use(EValdoriaAbilitySlot::Ability2, TEXT("E")); break;
 	case 27: Report(TEXT("depois do E")); Shot(4); break;
 	case 29: Hero->AdminFillUltimate(); break;
-	case 30: Use(EValdoriaAbilitySlot::Ultimate, TEXT("ultimate")); break;
+	case 32: Use(EValdoriaAbilitySlot::Ultimate, TEXT("ultimate")); break;
 	case 33: Use(EValdoriaAbilitySlot::PrimaryFire, TEXT("ataque na ultimate")); Shot(5); break;
+	case 35: case 36: case 37:
+		if (Index == 4 && Ally)
+		{
+			const FVector Eye = Hero->GetFollowCamera()->GetComponentLocation();
+			PC->SetControlRotation((Ally->GetActorLocation() + FVector(0, 0, 20.f) - Eye).Rotation());
+			Hero->TryActivateSlot(EValdoriaAbilitySlot::PrimaryFire);
+			UE_LOG(LogValdoria, Display, TEXT("HEROTEST lume feixe no aliado: aliado vida=%.0f alvo=%s"), Ally->GetHealth(),
+				Hero->BeamTarget.IsValid() ? *Hero->BeamTarget->GetName() : TEXT("nenhum"));
+		}
+		break;
 	case 38: Report(TEXT("depois da ultimate")); Shot(6); break;
 	// Dano recebido: um bot atira em mim (testa a passiva de proteção da Brasa).
 	case 40:

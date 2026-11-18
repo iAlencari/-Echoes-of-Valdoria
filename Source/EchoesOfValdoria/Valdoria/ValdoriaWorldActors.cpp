@@ -214,6 +214,16 @@ void AValdoriaProjectile::OnOverlap(UPrimitiveComponent* OverlappedComp, AActor*
 	{
 		return;
 	}
+	if (Src->IsEnemy(Other) && Other->IsReflecting())
+	{
+		// Refletido: volta para quem atirou, agora do time de quem refletiu.
+		OwnerHero = Other;
+		Collision->ClearMoveIgnoreActors();
+		Collision->IgnoreActorWhenMoving(Other, true);
+		Movement->Velocity = -Movement->Velocity;
+		Other->PlayAreaEffect(GetActorLocation(), 60.f, FLinearColor(1.f, 0.9f, 0.5f));
+		return;
+	}
 	if (Src->IsEnemy(Other))
 	{
 		// Cabeça: o ponto do projétil está na parte de cima da cápsula.

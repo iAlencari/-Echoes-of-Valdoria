@@ -269,3 +269,65 @@ public:
 	virtual void ActivateAbility(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo,
 		const FGameplayAbilityActivationInfo ActivationInfo, const FGameplayEventData* TriggerEventData) override;
 };
+
+/** Feixe contínuo (segure o botão): trava no alvo mais perto do centro da mira e, a cada
+ *  pulso, fere inimigos (Damage) ou cura aliados (AllyHeal). Usa a arma: Damage e AllyHeal por
+ *  pulso, FireRate = pulsos por segundo, Range = alcance, SpreadDegrees = cone para travar,
+ *  SplashRadius > 0 = acerta também quem estiver perto do alvo. A passiva BeamRamp aumenta com o tempo. */
+UCLASS()
+class ECHOESOFVALDORIA_API UValdoriaGA_FireBeam : public UValdoriaGA_FireHitscan
+{
+	GENERATED_BODY()
+public:
+	UValdoriaGA_FireBeam();
+	virtual void ActivateAbility(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo,
+		const FGameplayAbilityActivationInfo ActivationInfo, const FGameplayEventData* TriggerEventData) override;
+};
+
+/** Refletir por Duration segundos: projéteis inimigos voltam e metade do dano de tiros volta
+ *  para quem atirou. Durante isso você não ataca (estado "Sem ataque"). */
+UCLASS()
+class ECHOESOFVALDORIA_API UValdoriaGA_Reflect : public UValdoriaGameplayAbility
+{
+	GENERATED_BODY()
+public:
+	UValdoriaGA_Reflect();
+	virtual void ActivateAbility(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo,
+		const FGameplayAbilityActivationInfo ActivationInfo, const FGameplayEventData* TriggerEventData) override;
+};
+
+/** Absorver por Duration segundos: Magnitude (0.6 = 60%) do dano recebido some e vira carga de
+ *  ultimate (SecondaryMagnitude pontos de carga por ponto de dano absorvido). */
+UCLASS()
+class ECHOESOFVALDORIA_API UValdoriaGA_Absorb : public UValdoriaGameplayAbility
+{
+	GENERATED_BODY()
+public:
+	UValdoriaGA_Absorb();
+	virtual void ActivateAbility(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo,
+		const FGameplayAbilityActivationInfo ActivationInfo, const FGameplayEventData* TriggerEventData) override;
+};
+
+/** Intangível por Duration segundos: imune a dano físico (mágico ainda acerta), mais rápido
+ *  (SecondaryMagnitude), mas sem atacar nem usar habilidades. */
+UCLASS()
+class ECHOESOFVALDORIA_API UValdoriaGA_Intangible : public UValdoriaGameplayAbility
+{
+	GENERATED_BODY()
+public:
+	UValdoriaGA_Intangible();
+	virtual void ActivateAbility(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo,
+		const FGameplayAbilityActivationInfo ActivationInfo, const FGameplayEventData* TriggerEventData) override;
+};
+
+/** Arma turbinada por Duration segundos: dano e cura x SecondaryMagnitude, acerta em área
+ *  (Radius) e sem gastar munição. (Feita para ultimate de quem usa feixe ou projétil.) */
+UCLASS()
+class ECHOESOFVALDORIA_API UValdoriaGA_WeaponSurge : public UValdoriaGameplayAbility
+{
+	GENERATED_BODY()
+public:
+	UValdoriaGA_WeaponSurge();
+	virtual void ActivateAbility(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo,
+		const FGameplayAbilityActivationInfo ActivationInfo, const FGameplayEventData* TriggerEventData) override;
+};

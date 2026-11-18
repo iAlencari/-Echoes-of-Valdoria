@@ -766,3 +766,181 @@ void UValdoriaGA_SlideTrail::ActivateAbility(const FGameplayAbilitySpecHandle Ha
 	}
 	VALDORIA_END();
 }
+
+// ================================================================ feixe contínuo
+
+UValdoriaGA_FireBeam::UValdoriaGA_FireBeam() {}
+
+void UValdoriaGA_FireBeam::ActivateAbility(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo,
+	const FGameplayAbilityActivationInfo ActivationInfo, const FGameplayEventData* TriggerEventData)
+{
+	VALDORIA_BEGIN();
+	const FValdoriaWeaponStats& Weapon = Hero->GetWeaponStats();
+	const float Pulse = 1.f / FMath::Max(0.1f, Weapon.FireRate);
+	Hero->StartCooldown(GetSlot(), Pulse);
+	Hero->ConsumeAmmo();
+
+	FVector Start, Dir;
+	Hero->GetAimRay(Start, Dir);
+	auto Valid = [&](AValdoriaHeroCharacter* T, float MaxAngleDeg)
+	{
+		if (!T || T == Hero || T->IsDead() || T->IsHiddenByStealth()
+			|| (!Hero->IsEnemy(T) && (T->TeamId != Hero->TeamId || Weapon.AllyHeal <= 0.f)))
+		{
+			return false;
+		}
+		const FVector To = T->GetActorLocation() - Start;
+		if (To.Size() > Weapon.Range || FVector::DotProduct(To.GetSafeNormal(), Dir) < FMath::Cos(FMath::DegreesToRadians(MaxAngleDeg)))
+		{
+			return false;
+		}
+		return HasLineOfSight(Hero, T);
+	};
+	// Trava: mantém o alvo anterior num cone maior; senão procura o mais perto do centro da mira.
+	AValdoriaHeroCharacter* Target = Cast<AValdoriaHeroCharacter>(Hero->BeamTarget.Get());
+	if (!Valid(Target, FMath::Max(15.f, Weapon.SpreadDegrees * 2.f)))
+	{
+		Target = nullptr;
+		float BestDot = -1.f;
+		for (TActorIterator<AValdoriaHeroCharacter> It(Hero->GetWorld()); It; ++It)
+		{
+			if (Valid(*It, FMath::Max(3.f, Weapon.SpreadDegrees)))
+			{
+				const float Dot = FVector::DotProduct((It->GetActorLocation() - Start).GetSafeNormal(), Dir);
+				if (Dot > BestDot)
+				{
+					BestDot = Dot;
+					Target = *It;
+				}
+			}
+		}
+		Hero->BeamLockTime = 0.f;
+	}
+	else
+	{
+		Hero->BeamLockTime += Pulse;
+	}
+	Hero->BeamTarget = Target;
+	if (!Target)
+	{
+		Hero->PlayShotEffects(Start + Dir * Weapon.Range, false);
+		VALDORIA_END();
+		return;
+	}
+	Hero->PlayShotEffects(Target->GetActorLocation() + FVector(0, 0, 30.f), true);
+	const FValdoriaPassiveRules& Passive = Hero->GetPassive();
+	const float Ramp = 1.f + Passive.BeamRampMax * FMath::Clamp(Hero->BeamLockTime / FMath::Max(0.1f, Passive.BeamRampTime), 0.f, 1.f);
+	auto Affect = [&](AValdoriaHeroCharacter* T, float Scale)
+	{
+		if (Hero->IsEnemy(T))
+		{
+			ApplyDamageTo(T, Weapon.Damage * Ramp * Scale);
+		}
+		else if (T->TeamId == Hero->TeamId && Weapon.AllyHeal > 0.f)
+		{
+			Hero->HealTarget(T, Weapon.AllyHeal * Ramp * Scale);
+		}
+	};
+	if (Hero->HasAuthority())
+	{
+		Affect(Target, 1.f);
+		if (Weapon.SplashRadius > 0.f)
+		{
+			for (TActorIterator<AValdoriaHeroCharacter> It(Hero->GetWorld()); It; ++It)
+			{
+				if (*It != Target && *It != Hero && !It->IsDead()
+					&& FVector::Dist(It->GetActorLocation(), Target->GetActorLocation()) <= Weapon.SplashRadius)
+				{
+					Affect(*It, 0.6f);
+				}
+			}
+		}
+	}
+	VALDORIA_END();
+}
+
+// ================================================================ defesas especiais
+
+UValdoriaGA_Reflect::UValdoriaGA_Reflect()
+{
+	DefaultCooldown = 10.f;
+	DefaultDuration = 2.f;
+}
+
+void UValdoriaGA_Reflect::ActivateAbility(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo,
+	const FGameplayAbilityActivationInfo ActivationInfo, const FGameplayEventData* TriggerEventData)
+{
+	VALDORIA_BEGIN();
+	StartCooldownAndCost();
+	Hero->StartReflect(GetDuration());
+	Hero->ApplyStatus(EValdoriaStatus::CannotAttack, GetDuration());
+	Hero->PlayAreaEffect(Hero->GetActorLocation(), 120.f, GetThemeColor());
+	VALDORIA_END();
+}
+
+UValdoriaGA_Absorb::UValdoriaGA_Absorb()
+{
+	DefaultCooldown = 12.f;
+	DefaultDuration = 3.f;
+	DefaultMagnitude = 0.6f;
+	DefaultSecondary = 3.f;
+}
+
+void UValdoriaGA_Absorb::ActivateAbility(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo,
+	const FGameplayAbilityActivationInfo ActivationInfo, const FGameplayEventData* TriggerEventData)
+{
+	VALDORIA_BEGIN();
+	StartCooldownAndCost();
+	Hero->StartAbsorb(GetDuration(), GetMagnitude(), GetSecondary());
+	Hero->PlayAreaEffect(Hero->GetActorLocation(), 160.f, GetThemeColor());
+	VALDORIA_END();
+}
+
+UValdoriaGA_Intangible::UValdoriaGA_Intangible()
+{
+	DefaultCooldown = 14.f;
+	DefaultDuration = 2.f;
+	DefaultSecondary = 0.3f;
+	DefaultDamageType = EValdoriaDamageType::Magical;
+}
+
+void UValdoriaGA_Intangible::ActivateAbility(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo,
+	const FGameplayAbilityActivationInfo ActivationInfo, const FGameplayEventData* TriggerEventData)
+{
+	VALDORIA_BEGIN();
+	StartCooldownAndCost();
+	Hero->StartIntangible(GetDuration());
+	Hero->ApplyStatus(EValdoriaStatus::CannotAttack, GetDuration());
+	Hero->ApplyStatus(EValdoriaStatus::CannotUseAbilities, GetDuration());
+	Hero->ApplySpeedBuff(GetSecondary(), GetDuration());
+	Hero->PlayAreaEffect(Hero->GetActorLocation(), 140.f, GetThemeColor());
+	VALDORIA_END();
+}
+
+UValdoriaGA_WeaponSurge::UValdoriaGA_WeaponSurge()
+{
+	bIsUltimate = true;
+	DefaultCooldown = 1.f;
+	DefaultDuration = 6.f;
+	DefaultRadius = 400.f;
+	DefaultSecondary = 2.f;
+}
+
+void UValdoriaGA_WeaponSurge::ActivateAbility(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo,
+	const FGameplayAbilityActivationInfo ActivationInfo, const FGameplayEventData* TriggerEventData)
+{
+	VALDORIA_BEGIN();
+	StartCooldownAndCost();
+	FValdoriaWeaponStats Surge = Hero->GetWeaponStats();
+	if (const FValdoriaAbilityEntry* Entry = GetEntry())
+	{
+		Surge.WeaponName = Entry->DisplayName;
+	}
+	Surge.Damage *= GetSecondary();
+	Surge.AllyHeal *= GetSecondary();
+	Surge.SplashRadius = GetRadius();
+	Surge.MagazineSize = 999;
+	Hero->SetWeaponOverride(Surge, GetDuration());
+	Hero->PlayAreaEffect(Hero->GetActorLocation(), GetRadius(), GetThemeColor());
+	VALDORIA_END();
+}
