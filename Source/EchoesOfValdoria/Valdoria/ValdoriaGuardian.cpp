@@ -59,7 +59,8 @@ float AValdoriaGuardian::GetCurrentBuff() const
 void AValdoriaGuardian::Tick(float DeltaSeconds)
 {
 	Super::Tick(DeltaSeconds);
-	if (HasAuthority() && !IsDead())
+	TickSpotState(DeltaSeconds);
+	if (HasAuthority() && !IsDead() && State == EValdoriaSpotState::Normal)
 	{
 		StrikeRiders();
 		if (bSupportMage)
@@ -68,7 +69,7 @@ void AValdoriaGuardian::Tick(float DeltaSeconds)
 		}
 	}
 	BuffTimer += DeltaSeconds;
-	if (!HasAuthority() || IsDead() || BuffTimer < 0.5f)
+	if (!HasAuthority() || IsDead() || State != EValdoriaSpotState::Normal || bFinalGuardian || BuffTimer < 0.5f)
 	{
 		return;
 	}
@@ -192,6 +193,121 @@ void AValdoriaGuardian::TickMage()
 			}
 			AValdoriaFx::Beam(GetWorld(), GetActorLocation() + FVector(0, 0, 90.f), Weakest->GetActorLocation(), FLinearColor(1.f, 0.85f, 0.4f), 6.f, 0.4f);
 			ValdoriaAudio::PlayAt(this, ValdoriaAudio::Load(TEXT("Magic"), TEXT("blessing")), Weakest->GetActorLocation(), 0.8f);
+		}
+	}
+}
+// ------------------------------------------------------------------ sealing ritual (owner's lore)
+// A defeated spot guardian does not die: it becomes semi-sealed (no health, helpless). An enemy
+// hero out of passive combat holds the seal (hand out, Latin incantation) for SealSeconds and the
+// guardian is sealed for good (rage roar). Its own team can undo it with the reverse incantation
+// (RevertSeconds): it comes back with a little health and regenerates up to half while out of
+// combat; if it falls a second time it fades away for good (roar of pain). Either way the final
+// guardian loses the share of power this spot gave it. Roars and shockwaves are cosmetic only.
+
+void AValdoriaGuardian::HandleDeath(AValdoriaHeroCharacter* Killer)
+{
+	if (bFinalGuardian || State != EValdoriaSpotState::Normal || bRevived)
+	{
+		// The final guardian, or a guardian that was already brought back once: gone for good.
+		if (State == EValdoriaSpotState::Normal && bRevived)
+		{
+			Roar(false);
+		}
+		State = bFinalGuardian ? State : EValdoriaSpotState::Gone;
+		Super::HandleDeath(Killer);
+		return;
+	}
+	// First defeat: semi-sealed. Helpless and untouchable until someone seals or frees it.
+	State = EValdoriaSpotState::SemiSealed;
+	SemiSealedSince = GetWorld()->GetTimeSeconds();
+	bGodMode = true;
+	SetAutopilot(false);
+	ApplyStatus(EValdoriaStatus::Stunned, 100000.f);
+	PlayAreaEffect(GetActorLocation(), 300.f, FLinearColor(0.7f, 0.7f, 1.f));
+}
+
+bool AValdoriaGuardian::CanBeChanneledBy(const AValdoriaHeroCharacter* Hero) const
+{
+	return State == EValdoriaSpotState::SemiSealed && Hero && !Hero->IsDead();
+}
+
+void AValdoriaGuardian::CompleteSeal(AValdoriaHeroCharacter* By)
+{
+	if (State != EValdoriaSpotState::SemiSealed)
+	{
+		return;
+	}
+	State = EValdoriaSpotState::Sealed;
+	bGodMode = false;
+	Roar(true);
+	// Seal mark: a red circle on the ground where the guardian stood.
+	FActorSpawnParameters P;
+	P.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
+	if (AValdoriaZone* Mark = GetWorld()->SpawnActor<AValdoriaZone>(AValdoriaZone::StaticClass(), StartLocation - FVector(0, 0, 100.f), FRotator::ZeroRotator, P))
+	{
+		Mark->Setup(this, 220.f, 100000.f, 0.f, 0.f, EValdoriaDamageType::Magical, 0.f, FLinearColor(0.9f, 0.1f, 0.1f));
+	}
+	Super::HandleDeath(By);
+}
+
+void AValdoriaGuardian::CompleteRevert(AValdoriaHeroCharacter* By)
+{
+	if (State != EValdoriaSpotState::SemiSealed)
+	{
+		return;
+	}
+	State = EValdoriaSpotState::Normal;
+	bRevived = true;
+	bGodMode = false;
+	StatusEndTimes.Reset();
+	AbilitySystem->SetNumericAttributeBase(UValdoriaAttributeSet::GetHealthAttribute(), GetMaxHealth() * RevertHealthFraction);
+	SetAutopilot(true, 0.6f);
+	PlayAreaEffect(GetActorLocation(), 400.f, FLinearColor(0.5f, 1.f, 0.7f));
+}
+
+void AValdoriaGuardian::Roar(bool bRage)
+{
+	// Heard across the whole map (2D) and seen as a big shockwave; purely cosmetic.
+	AValdoriaFx::Ring(GetWorld(), GetActorLocation(), 2500.f, bRage ? FLinearColor(1.f, 0.2f, 0.1f) : FLinearColor(0.6f, 0.6f, 1.f), 1.2f);
+	ValdoriaAudio::Play2D(this, ValdoriaAudio::Load(TEXT("SciFi"), bRage ? TEXT("explosionCrunch_000") : TEXT("lowFrequency_explosion_000")),
+		1.f, 0.f, bRage ? 0.7f : 0.5f);
+}
+
+bool AValdoriaGuardian::IsLinkedToFinal() const
+{
+	return !bFinalGuardian && (State == EValdoriaSpotState::Normal || State == EValdoriaSpotState::SemiSealed);
+}
+
+void AValdoriaGuardian::TickSpotState(float DeltaSeconds)
+{
+	const float Now = GetWorld()->GetTimeSeconds();
+	// Brought back: regenerates up to RevivedRegenCap of its health while out of passive combat.
+	if (State == EValdoriaSpotState::Normal && bRevived && !IsInPassiveCombat(3.f) && GetHealth() < GetMaxHealth() * RevivedRegenCap)
+	{
+		AbilitySystem->SetNumericAttributeBase(UValdoriaAttributeSet::GetHealthAttribute(),
+			FMath::Min(GetMaxHealth() * RevivedRegenCap, GetHealth() + GetMaxHealth() * 0.01f * DeltaSeconds));
+	}
+	// Optional (my suggestion, off by default): a semi-sealed guardian frees itself after a while.
+	if (State == EValdoriaSpotState::SemiSealed && SemiSealTimeout > 0.f && Now - SemiSealedSince > SemiSealTimeout)
+	{
+		CompleteRevert(nullptr);
+	}
+	// Final guardian: stronger for every spot guardian of its team still linked to it.
+	if (bFinalGuardian && HasAuthority() && !IsDead())
+	{
+		int32 Linked = 0;
+		for (TActorIterator<AValdoriaGuardian> It(GetWorld()); It; ++It)
+		{
+			Linked += (It->GuardTeam == GuardTeam && It->IsLinkedToFinal()) ? 1 : 0;
+		}
+		if (Linked != LinkedSpots)
+		{
+			LinkedSpots = Linked;
+			const float NewMax = GuardianHealth + PerSpotHealth * Linked;
+			const float Frac = GetHealth() / FMath::Max(1.f, GetMaxHealth());
+			AbilitySystem->SetNumericAttributeBase(UValdoriaAttributeSet::GetMaxHealthAttribute(), NewMax);
+			AbilitySystem->SetNumericAttributeBase(UValdoriaAttributeSet::GetHealthAttribute(), NewMax * Frac);
+			AdminSetDamageMultiplier(FinalBaseDamage * (1.f + PerSpotDamage * Linked));
 		}
 	}
 }

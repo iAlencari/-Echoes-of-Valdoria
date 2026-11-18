@@ -84,6 +84,25 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Comeback")
 	float LastSpotBoostUntil = 600.f;
 
+	// --- Final guardian (in the base, behind the spawn). The match is won by bringing it down.
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Final Guardian")
+	float FinalGuardianHealth = 8000.f;
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Final Guardian")
+	float FinalGuardianArea = 1800.f;
+	/** Damage multiplier with no spot linked; each linked spot adds PerSpotDamage on top. */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Final Guardian")
+	float FinalBaseDamage = 4.f;
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Final Guardian")
+	float PerSpotHealth = 600.f;
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Final Guardian")
+	float PerSpotDamage = 0.15f;
+
+	// --- Sealing ritual
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Seal")
+	float SealSeconds = 4.f;
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Seal")
+	float RevertSeconds = 8.f;
+
 	/** Lane names (left, middle, right). Nova Paulicéia uses famous Brazilian avenues. */
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Bifrost")
 	TArray<FString> LaneNames = { TEXT("Av. Ipiranga"), TEXT("Av. Paulista"), TEXT("Av. Rebouças") };
@@ -126,6 +145,7 @@ protected:
 
 	UPROPERTY(Transient) TObjectPtr<UValdoriaMobaRules> Rules;
 	TArray<TWeakObjectPtr<AValdoriaGuardian>> Guardians;
+	TWeakObjectPtr<AValdoriaGuardian> FinalGuardian[2];
 	FVector Base[2];
 	int32 Kills0 = 0;
 	int32 Kills1 = 0;

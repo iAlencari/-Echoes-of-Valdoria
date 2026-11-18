@@ -27,6 +27,12 @@ enum class EValdoriaGuardianStyle : uint8
 	Thrower		UMETA(DisplayName = "Ranged physical: throws something to knock them down")
 };
 
+UENUM(BlueprintType)
+enum class EValdoriaSpotState : uint8
+{
+	Normal, SemiSealed, Sealed, Gone
+};
+
 UCLASS()
 class ECHOESOFVALDORIA_API AValdoriaGuardian : public AValdoriaTrainingDummy
 {
@@ -35,6 +41,36 @@ public:
 	AValdoriaGuardian();
 	virtual void Tick(float DeltaSeconds) override;
 	virtual void ScheduleRevive() override;
+	virtual void HandleDeath(AValdoriaHeroCharacter* Killer) override;
+
+	// --- Sealing ritual
+	EValdoriaSpotState State = EValdoriaSpotState::Normal;
+	bool bRevived = false;
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Spot|Seal")
+	float SealSeconds = 4.f;
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Spot|Seal")
+	float RevertSeconds = 8.f;
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Spot|Seal")
+	float RevertHealthFraction = 0.1f;
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Spot|Seal")
+	float RevivedRegenCap = 0.5f;
+	/** Seconds until a semi-sealed guardian frees itself (0 = never; suggestion, off). */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Spot|Seal")
+	float SemiSealTimeout = 0.f;
+	bool CanBeChanneledBy(const AValdoriaHeroCharacter* Hero) const;
+	void CompleteSeal(AValdoriaHeroCharacter* By);
+	void CompleteRevert(AValdoriaHeroCharacter* By);
+	bool IsLinkedToFinal() const;
+
+	// --- Final guardian (base): stronger for each linked spot guardian of its team
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Spot|Final")
+	bool bFinalGuardian = false;
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Spot|Final")
+	float PerSpotHealth = 600.f;
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Spot|Final")
+	float PerSpotDamage = 0.15f;
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Spot|Final")
+	float FinalBaseDamage = 4.f;
 
 	/** Team this spot belongs to (its allies get the buff). */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Spot")
@@ -99,6 +135,10 @@ protected:
 	float NextMageHeal = 0.f;
 	float NextMageEmpower = 0.f;
 	int32 EmpowerCount = 0;
+	float SemiSealedSince = 0.f;
+	int32 LinkedSpots = -1;
+	void Roar(bool bRage);
+	void TickSpotState(float DeltaSeconds);
 	void TickMage();
 	void StrikeRiders();
 };

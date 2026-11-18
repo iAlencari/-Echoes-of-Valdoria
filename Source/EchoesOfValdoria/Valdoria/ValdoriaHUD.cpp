@@ -573,6 +573,18 @@ void AValdoriaHUD::DrawStatusLine(AValdoriaHeroCharacter* Hero, float W, float H
 		DrawLabel(Line.Key, W * 0.5f, Y, Line.Value, 0.95f * S, true);
 		Y -= 22.f * S;
 	}
+	// Seal / reverse-seal: progress bar and the incantation as a subtitle.
+	if (Hero->GetChannelProgress() > 0.f)
+	{
+		const float BW = 420.f * S;
+		DrawRect(W * 0.5f - BW * 0.5f, H * 0.62f, BW, 12.f * S, FLinearColor(0.f, 0.f, 0.f, 0.6f));
+		DrawRect(W * 0.5f - BW * 0.5f, H * 0.62f, BW * Hero->GetChannelProgress(), 12.f * S, FLinearColor(0.95f, 0.85f, 0.5f));
+		DrawLabel(Hero->GetChannelSubtitle(), W * 0.5f, H * 0.62f + 20.f * S, FLinearColor::White, 0.9f * S, true);
+	}
+	else if (Hero->FindChannelTarget())
+	{
+		DrawLabel(TEXT("Hold G: seal / reverse-seal the guardian"), W * 0.5f, H * 0.62f, FLinearColor(0.95f, 0.85f, 0.5f), 0.9f * S, true);
+	}
 	// Moldura roxa nas bordas enquanto invisível.
 	if (Hero->IsHiddenByStealth())
 	{

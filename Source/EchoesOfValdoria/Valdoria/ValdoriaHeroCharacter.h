@@ -79,7 +79,7 @@ public:
 	// --- Vida e morte
 	bool IsDead() const { return bIsDead; }
 	bool IsInvulnerable() const { return bGodMode; }
-	void HandleDeath(AValdoriaHeroCharacter* Killer);
+	virtual void HandleDeath(AValdoriaHeroCharacter* Killer);
 	virtual void OnDamageTaken(AValdoriaHeroCharacter* DamageInstigator, float Damage, bool bHeadshot);
 	virtual void OnDamageDealt(AValdoriaHeroCharacter* Victim, float Damage, bool bHeadshot);
 	float GetHealth() const;
@@ -196,6 +196,11 @@ public:
 	void StopRiding();
 	bool IsRiding() const { return RideRail.IsValid(); }
 	FString GetRideLaneName() const;
+	// --- Seal / reverse-seal (hold G next to a defeated spot guardian)
+	class AValdoriaGuardian* FindChannelTarget() const;
+	float GetChannelProgress() const { return ChannelTarget.IsValid() ? ChannelProgress : 0.f; }
+	FString GetChannelSubtitle() const;
+	bool bInteractHeld = false;
 	/** Future surfer hero: can ride enemy trails too. */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Herói")
 	bool bCanRideAnyRail = false;
@@ -436,6 +441,12 @@ protected:
 	float RideForwardInput = 0.f;
 	float JumpPressTime = -10.f;
 	bool bTriedMountThisPress = false;
+	void TickChannel(float DeltaSeconds);
+	TWeakObjectPtr<class AValdoriaGuardian> ChannelTarget;
+	float ChannelProgress = 0.f;
+	UPROPERTY(Transient) TObjectPtr<UInputAction> InteractAction;
+	void Input_InteractPressed() { bInteractHeld = true; }
+	void Input_InteractReleased() { bInteractHeld = false; }
 	int32 AutopilotRouteIndex = 0;
 	float TeamBuffValue[3] = { 0.f, 0.f, 0.f };
 	float TeamBuffEnd[3] = { 0.f, 0.f, 0.f };

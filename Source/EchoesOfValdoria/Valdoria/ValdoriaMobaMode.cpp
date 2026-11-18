@@ -132,6 +132,8 @@ void AValdoriaMobaMode::BuildLayout()
 					Guardian->SpotIndex = SpotIdx;
 					Guardian->LaneIndex = Lane + 1;
 					Guardian->bSupportMage = g == Spot.MageGuardianIndex;
+					Guardian->SealSeconds = Rules->SealSeconds;
+					Guardian->RevertSeconds = Rules->RevertSeconds;
 					Guardian->SetupSpot(Team, Rules->SpotAreaRadius);
 					Guardian->ResetCombatState();
 					Guardians.Add(Guardian);
@@ -140,7 +142,24 @@ void AValdoriaMobaMode::BuildLayout()
 		}
 	}
 
-	// Aurora Trails: one per lane per team. Vertical at the spawn, then bending into a horizontal
+	// Final guardians: in each base, behind the spawn. The match is won by bringing the enemy one down.
+	for (uint8 Team = 0; Team < 2; ++Team)
+	{
+		const FVector Toward = Team == 0 ? Axis : -Axis;
+		if (AValdoriaGuardian* Final = GetWorld()->SpawnActor<AValdoriaGuardian>(AValdoriaGuardian::StaticClass(), Ground(Base[Team] - Toward * 700.f), Toward.Rotation(), P))
+		{
+			Final->bFinalGuardian = true;
+			Final->GuardianHealth = Rules->FinalGuardianHealth;
+			Final->PerSpotHealth = Rules->PerSpotHealth;
+			Final->PerSpotDamage = Rules->PerSpotDamage;
+			Final->FinalBaseDamage = Rules->FinalBaseDamage;
+			Final->SetupSpot(Team, Rules->FinalGuardianArea);
+			Final->ResetCombatState();
+			FinalGuardian[Team] = Final;
+		}
+	}
+
+	// Bifrost: one per lane per team. Vertical at the spawn, then bending into a horizontal
 	// line over the lane, up to the enemy base; it reaches TrailReach of the way (the middle) for now.
 	for (uint8 Team = 0; Team < 2; ++Team)
 	{
@@ -206,7 +225,7 @@ int32 AValdoriaMobaMode::GetGuardiansAlive(uint8 Team) const
 	int32 Alive = 0;
 	for (const TWeakObjectPtr<AValdoriaGuardian>& G : Guardians)
 	{
-		Alive += (G.IsValid() && G->GuardTeam == Team && !G->IsDead()) ? 1 : 0;
+		Alive += (G.IsValid() && G->GuardTeam == Team && G->IsLinkedToFinal()) ? 1 : 0;
 	}
 	return Alive;
 }
@@ -268,12 +287,12 @@ void AValdoriaMobaMode::Tick(float DeltaSeconds)
 	{
 		return;
 	}
-	// Win: every enemy guardian down. Time out: more guardians standing, then more kills.
-	if (GetGuardiansAlive(1) == 0)
+	// Win: bring down the enemy final guardian. Time out: more guardians standing, then more kills.
+	if (FinalGuardian[1].IsValid() && FinalGuardian[1]->IsDead())
 	{
 		EndMatch(0);
 	}
-	else if (GetGuardiansAlive(0) == 0)
+	else if (FinalGuardian[0].IsValid() && FinalGuardian[0]->IsDead())
 	{
 		EndMatch(1);
 	}

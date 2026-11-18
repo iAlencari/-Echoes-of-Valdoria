@@ -36,6 +36,7 @@
 #include "ValdoriaAnimInstance.h"
 #include "ValdoriaAudio.h"
 #include "ValdoriaLaneRail.h"
+#include "ValdoriaGuardian.h"
 #include "Sound/SoundBase.h"
 #include "EngineUtils.h"
 #include "UObject/ConstructorHelpers.h"
@@ -331,6 +332,7 @@ void AValdoriaHeroCharacter::BuildDefaultInput()
 	Ability1Action = MakeAction(TEXT("IA_Valdoria_Ability1"), EInputActionValueType::Boolean);
 	Ability2Action = MakeAction(TEXT("IA_Valdoria_Ability2"), EInputActionValueType::Boolean);
 	Ability3Action = MakeAction(TEXT("IA_Valdoria_Ability3"), EInputActionValueType::Boolean);
+	InteractAction = MakeAction(TEXT("IA_Valdoria_Interact"), EInputActionValueType::Boolean);
 	UltimateAction = MakeAction(TEXT("IA_Valdoria_Ultimate"), EInputActionValueType::Boolean);
 	ReloadAction = MakeAction(TEXT("IA_Valdoria_Reload"), EInputActionValueType::Boolean);
 	SprintAction = MakeAction(TEXT("IA_Valdoria_Shift"), EInputActionValueType::Boolean);
@@ -362,6 +364,7 @@ void AValdoriaHeroCharacter::BuildDefaultInput()
 	DefaultMapping->MapKey(SprintAction, EKeys::LeftShift);
 	DefaultMapping->MapKey(CrouchAction, EKeys::LeftControl);
 	DefaultMapping->MapKey(ReloadAction, EKeys::R);
+	DefaultMapping->MapKey(InteractAction, EKeys::G); // hold: seal / reverse-seal a guardian
 }
 
 void AValdoriaHeroCharacter::MapAbilityKeys()
@@ -440,6 +443,8 @@ void AValdoriaHeroCharacter::SetupPlayerInputComponent(UInputComponent* PlayerIn
 	Input->BindAction(Ability1Action, ETriggerEvent::Started, this, &AValdoriaHeroCharacter::Input_Ability1);
 	Input->BindAction(Ability2Action, ETriggerEvent::Started, this, &AValdoriaHeroCharacter::Input_Ability2);
 	Input->BindAction(Ability3Action, ETriggerEvent::Started, this, &AValdoriaHeroCharacter::Input_Ability3);
+	Input->BindAction(InteractAction, ETriggerEvent::Started, this, &AValdoriaHeroCharacter::Input_InteractPressed);
+	Input->BindAction(InteractAction, ETriggerEvent::Completed, this, &AValdoriaHeroCharacter::Input_InteractReleased);
 	Input->BindAction(UltimateAction, ETriggerEvent::Started, this, &AValdoriaHeroCharacter::Input_Ultimate);
 	Input->BindAction(ReloadAction, ETriggerEvent::Started, this, &AValdoriaHeroCharacter::Input_Reload);
 }
@@ -1193,6 +1198,7 @@ void AValdoriaHeroCharacter::Tick(float DeltaSeconds)
 	TickFlightPose(DeltaSeconds);
 	TickAutopilot(DeltaSeconds);
 	TickRiding(DeltaSeconds);
+	TickChannel(DeltaSeconds);
 	if (!bIsDead)
 	{
 		UpdateMovementAnimation();
@@ -1993,6 +1999,10 @@ UAnimSequenceBase* AValdoriaHeroCharacter::PickMovementAnimation(bool& bOutLoop)
 	{
 		return Load(Set.WallClimb);
 	}
+	if (IsRiding() && !Set.FallLoop.IsNull())
+	{
+		return Load(Set.FallLoop); // knees slightly bent, arms relaxed back
+	}
 	if (IsSkating() && GetCharacterMovement()->IsMovingOnGround() && !Set.CrouchIdle.IsNull())
 	{
 		return Load(Set.CrouchIdle); // knees bent, no steps (reference video: sliding on a light trail)
@@ -2667,6 +2677,12 @@ bool AValdoriaHeroCharacter::TryMountRail()
 	RideDistance = BestAlong;
 	// Start in the direction the camera looks along the trail.
 	RideSign = FVector::DotProduct(Dir.GetSafeNormal2D(), Best->GetTangentAt(BestAlong).GetSafeNormal2D()) >= 0.f ? 1.f : -1.f;
+	// Weapon goes on the back while riding.
+	if (WeaponComponent->GetStaticMesh() && GetMesh()->DoesSocketExist(TEXT("spine_03")))
+	{
+		WeaponComponent->AttachToComponent(GetMesh(), FAttachmentTransformRules::SnapToTargetNotIncludingScale, TEXT("spine_03"));
+		WeaponComponent->SetRelativeLocationAndRotation(FVector(-10.f, -25.f, 0.f), FRotator(0.f, 0.f, 45.f));
+	}
 	GetCharacterMovement()->SetMovementMode(MOVE_Flying);
 	GetCharacterMovement()->StopMovementImmediately();
 	ValdoriaAudio::PlayAt(this, ValdoriaAudio::Load(TEXT("SciFi"), TEXT("forceField_000")), GetActorLocation(), 0.6f);
@@ -2680,6 +2696,17 @@ void AValdoriaHeroCharacter::StopRiding()
 		return;
 	}
 	RideRail = nullptr;
+	// Draw the weapon back into the hand quickly (equip gesture).
+	if (ActiveDefinition && WeaponComponent->GetStaticMesh())
+	{
+		WeaponComponent->AttachToComponent(GetMesh(), FAttachmentTransformRules::SnapToTargetNotIncludingScale, ActiveDefinition->WeaponSocket);
+		WeaponComponent->SetRelativeTransform(ActiveDefinition->WeaponOffset);
+		if (UValdoriaAnimInstance* DrawAnim = Cast<UValdoriaAnimInstance>(GetMesh()->GetAnimInstance()))
+		{
+			const TSoftObjectPtr<UAnimSequenceBase>& Draw = ActiveDefinition->Animations.AbilityAction;
+			DrawAnim->PlayAction(Draw.IsNull() ? nullptr : Draw.LoadSynchronous(), 2.f);
+		}
+	}
 	if (!bNoclip)
 	{
 		GetCharacterMovement()->SetMovementMode(MOVE_Falling);
@@ -2725,8 +2752,8 @@ void AValdoriaHeroCharacter::TickRiding(float DeltaSeconds)
 	}
 	SetActorLocation(Rail->GetPointAt(RideDistance) - FVector(0.f, 0.f, 60.f));
 	SetActorRotation(FRotator(0.f, (Tangent * Sign).Rotation().Yaw, 0.f));
-	// Lying down, facing the travel direction.
-	const FRotator Lie(-80.f, 0.f, 0.f);
+	// Flying pose (owner): body leaning forward, looking ahead and a little down; weapon on the back.
+	const FRotator Lie(-28.f, 0.f, 0.f);
 	const FVector FeetOffset(0.f, 0.f, -ActiveDefinition->CapsuleHalfHeight);
 	GetMesh()->SetRelativeLocationAndRotation(Lie.RotateVector(FeetOffset), Lie.Quaternion() * FRotator(0.f, -90.f, 0.f).Quaternion());
 }
@@ -2734,4 +2761,73 @@ void AValdoriaHeroCharacter::TickRiding(float DeltaSeconds)
 FString AValdoriaHeroCharacter::GetRideLaneName() const
 {
 	return RideRail.IsValid() ? RideRail->LaneName : FString();
+}
+
+// ------------------------------------------------------------------ seal / reverse-seal channel (hold G)
+
+AValdoriaGuardian* AValdoriaHeroCharacter::FindChannelTarget() const
+{
+	AValdoriaGuardian* Best = nullptr;
+	float BestDist = 450.f;
+	for (TActorIterator<AValdoriaGuardian> It(GetWorld()); It; ++It)
+	{
+		const float Dist = FVector::Dist2D(It->GetActorLocation(), GetActorLocation());
+		if (Dist < BestDist && It->CanBeChanneledBy(this))
+		{
+			BestDist = Dist;
+			Best = *It;
+		}
+	}
+	return Best;
+}
+
+void AValdoriaHeroCharacter::TickChannel(float DeltaSeconds)
+{
+	UValdoriaAnimInstance* Anim = GetMesh() ? Cast<UValdoriaAnimInstance>(GetMesh()->GetAnimInstance()) : nullptr;
+	AValdoriaGuardian* Target = (bInteractHeld && !bIsDead && !IsRiding()) ? FindChannelTarget() : nullptr;
+	// Must stay out of passive combat: taking damage or control breaks the incantation.
+	if (!Target || IsInPassiveCombat(2.f) || (ChannelTarget.IsValid() && ChannelTarget.Get() != Target))
+	{
+		if (ChannelTarget.IsValid() && Anim)
+		{
+			Anim->SetUpperPose(nullptr, 0.f, 0.f);
+		}
+		ChannelTarget = nullptr;
+		ChannelProgress = 0.f;
+		return;
+	}
+	ChannelTarget = Target;
+	const bool bRevert = Target->GuardTeam == TeamId;
+	const float Needed = bRevert ? Target->RevertSeconds : Target->SealSeconds;
+	ChannelProgress += DeltaSeconds / FMath::Max(0.5f, Needed);
+	// Pose: open hand towards the guardian (frozen "arm out" frame).
+	SetActorRotation(FRotator(0.f, (Target->GetActorLocation() - GetActorLocation()).Rotation().Yaw, 0.f));
+	if (Anim)
+	{
+		Anim->SetUpperPose(LoadObject<UAnimSequenceBase>(nullptr, TEXT("/Game/Characters/Mannequins/Anims/Unarmed/Attack/MM_Attack_01.MM_Attack_01")), 0.25f, 1.f);
+	}
+	if (ChannelProgress >= 1.f)
+	{
+		bRevert ? Target->CompleteRevert(this) : Target->CompleteSeal(this);
+		ChannelTarget = nullptr;
+		ChannelProgress = 0.f;
+		bInteractHeld = false;
+		if (Anim)
+		{
+			Anim->SetUpperPose(nullptr, 0.f, 0.f);
+		}
+	}
+}
+
+FString AValdoriaHeroCharacter::GetChannelSubtitle() const
+{
+	const AValdoriaGuardian* Target = ChannelTarget.Get();
+	if (!Target)
+	{
+		return FString();
+	}
+	// The incantation every hero knows (lore). Subtitles only until there is voice.
+	return Target->GuardTeam == TeamId
+		? TEXT("\"Solvo vincula tua, custos. Redi ad nos, surge et vigila.\"  (I loosen your bonds, guardian. Come back to us, rise and keep watch.)")
+		: TEXT("\"Sigillo te, custos. In silentio maneas.\"  (I seal you, guardian. Remain in silence.)");
 }
