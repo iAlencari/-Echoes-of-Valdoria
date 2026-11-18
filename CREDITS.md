@@ -32,6 +32,9 @@
   e de pacotes parecidos no OpenGameArt. A página indica licença com "compartilha igual"
   (provável CC BY-SA 3.0): nesse caso, dar crédito e manter sons modificados na mesma licença.
   *Confirmar a licença exata antes de publicar o jogo.*
+- **Kenney Impact Sounds, Sci-Fi Sounds e Interface Sounds**: Kenney (www.kenney.nl), **CC0**
+  (License.txt dentro de cada pacote). Usados: passos em concreto, impactos de soco e genéricos,
+  lasers, campo de força, explosões, cliques, seleção, confirmação, erro, abrir e fechar.
 - **Música da tela de carregamento** (`TremLoadingloopl`): "Loading Screen Loop", Brandon Morris
   (OpenGameArt), **CC0**.
 - Ainda não usados (licença não conferida): `hit*.flac`, `swosh-*.flac`, pacote

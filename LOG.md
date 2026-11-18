@@ -335,3 +335,9 @@ Referências do dono (imagens, descritas em texto): barra de aliado ciano e de i
   - O download automático dos pacotes da Kenney foi **bloqueado** pelo sistema de permissões do ambiente (não forçado). O dono pode baixar manualmente.
 - **Tela de carregamento** (`ValdoriaGameInstance`, `GameInstanceClass` no `DefaultEngine.ini`, módulo `MoviePlayer`): durante a troca de mapa (MoviePlayer, mínimo 1,5 s) e ao abrir o jogo/mapa (fica 1,8 s e some em 0,7 s, com a música de carregamento). Mostra a arte de Nova Paulicéia do dono (`/Game/Valdoria/UI/Loading`), "ECHOES OF VALDORIA", nome do mapa, uma dica sorteada e um indicador girando. `-ValdoriaNoIntro` desliga.
 - Teste `-ValdoriaLoadingTest`: print ao abrir (`Carregando_Treino.png`), troca para a NP e print (`Carregando_NP.png`). `-ValdoriaHeroTest` continua passando (25 relatórios, teclas Valorant ok).
+### Turno 26 — Claude Code — 18/11/2026 (sons da Kenney)
+- O dono baixou os pacotes **Kenney Impact, Sci-Fi e Interface Sounds** (CC0, License.txt confirmado). Foram extraídos em `Projeto Padrão\Audio\Kenney` com o Expand-Archive do Windows, e 35 sons escolhidos foram para `RawContent/Audio/{Footsteps,Impacts,SciFi,UI}` e importados.
+- Passos agora em **concreto** (combina com a cidade); impacto ao acertar tiro (genérico), golpe corpo a corpo e projétil (soco); explosão em projéteis com área; lasers no feixe da Lume e na ultimate do Kael; campo de força na barreira da Brasa e no espelho e no prisma da Lume; explosões no pisão e na ultimate da Brasa.
+- Interface: abrir menu, escolher herói, comprar (confirmação), compra recusada (erro) e "ultimate pronta". Os sons de interface tocam mesmo com o jogo pausado.
+- Conferido por script que todo som citado no código existe. `-ValdoriaHeroTest` passando.
+- Vídeo de referência do voo: o dono vai gerar um. Para ver vídeos é preciso extrair quadros (ffmpeg não está instalado) ou o dono salva prints.

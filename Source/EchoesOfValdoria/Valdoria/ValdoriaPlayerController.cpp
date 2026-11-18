@@ -3,6 +3,7 @@
 #include "ValdoriaPlayerController.h"
 #include "ValdoriaHeroCharacter.h"
 #include "ValdoriaHeroDefinition.h"
+#include "ValdoriaAudio.h"
 #include "AssetRegistry/AssetRegistryModule.h"
 #include "Components/InputComponent.h"
 #include "Engine/Engine.h"
@@ -267,6 +268,7 @@ void AValdoriaPlayerController::OpenPauseMenu()
 			]
 		];
 	GEngine->GameViewport->AddViewportWidgetContent(PauseWidget.ToSharedRef(), 100);
+	ValdoriaAudio::Play2D(this, ValdoriaAudio::Load(TEXT("UI"), TEXT("open_001")), 0.6f);
 	SetPause(true);
 	ApplyCursorInput();
 }
@@ -368,5 +370,6 @@ bool AValdoriaPlayerController::SelectHero(FName HeroId)
 	}
 	Hero->SetHeroDefinition(Def);
 	ApplyShopToHero();
+	ValdoriaAudio::Play2D(this, ValdoriaAudio::Load(TEXT("UI"), TEXT("select_001")), 0.7f);
 	return true;
 }

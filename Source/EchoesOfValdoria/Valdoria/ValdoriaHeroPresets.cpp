@@ -376,10 +376,10 @@ static void ApplyPresetSounds(UValdoriaHeroDefinition* Def, const FString& Id)
 		Def->FireSounds = { Snd(TEXT("Melee"), TEXT("melee_sound")), Snd(TEXT("Melee"), TEXT("sword_sound")) };
 		Def->FireVolume = 0.8f;
 		Def->FootstepVolume = 0.7f;
-		SetSound(S::SecondaryFire, Snd(TEXT("Magic"), TEXT("magicshield")));
+		SetSound(S::SecondaryFire, Snd(TEXT("SciFi"), TEXT("forceField_000")));
 		SetSound(S::Ability1, Snd(TEXT("Magic"), TEXT("flamethrower")));
-		SetSound(S::Ability2, Snd(TEXT("Magic"), TEXT("explode")));
-		SetSound(S::Ultimate, Snd(TEXT("Magic"), TEXT("explode3")));
+		SetSound(S::Ability2, Snd(TEXT("SciFi"), TEXT("lowFrequency_explosion_000")));
+		SetSound(S::Ultimate, Snd(TEXT("SciFi"), TEXT("explosionCrunch_000")));
 	}
 	else if (Id == TEXT("kael"))
 	{
@@ -388,7 +388,7 @@ static void ApplyPresetSounds(UValdoriaHeroDefinition* Def, const FString& Id)
 		SetSound(S::SecondaryFire, Snd(TEXT("Magic"), TEXT("zap2")));
 		SetSound(S::Ability1, Snd(TEXT("Melee"), TEXT("swish_3")));
 		SetSound(S::Ability2, Snd(TEXT("Magic"), TEXT("heal")));
-		SetSound(S::Ultimate, Snd(TEXT("Shots"), TEXT("shotgun")));
+		SetSound(S::Ultimate, Snd(TEXT("SciFi"), TEXT("laserLarge_000")));
 	}
 	else if (Id == TEXT("iara"))
 	{
@@ -411,11 +411,11 @@ static void ApplyPresetSounds(UValdoriaHeroDefinition* Def, const FString& Id)
 	}
 	else if (Id == TEXT("lume"))
 	{
-		Def->FireSounds = { Snd(TEXT("Magic"), TEXT("zap")) };
+		Def->FireSounds = { Snd(TEXT("SciFi"), TEXT("laserSmall_000")), Snd(TEXT("SciFi"), TEXT("laserSmall_001")), Snd(TEXT("SciFi"), TEXT("laserSmall_002")) };
 		Def->FireVolume = 0.25f;
 		Def->FootstepVolume = 0.f; // flutua: sem passos
-		SetSound(S::SecondaryFire, Snd(TEXT("Magic"), TEXT("magicshield")));
-		SetSound(S::Ability1, Snd(TEXT("Magic"), TEXT("blessing")));
+		SetSound(S::SecondaryFire, Snd(TEXT("SciFi"), TEXT("forceField_001")));
+		SetSound(S::Ability1, Snd(TEXT("SciFi"), TEXT("forceField_002")));
 		SetSound(S::Ability2, Snd(TEXT("Magic"), TEXT("teleport")));
 		SetSound(S::Ultimate, Snd(TEXT("Magic"), TEXT("warp")));
 	}

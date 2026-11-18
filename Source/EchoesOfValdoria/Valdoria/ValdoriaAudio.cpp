@@ -31,7 +31,9 @@ namespace ValdoriaAudio
 	{
 		if (Sound && WorldContext)
 		{
-			UGameplayStatics::PlaySound2D(WorldContext, Sound, Volume * FValdoriaOptions::Get().EffectsVolume, Pitch(BasePitch, PitchVariation));
+			// Sons de interface tocam mesmo com o jogo pausado (menu, loja).
+			UGameplayStatics::PlaySound2D(WorldContext, Sound, Volume * FValdoriaOptions::Get().EffectsVolume, Pitch(BasePitch, PitchVariation),
+				0.f, nullptr, nullptr, true);
 		}
 	}
 }

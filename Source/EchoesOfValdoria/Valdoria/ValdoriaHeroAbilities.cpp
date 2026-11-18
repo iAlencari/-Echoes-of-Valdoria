@@ -9,6 +9,7 @@
 #include "ValdoriaHeroCharacter.h"
 #include "ValdoriaHeroDefinition.h"
 #include "ValdoriaWorldActors.h"
+#include "ValdoriaAudio.h"
 
 // Começo padrão: confere, gasta recarga/ultimate. Sai da função se não puder usar.
 #define VALDORIA_BEGIN() \
@@ -112,6 +113,7 @@ void UValdoriaGA_FireMelee::ActivateAbility(const FGameplayAbilitySpecHandle Han
 			if (Hero->IsEnemy(Other))
 			{
 				ApplyDamageTo(Other, Weapon.Damage);
+				ValdoriaAudio::PlayAt(Hero, ValdoriaAudio::Load(TEXT("Impacts"), FMath::RandBool() ? TEXT("impactPunch_medium_000") : TEXT("impactPunch_medium_001")), Other->GetActorLocation(), 0.7f);
 			}
 		});
 	}

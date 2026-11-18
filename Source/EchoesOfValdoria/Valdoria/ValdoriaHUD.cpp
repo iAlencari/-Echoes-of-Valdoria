@@ -34,6 +34,7 @@ static FString ToUpperPt(const FString& In)
 }
 
 #include "ValdoriaSettings.h"
+#include "ValdoriaAudio.h"
 
 // ------------------------------------------------------------------ utilidades de desenho
 
@@ -627,6 +628,7 @@ void AValdoriaHUD::DrawDamageFeedback(AValdoriaHeroCharacter* Hero, float W, flo
 	if (bReady && !bWasUltReady)
 	{
 		UltReadyFlashTime = Now;
+		ValdoriaAudio::Play2D(this, ValdoriaAudio::Load(TEXT("UI"), TEXT("confirmation_001")), 0.7f, 0.f, 0.8f);
 	}
 	bWasUltReady = bReady;
 	if (Now - UltReadyFlashTime < 2.f && Hero->GetHeroDefinition())

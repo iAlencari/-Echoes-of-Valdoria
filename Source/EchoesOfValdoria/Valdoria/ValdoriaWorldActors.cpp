@@ -12,6 +12,7 @@
 #include "Materials/MaterialInstanceDynamic.h"
 #include "Materials/MaterialInterface.h"
 #include "ValdoriaHeroCharacter.h"
+#include "ValdoriaAudio.h"
 
 UMaterialInstanceDynamic* ValdoriaMakeGlowMaterial(UObject* Outer, const FLinearColor& Color, float Opacity)
 {
@@ -232,6 +233,7 @@ void AValdoriaProjectile::OnOverlap(UPrimitiveComponent* OverlappedComp, AActor*
 		Fake.HitObjectHandle = FActorInstanceHandle(Other);
 		const bool bHead = AValdoriaHeroCharacter::IsHeadshot(Fake);
 		Src->DealTypedDamage(Other, P.Damage, P.DamageType, P.MagicShare, bHead);
+		ValdoriaAudio::PlayAt(this, ValdoriaAudio::Load(TEXT("Impacts"), TEXT("impactPunch_medium_002")), GetActorLocation(), 0.6f);
 		Explode(GetActorLocation(), Other);
 	}
 	else if (P.AllyHeal > 0.f && Other->TeamId == Src->TeamId)
@@ -272,6 +274,7 @@ void AValdoriaProjectile::Explode(const FVector& Where, AActor* DirectHit)
 	AValdoriaHeroCharacter* Src = OwnerHero.Get();
 	if (Src && P.SplashRadius > 0.f)
 	{
+		ValdoriaAudio::PlayAt(this, ValdoriaAudio::Load(TEXT("SciFi"), TEXT("explosionCrunch_001")), Where, 0.6f);
 		Src->PlayAreaEffect(Where, P.SplashRadius, P.Color);
 		for (TActorIterator<AValdoriaHeroCharacter> It(GetWorld()); It; ++It)
 		{

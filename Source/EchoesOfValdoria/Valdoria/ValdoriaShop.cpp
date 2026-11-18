@@ -185,7 +185,8 @@ bool AValdoriaPlayerController::BuyItem(FName ItemId)
 	}
 	Credits -= Cost;
 	ShopLevels.Add(ItemId, Level + 1);
-	ValdoriaAudio::Play2D(this, ValdoriaAudio::Load(TEXT("UI"), TEXT("handleCoins")), 0.8f);
+	ValdoriaAudio::Play2D(this, ValdoriaAudio::Load(TEXT("UI"), TEXT("handleCoins")), 0.6f);
+	ValdoriaAudio::Play2D(this, ValdoriaAudio::Load(TEXT("UI"), TEXT("confirmation_001")), 0.6f);
 	ApplyShopToHero();
 	return true;
 }
@@ -287,7 +288,10 @@ TSharedRef<SWidget> AValdoriaPlayerController::BuildShopScreen()
 						{
 							if (WeakThis.IsValid())
 							{
-								WeakThis->BuyItem(Id);
+								if (!WeakThis->BuyItem(Id))
+								{
+									ValdoriaAudio::Play2D(WeakThis.Get(), ValdoriaAudio::Load(TEXT("UI"), TEXT("error_001")), 0.6f);
+								}
 							}
 							return FReply::Handled();
 						})

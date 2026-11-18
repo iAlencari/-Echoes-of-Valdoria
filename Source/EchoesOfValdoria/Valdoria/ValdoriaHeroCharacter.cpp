@@ -1325,6 +1325,11 @@ void AValdoriaHeroCharacter::DrawShot(const FVector& Impact, bool bHit) const
 	const FLinearColor Color = ActiveDefinition ? ActiveDefinition->ThemeColor : FLinearColor(1.f, 0.9f, 0.4f);
 	AValdoriaFx::Beam(GetWorld(), Muzzle, Impact, Color, bHit ? 4.f : 2.5f);
 	AValdoriaFx::Burst(GetWorld(), Impact, bHit ? 45.f : 25.f, bHit ? FLinearColor::White : Color, 0.15f);
+	if (bHit)
+	{
+		static const TCHAR* Hits[] = { TEXT("impactGeneric_light_000"), TEXT("impactGeneric_light_001"), TEXT("impactGeneric_light_002") };
+		ValdoriaAudio::PlayAt(this, ValdoriaAudio::Load(TEXT("Impacts"), Hits[FMath::RandRange(0, 2)]), Impact, 0.35f);
+	}
 }
 
 void AValdoriaHeroCharacter::PlayAreaEffect(const FVector& Center, float Radius, FLinearColor Color)
@@ -2253,11 +2258,12 @@ void AValdoriaHeroCharacter::TickFootsteps(float DeltaSeconds)
 		return;
 	}
 	StepDistance = 0.f;
-	static const TCHAR* Steps[] = { TEXT("footstep00"), TEXT("footstep01"), TEXT("footstep02"), TEXT("footstep03"), TEXT("footstep04"),
-		TEXT("footstep05"), TEXT("footstep06"), TEXT("footstep07"), TEXT("footstep08"), TEXT("footstep09") };
+	// Passos em concreto (Kenney Impact Sounds, CC0): combinam com a cidade.
+	static const TCHAR* Steps[] = { TEXT("footstep_concrete_000"), TEXT("footstep_concrete_001"), TEXT("footstep_concrete_002"),
+		TEXT("footstep_concrete_003"), TEXT("footstep_concrete_004") };
 	const float Loud = ActiveDefinition->FootstepVolume * (bIsCrouched ? 0.4f : (bIsSprinting ? 1.2f : 1.f));
 	const FVector Feet = GetActorLocation() - FVector(0.f, 0.f, GetCapsuleComponent()->GetScaledCapsuleHalfHeight());
 	// Heróis grandes soam mais graves.
 	const float Pitch = FMath::Clamp(1.f / FMath::Max(0.6f, ActiveDefinition->BodyHeight * ActiveDefinition->MeshScale), 0.8f, 1.2f);
-	ValdoriaAudio::PlayAt(this, ValdoriaAudio::Load(TEXT("Footsteps"), Steps[FMath::RandRange(0, 9)]), Feet, Loud, 0.1f, Pitch);
+	ValdoriaAudio::PlayAt(this, ValdoriaAudio::Load(TEXT("Footsteps"), Steps[FMath::RandRange(0, 4)]), Feet, Loud, 0.1f, Pitch);
 }
