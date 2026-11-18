@@ -25,14 +25,24 @@ UValdoriaHeroDefinition::UValdoriaHeroDefinition()
 	Animations.CrouchWalkBackward = Anim(TEXT("MM_Unarmed_Crouch_Walk_Bwd"));
 	Animations.CrouchWalkLeft = Anim(TEXT("MM_Unarmed_Crouch_Walk_Left"));
 	Animations.CrouchWalkRight = Anim(TEXT("MM_Unarmed_Crouch_Walk_Right"));
+	// Animações CC0 da Quaternius (Universal Animation Library 1 e 2), convertidas para
+	// o esqueleto do Manny por Scripts/retarget_ual.py.
+	auto UAL = [](const TCHAR* Name)
+	{
+		const FString Path = FString::Printf(TEXT("/Game/Valdoria/Animations/Retarget/%s.%s"), Name, Name);
+		return TSoftObjectPtr<UAnimSequenceBase>(FSoftObjectPath(Path));
+	};
+	// A conversão automática (retarget) ainda deforma o corpo; enquanto isso, deslizar,
+	// subir e escalar usam animações da Epic. Deitar fica com a natação (pedido do dono).
 	Animations.Slide = Anim(TEXT("MM_Unarmed_Crouch_Entry"));
 	Animations.Mantle = Anim(TEXT("VaultOver"));
+	Animations.WallClimb = Anim(TEXT("MM_Zipline_Loop"));
+	Animations.ProneIdle = UAL(TEXT("UAL1Swim_Idle_Loop"));
+	Animations.ProneCrawl = UAL(TEXT("UAL1Swim_Fwd_Loop"));
 	Animations.DashForward = Anim(TEXT("MM_Dash_Forward"));
 	Animations.DashBackward = Anim(TEXT("MM_Dash_Backward"));
 	Animations.DashLeft = Anim(TEXT("MM_Dash_Left"));
 	Animations.DashRight = Anim(TEXT("MM_Dash_Right"));
-	// Deitar/rastejar e escalar parede: sem animação gratuita da Epic. Aguardando
-	// aprovação do pacote CC0 (Quaternius Universal Animation Library).
 }
 
 FPrimaryAssetId UValdoriaHeroDefinition::GetPrimaryAssetId() const

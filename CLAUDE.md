@@ -52,8 +52,10 @@ português simples. **Leia `LOG.md` inteiro antes de mexer.**
 - Commits em português; não envie (`push`) sem o dono pedir.
 
 ## Pendências atuais (decisão do dono) — ver LOG.md (Turno 11)
-- Animações de deitar/rastejar e escalar: retarget dos packs CC0 do Quaternius em andamento
-  (`/Game/Valdoria/Animations/UAL1` e `UAL2` já importados; IK Rigs e retargeters criados).
+- Animações Quaternius (CC0): convertidas para o Manny em `/Game/Valdoria/Animations/Retarget`
+  por `Scripts/retarget_ual.py` (deslizar, subir/escalar, deitar = natação por enquanto; o dono
+  quer manter a natação para uma futura área com água). Para converter mais, acrescente em
+  `WANTED` no script e rode-o com o UnrealEditor-Cmd.
 - Barra de HP mais bonita para o jogador e para os inimigos (bonecos de treino); o dono vai
   mandar imagens de referência (este agente não consegue ler imagens — descrever em texto).
 - Ataques variados (não só hitscan): habilidades no estilo de Wuyang e Moira (Overwatch), armas
@@ -66,5 +68,5 @@ português simples. **Leia `LOG.md` inteiro antes de mexer.**
 ## Lembrete
 - **Balanceamento é decisão do dono**; não altere números por conta própria.
 - **Andarilha**: ideia do dono, adiada — não descartada; não implemente sem ele pedir.
-- Todo turno: atualize o `LOG.md` (estado atual + bloco do turno) e faça commit."oldString">
+- Todo turno: atualize o `LOG.md` (estado atual + bloco do turno) e faça commit.
 - Commits em português; não envie (`push`) sem o dono pedir.

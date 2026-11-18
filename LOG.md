@@ -158,3 +158,15 @@ F habilidade 1 · E habilidade 2 · Q ultimate
 - **Arquivos tocados:** LOG.md, CLAUDE.md (Unreal) e, para descoberta, log.md/CLAUDE.md (Godot).
   Nenhum codigo do jogo foi alterado neste turno; as mudancas de animacao estao pendentes de
   finalizacao.
+### Turno 12 — Claude Code — 18/11/2026 (animações Quaternius, revisão do turno do OpenCode)
+**Falas do dono:**
+> "o deeitar ficou uma bosta pq é animaçao de nado mas pode manter ela quem sabe a gente não adiciona um ambiente com agua futuramente"
+>
+> "está na pasta continua ai vou deitar vai arrumando o que sem mim"
+
+- Conferido o turno 11 (OpenCode): só anotações. A importação dos pacotes UAL1/UAL2 em `Content/Valdoria` e os scripts `import_ual.py`/`retarget_ual.py` estavam sem commit; o retarget falhava (passava objetos em vez de AssetData). O `CLAUDE.md` tinha lixo no fim: corrigido.
+- `retarget_ual.py` corrigido (AssetData, log em `Saved/retarget_log.txt`, recria as operações, auto-align). Gera 10 animações em `/Game/Valdoria/Animations/Retarget`, **mas o resultado ainda deforma o corpo**: o mapeamento de chains entre o rig da Quaternius e o `IK_Mannequin` sai vazio pela API Python da 5.8. Pendente: abrir `RTG_UAL1`/`RTG_UAL2` no editor, conferir o mapeamento de chains e o Auto Align da pose, e rodar o script de novo.
+- Por isso o Recruta usa animações da Epic, sem deformação: deslizar = `MM_Unarmed_Crouch_Entry`, subir em beirada = `VaultOver`, escalar parede = `MM_Zipline_Loop`. Deitar = `UAL1Swim` (natação, mantida a pedido do dono para uma futura área com água).
+- `CREDITS.md` criado (Epic, Quaternius CC0, licença MIT do projeto).
+- Armas do Meshy: pasta `SourceArt\Armas` criada, mas o arquivo `Armas_Herois.fbx` ainda não apareceu nela.
+- Teste automático completo passou (tiro, correr, deitar, impulso, ultimate, agachar, deitado, escalar, pausa).

@@ -2,6 +2,9 @@
 
 #include "ValdoriaGameMode.h"
 #include "EngineUtils.h"
+#include "Animation/AnimInstance.h"
+#include "Animation/AnimSequenceBase.h"
+#include "Components/SkeletalMeshComponent.h"
 #include "Camera/CameraComponent.h"
 #include "GameFramework/SpringArmComponent.h"
 #include "Components/CapsuleComponent.h"
@@ -134,7 +137,36 @@ void AValdoriaGameMode::RunAutoTestStep()
 	{
 		Hero->UnCrouch();
 	}
-	else if (AutoTestStep == 26)
+	else if (AutoTestStep == 27)
+	{
+		Hero->SetProne(true);
+	}
+	else if (AutoTestStep == 30)
+	{
+		UE_LOG(LogValdoria, Display, TEXT("AUTOTEST deitado: animacao=%s"), *GetNameSafe(Hero->CurrentMovementAnim.Get()));
+		FScreenshotRequest::RequestScreenshot(FPaths::ConvertRelativePathToFull(FPaths::ProjectSavedDir() / TEXT("Screenshots/AutoTest_Deitado.png")), true, false);
+	}
+	else if (AutoTestStep == 31)
+	{
+		Hero->SetProne(false);
+	}
+	else if (AutoTestStep == 33)
+	{
+		// Mostra a animação de escalar (sem precisar de uma parede no mapa).
+		if (const UValdoriaHeroDefinition* Def = Hero->GetHeroDefinition())
+		{
+			if (UAnimSequenceBase* Climb = Def->Animations.WallClimb.LoadSynchronous())
+			{
+				Hero->GetMesh()->GetAnimInstance()->PlaySlotAnimationAsDynamicMontage(Climb, Def->Animations.SlotName, 0.1f, 0.1f, 1.f, 5);
+				UE_LOG(LogValdoria, Display, TEXT("AUTOTEST escalar: animacao=%s"), *Climb->GetName());
+			}
+		}
+	}
+	else if (AutoTestStep == 36)
+	{
+		FScreenshotRequest::RequestScreenshot(FPaths::ConvertRelativePathToFull(FPaths::ProjectSavedDir() / TEXT("Screenshots/AutoTest_Escalando.png")), true, false);
+	}
+	else if (AutoTestStep == 38)
 	{
 		const FString Path = FPaths::ConvertRelativePathToFull(FPaths::ProjectSavedDir() / TEXT("Screenshots/AutoTest.png"));
 		// Abre o menu de pausa (Esc) para conferir que ele aparece na captura.
@@ -154,7 +186,7 @@ void AValdoriaGameMode::RunAutoTestStep()
 			return false;
 		}), 3.f);
 	}
-	else if (AutoTestStep >= 34)
+	else if (AutoTestStep >= 50)
 	{
 		UE_LOG(LogValdoria, Display, TEXT("AUTOTEST fim"));
 		GetWorldTimerManager().ClearTimer(AutoTestTimer);
