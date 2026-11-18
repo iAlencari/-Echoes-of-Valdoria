@@ -358,3 +358,7 @@ The owner allowed new code, docs and game texts in English (existing Portuguese 
 - Second reference video (`prompt de voo1.mp4`, levitating upright): calm upright body, arms relaxed slightly away, feet hanging; leans back slightly when moving backwards.
 - Levitate flight now uses the calm `Hover` clip (MM_Idle) instead of the arms-out `Fly` loop, and leans both ways (forward and back). Superhero only leans forward, as before.
 - Built only (GPU kept free while the owner's brother plays). Pointed/hanging feet would need custom animation or bone edits later.
+### Turn 30 — Claude Code — 2026-11-18 (skating on a created trail)
+- Third reference video (Hailuo, 5 s): the mannequin walks, crouches, then slides on a glowing trail with knees bent, arms out for balance and leaning forward.
+- `UValdoriaGA_SlideTrail` now calls `StartSkating(Duration)`. While skating on the ground: base clip = `CrouchIdle` (knees bent, no steps), upper body = frozen frame of the fly loop (arms out, 80%), mesh leans 14° forward. Returns to normal when it ends.
+- No current hero uses SlideTrail yet (it is in the reusable library for future heroes). Built only. Not run in-game this turn (GPU kept free).

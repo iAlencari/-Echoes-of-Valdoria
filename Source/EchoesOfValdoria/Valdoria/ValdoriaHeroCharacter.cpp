@@ -1945,6 +1945,10 @@ UAnimSequenceBase* AValdoriaHeroCharacter::PickMovementAnimation(bool& bOutLoop)
 	{
 		return Load(Set.WallClimb);
 	}
+	if (IsSkating() && GetCharacterMovement()->IsMovingOnGround() && !Set.CrouchIdle.IsNull())
+	{
+		return Load(Set.CrouchIdle); // knees bent, no steps (reference video: sliding on a light trail)
+	}
 	if (bFlying)
 	{
 		// Levitate: calm upright pose (owner reference video), superhero: flying loop.
@@ -2320,6 +2324,20 @@ void AValdoriaHeroCharacter::TickFlightPose(float DeltaSeconds)
 		FlightLeanAlpha = 0.f;
 	}
 	bWasFlyingPose = bFlying;
+	// Skating on a trail: arms out for balance (frozen frame of the fly loop) and a forward lean.
+	const bool bSkating = IsSkating() && !bFlying;
+	if (bSkating || bWasSkating)
+	{
+		const float SkateAlpha = bSkating ? 1.f : 0.f;
+		const FRotator SkateLean(-14.f * SkateAlpha, 0.f, 0.f);
+		const FVector Feet(0.f, 0.f, -ActiveDefinition->CapsuleHalfHeight + ActiveDefinition->HoverHeight);
+		GetMesh()->SetRelativeLocationAndRotation(SkateLean.RotateVector(Feet), SkateLean.Quaternion() * FRotator(0.f, -90.f, 0.f).Quaternion());
+		if (Anim)
+		{
+			Anim->SetUpperPose(bSkating ? Load(Set.Fly) : nullptr, 0.3f, bSkating ? 0.8f : 0.f);
+		}
+		bWasSkating = bSkating;
+	}
 	if (!bFlying)
 	{
 		return;

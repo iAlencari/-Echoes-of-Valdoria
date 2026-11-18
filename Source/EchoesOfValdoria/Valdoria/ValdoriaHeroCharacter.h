@@ -192,6 +192,9 @@ public:
 	/** Toca o gesto do botão usado (tiro/golpe em combo, habilidade, ultimate). */
 	void PlayActionForSlot(EValdoriaAbilitySlot Slot);
 	void PlayReloadAnimation();
+	/** Skating on a created trail (SlideTrail): no steps, knees bent, arms out, leaning forward. */
+	void StartSkating(float Seconds) { SkateEndTime = GetWorld()->GetTimeSeconds() + Seconds; }
+	bool IsSkating() const { return GetWorld() && GetWorld()->GetTimeSeconds() < SkateEndTime; }
 	void PlaySlotSound(EValdoriaAbilitySlot Slot);
 	const FValdoriaShopBonus& GetShopBonus() const { return ShopBonus; }
 
@@ -379,6 +382,8 @@ protected:
 	void TickFlightPose(float DeltaSeconds);
 	bool bWasFlyingPose = false;
 	bool bLandAfterFlight = false;
+	float SkateEndTime = 0.f;
+	bool bWasSkating = false;
 	float FlightLeanAlpha = 0.f;
 	float StepDistance = 0.f;
 	float LastFireSoundTime = -10.f;

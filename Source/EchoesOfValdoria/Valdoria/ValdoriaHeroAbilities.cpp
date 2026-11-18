@@ -735,6 +735,7 @@ void UValdoriaGA_SlideTrail::ActivateAbility(const FGameplayAbilitySpecHandle Ha
 {
 	VALDORIA_BEGIN();
 	StartCooldownAndCost();
+	Hero->StartSkating(GetDuration());
 	Hero->ApplySpeedBuff(GetSecondary(), GetDuration());
 	if (Hero->HasAuthority())
 	{
