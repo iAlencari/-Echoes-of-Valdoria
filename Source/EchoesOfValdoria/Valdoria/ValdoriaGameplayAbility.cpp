@@ -117,25 +117,62 @@ void UValdoriaGameplayAbility::StartCooldownAndCost()
 
 void UValdoriaGameplayAbility::ApplyDamageTo(AActor* Target, float Damage, bool bHeadshot) const
 {
-	UAbilitySystemComponent* SourceASC = GetAbilitySystemComponentFromActorInfo();
-	UAbilitySystemComponent* TargetASC = UAbilitySystemBlueprintLibrary::GetAbilitySystemComponent(Target);
-	if (!SourceASC || !TargetASC || !SourceASC->GetOwner()->HasAuthority())
+	// Tipo de dano, poder, resistências e passivas ficam no personagem.
+	if (AValdoriaHeroCharacter* Hero = GetHero())
 	{
-		return;
+		Hero->DealTypedDamage(Target, Damage, GetDamageType(), GetMagicShare(), bHeadshot);
 	}
-	const float Multiplier = SourceASC->GetNumericAttribute(UValdoriaAttributeSet::GetDamageMultiplierAttribute());
-	FGameplayEffectContextHandle Context = SourceASC->MakeEffectContext();
-	Context.AddInstigator(GetAvatarActorFromActorInfo(), GetAvatarActorFromActorInfo());
-	FGameplayEffectSpecHandle Spec = SourceASC->MakeOutgoingSpec(UValdoriaDamageEffect::StaticClass(), 1.f, Context);
-	if (Spec.IsValid())
+}
+
+const FValdoriaAbilityEntry* UValdoriaGameplayAbility::GetEntry() const
+{
+	const AValdoriaHeroCharacter* Hero = GetHero();
+	return Hero ? Hero->FindAbilityEntry(GetSlot()) : nullptr;
+}
+
+float UValdoriaGameplayAbility::GetDuration() const
+{
+	const FValdoriaAbilityEntry* Entry = GetEntry();
+	return Entry && Entry->Duration > 0.f ? Entry->Duration : DefaultDuration;
+}
+
+float UValdoriaGameplayAbility::GetSecondary() const
+{
+	const FValdoriaAbilityEntry* Entry = GetEntry();
+	return Entry && Entry->SecondaryMagnitude != 0.f ? Entry->SecondaryMagnitude : DefaultSecondary;
+}
+
+EValdoriaDamageType UValdoriaGameplayAbility::GetDamageType() const
+{
+	// O tiro principal usa o tipo da arma; as habilidades, o da própria entrada.
+	if (GetSlot() == EValdoriaAbilitySlot::PrimaryFire)
 	{
-		Spec.Data->SetSetByCallerMagnitude(ValdoriaTags::Data_Damage, Damage * FMath::Max(0.f, Multiplier));
-		if (bHeadshot)
+		if (const AValdoriaHeroCharacter* Hero = GetHero())
 		{
-			Spec.Data->AddDynamicAssetTag(ValdoriaTags::Hit_Headshot);
+			return Hero->GetWeaponStats().DamageType;
 		}
-		SourceASC->ApplyGameplayEffectSpecToTarget(*Spec.Data.Get(), TargetASC);
 	}
+	const FValdoriaAbilityEntry* Entry = GetEntry();
+	return Entry ? Entry->DamageType : DefaultDamageType;
+}
+
+float UValdoriaGameplayAbility::GetMagicShare() const
+{
+	if (GetSlot() == EValdoriaAbilitySlot::PrimaryFire)
+	{
+		if (const AValdoriaHeroCharacter* Hero = GetHero())
+		{
+			return Hero->GetWeaponStats().HybridMagicShare;
+		}
+	}
+	const FValdoriaAbilityEntry* Entry = GetEntry();
+	return Entry ? Entry->HybridMagicShare : 0.5f;
+}
+
+FLinearColor UValdoriaGameplayAbility::GetThemeColor() const
+{
+	const AValdoriaHeroCharacter* Hero = GetHero();
+	return Hero && Hero->GetHeroDefinition() ? Hero->GetHeroDefinition()->ThemeColor : FLinearColor::White;
 }
 
 // ------------------------------------------------------------------ tiro hitscan
@@ -173,17 +210,21 @@ void UValdoriaGA_FireHitscan::ActivateAbility(const FGameplayAbilitySpecHandle H
 	FVector Start, AimDirection;
 	Hero->GetAimRay(Start, AimDirection);
 	// Dispersão aleatória dentro de um cone.
-	const FVector Dir = FMath::VRandCone(AimDirection, FMath::DegreesToRadians(Weapon.SpreadDegrees * 0.5f));
+	const float Spread = Weapon.SpreadDegrees * Hero->GetSpreadMultiplier();
+	const FVector Dir = FMath::VRandCone(AimDirection, FMath::DegreesToRadians(Spread * 0.5f));
 	const FVector End = Start + Dir * Weapon.Range;
+	Hero->ApplyRecoil(Weapon.RecoilDegrees);
 
 	FCollisionQueryParams Params(SCENE_QUERY_STAT(ValdoriaHitscan), true, Hero);
+	Hero->IgnoreFriendlyBarriers(Params);
 	FHitResult Hit;
 	const bool bHit = Hero->GetWorld()->LineTraceSingleByChannel(Hit, Start, End, ECC_Visibility, Params);
 	const FVector ImpactPoint = bHit ? Hit.ImpactPoint : End;
 
 	Hero->PlayShotEffects(ImpactPoint, bHit);
 
-	if (bHit && Hit.GetActor() && Hero->HasAuthority() && Hero->IsEnemy(Hit.GetActor()))
+	// Inimigos e barreiras inimigas (o filtro de time fica em DealTypedDamage).
+	if (bHit && Hit.GetActor() && Hero->HasAuthority())
 	{
 		const float Distance = FVector::Dist(Start, ImpactPoint);
 		float Falloff = 1.f;

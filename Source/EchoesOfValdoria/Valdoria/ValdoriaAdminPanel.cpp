@@ -735,6 +735,8 @@ TSharedRef<SWidget> AValdoriaPlayerController::BuildHelpScreen()
 			if (const FValdoriaAbilityEntry* A = H->FindAbilityEntry(K.Slot))
 			{
 				FString Name = A->DisplayName.ToString();
+				const EValdoriaDamageType DT = K.Slot == EValdoriaAbilitySlot::PrimaryFire ? H->GetWeaponStats().DamageType : A->DamageType;
+				Name += DT == EValdoriaDamageType::Magical ? TEXT("   [mágico]") : (DT == EValdoriaDamageType::Hybrid ? TEXT("   [híbrido]") : TEXT("   [físico]"));
 				if (A->Cooldown > 0.f)
 				{
 					Name += FString::Printf(TEXT("   (recarga %.0f s)"), A->Cooldown);

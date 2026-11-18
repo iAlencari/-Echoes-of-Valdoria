@@ -10,6 +10,28 @@
 #include "GameFramework/PlayerState.h"
 #include "ValdoriaHeroCharacter.h"
 #include "ValdoriaHeroDefinition.h"
+#include "Engine/Texture2D.h"
+
+/** Maiúsculas com acentos (FString::ToUpper só troca letras sem acento). */
+static FString ToUpperPt(const FString& In)
+{
+	FString Out = In.ToUpper();
+	static const TCHAR* Lower = TEXT("áàâãéêíóôõúüç");
+	static const TCHAR* Upper = TEXT("ÁÀÂÃÉÊÍÓÔÕÚÜÇ");
+	for (TCHAR& C : Out)
+	{
+		for (int32 i = 0; Lower[i]; ++i)
+		{
+			if (C == Lower[i])
+			{
+				C = Upper[i];
+				break;
+			}
+		}
+	}
+	return Out;
+}
+
 #include "ValdoriaSettings.h"
 
 // ------------------------------------------------------------------ utilidades de desenho
@@ -130,6 +152,7 @@ void AValdoriaHUD::DrawHUD()
 	DrawPlayerPanel(Hero, W, H);
 	DrawAbilities(Hero, W, H);
 	DrawAmmo(Hero, W, H);
+	DrawStatusLine(Hero, W, H);
 
 	if (Hero->IsDead())
 	{
@@ -271,7 +294,7 @@ void AValdoriaHUD::DrawPlayerPanel(AValdoriaHeroCharacter* Hero, float W, float 
 		const UEnum* Enum = StaticEnum<EValdoriaHeroRole>();
 		Roles += (Roles.IsEmpty() ? TEXT("") : TEXT(" / ")) + Enum->GetDisplayNameTextByValue(static_cast<int64>(HeroRole)).ToString();
 	}
-	DrawLabel(Def->DisplayName.ToString().ToUpper(), X, Y - 78.f * S, Theme, 1.8f * S, false, true);
+	DrawLabel(ToUpperPt(Def->DisplayName.ToString()), X, Y - 78.f * S, Theme, 1.8f * S, false, true);
 	DrawLabel(Roles, X, Y - 30.f * S, FLinearColor(0.8f, 0.82f, 0.88f), 1.1f * S);
 
 	// Barra de vida no estilo do herói (moldura na cor dele).
@@ -341,7 +364,10 @@ void AValdoriaHUD::DrawAbilities(AValdoriaHeroCharacter* Hero, float W, float H)
 	// Passiva.
 	DrawRect(X, Y + Size * 0.15f, Size * 0.7f, Size * 0.7f, FLinearColor(0.08f, 0.09f, 0.12f, 0.8f));
 	DrawFrame(X, Y + Size * 0.15f, Size * 0.7f, Size * 0.7f, Theme * 0.8f, 1.5f);
-	DrawLabel(TEXT("P"), X + Size * 0.35f, Y + Size * 0.3f, Theme, 0.9f * S, true);
+	if (!DrawIcon(Def->PassiveIcon, X + 2.f * S, Y + Size * 0.15f + 2.f * S, Size * 0.7f - 4.f * S))
+	{
+		DrawLabel(TEXT("P"), X + Size * 0.35f, Y + Size * 0.3f, Theme, 0.9f * S, true);
+	}
 	X += Size * 0.7f + Gap;
 
 	for (const FSlotInfo& Info : Slots)
@@ -350,6 +376,8 @@ void AValdoriaHUD::DrawAbilities(AValdoriaHeroCharacter* Hero, float W, float H)
 		const float Remaining = Entry ? Hero->GetCooldownRemaining(Info.Slot) : 0.f;
 		const float Cooldown = Entry ? FMath::Max(0.01f, Entry->Cooldown) : 1.f;
 		DrawRect(X, Y, Size, Size, FLinearColor(0.08f, 0.09f, 0.12f, Entry ? 0.85f : 0.4f));
+		const bool bHasIcon = Entry && DrawIcon(Entry->Icon, X + 2.f * S, Y + 2.f * S, Size - 4.f * S,
+			Remaining > 0.f || !Hero->CanUseSlot(Info.Slot) ? FLinearColor(0.35f, 0.35f, 0.4f) : FLinearColor::White);
 		if (Entry && Remaining > 0.f)
 		{
 			// Faixa escura que baixa conforme a recarga termina.
@@ -357,7 +385,7 @@ void AValdoriaHUD::DrawAbilities(AValdoriaHeroCharacter* Hero, float W, float H)
 			DrawRect(X, Y + Size * (1.f - Frac), Size, Size * Frac, FLinearColor(0.f, 0.f, 0.f, 0.6f));
 			DrawLabel(FString::Printf(TEXT("%.0f"), FMath::CeilToFloat(Remaining)), X + Size * 0.5f, Y + Size * 0.22f, FLinearColor::White, 1.8f * S, true);
 		}
-		else if (Entry)
+		else if (Entry && !bHasIcon)
 		{
 			DrawLabel(Entry->DisplayName.ToString().Left(10), X + Size * 0.5f, Y + Size * 0.4f, FLinearColor::White, 0.8f * S, true);
 		}
@@ -374,6 +402,10 @@ void AValdoriaHUD::DrawAbilities(AValdoriaHeroCharacter* Hero, float W, float H)
 		const bool bReady = Pct >= 1.f;
 		const float UY = Y - (UltSize - Size) * 0.5f;
 		DrawRect(X, UY, UltSize, UltSize, FLinearColor(0.08f, 0.09f, 0.12f, 0.85f));
+		if (const FValdoriaAbilityEntry* UltEntry = Hero->FindAbilityEntry(EValdoriaAbilitySlot::Ultimate))
+		{
+			DrawIcon(UltEntry->Icon, X + 2.f * S, UY + 2.f * S, UltSize - 4.f * S, bReady ? FLinearColor::White : FLinearColor(0.45f, 0.45f, 0.5f, 0.8f));
+		}
 		DrawRect(X, UY + UltSize * (1.f - Pct), UltSize, UltSize * Pct, Theme * FLinearColor(1.f, 1.f, 1.f, 0.35f));
 		const float Pulse = bReady ? 0.6f + 0.4f * FMath::Sin(GetWorld()->GetTimeSeconds() * 6.f) : 1.f;
 		DrawFrame(X, UY, UltSize, UltSize, Theme * Pulse, 3.f);
@@ -393,6 +425,18 @@ void AValdoriaHUD::DrawAmmo(AValdoriaHeroCharacter* Hero, float W, float H)
 	const FValdoriaWeaponStats& Weapon = Hero->GetWeaponStats();
 	const float X = W - 330.f * S;
 	const float Y = H - 150.f * S;
+
+	if (Hero->HasWeaponOverride())
+	{
+		DrawLabel(ToUpperPt(Weapon.WeaponName.ToString()), X, Y - 40.f * S, Theme, 1.0f * S);
+	}
+	if (!Weapon.bUsesAmmo)
+	{
+		// Arma corpo a corpo: sem munição, mostra o nome da arma.
+		DrawLabel(ToUpperPt(Weapon.WeaponName.ToString()), X, Y + 30.f * S, Theme, 1.4f * S, false, true);
+		DrawLabel(TEXT("CORPO A CORPO"), X, Y + 86.f * S, FLinearColor(0.8f, 0.82f, 0.88f), 0.9f * S);
+		return;
+	}
 
 	if (Hero->IsReloading())
 	{
@@ -418,7 +462,7 @@ void AValdoriaHUD::DrawAmmo(AValdoriaHeroCharacter* Hero, float W, float H)
 		DrawRect(BX, Y + 86.f * S, BulletW, BulletH, bFull ? Theme : FLinearColor(0.2f, 0.22f, 0.26f, 0.7f));
 		DrawRect(BX, Y + 86.f * S - 4.f * S, BulletW, 4.f * S, bFull ? Theme * 1.3f : FLinearColor(0.2f, 0.22f, 0.26f, 0.5f));
 	}
-	DrawLabel(Weapon.WeaponName.ToString().ToUpper(), X, Y + 110.f * S, FLinearColor(0.75f, 0.77f, 0.82f), 1.0f * S);
+	DrawLabel(ToUpperPt(Weapon.WeaponName.ToString()), X, Y + 110.f * S, FLinearColor(0.75f, 0.77f, 0.82f), 1.0f * S);
 }
 
 void AValdoriaHUD::DrawDamageMeter(float W, float H)
@@ -464,5 +508,56 @@ void AValdoriaHUD::DrawChat(float W, float H)
 		const float Alpha = bChatOpen ? 1.f : FMath::Clamp(12.f - Age, 0.f, 1.f);
 		DrawLabel(L.Text, 48.f * S, Y, L.Color * FLinearColor(1.f, 1.f, 1.f, Alpha), 0.95f * S);
 		Y -= 24.f * S;
+	}
+}
+bool AValdoriaHUD::DrawIcon(const TSoftObjectPtr<UTexture2D>& Icon, float X, float Y, float Size, const FLinearColor& Tint)
+{
+	if (Icon.IsNull())
+	{
+		return false;
+	}
+	UTexture2D* Texture = Icon.LoadSynchronous();
+	if (!Texture)
+	{
+		return false;
+	}
+	DrawTexture(Texture, X, Y, Size, Size, 0.f, 0.f, 1.f, 1.f, Tint);
+	return true;
+}
+
+void AValdoriaHUD::DrawStatusLine(AValdoriaHeroCharacter* Hero, float W, float H)
+{
+	// Estados e efeitos ativos, no centro, acima das habilidades.
+	const float S = Scale;
+	TArray<TPair<FString, FLinearColor>> Lines;
+	const FLinearColor Bad(1.f, 0.45f, 0.4f);
+	if (Hero->HasStatus(EValdoriaStatus::Stunned)) Lines.Add({ TEXT("ATORDOADO"), Bad });
+	if (Hero->HasStatus(EValdoriaStatus::Rooted)) Lines.Add({ TEXT("ENRAIZADO"), Bad });
+	if (Hero->HasStatus(EValdoriaStatus::Silenced)) Lines.Add({ TEXT("SILENCIADO"), Bad });
+	if (Hero->HasStatus(EValdoriaStatus::CannotAttack)) Lines.Add({ TEXT("SEM ATAQUE"), Bad });
+	if (Hero->HasStatus(EValdoriaStatus::CannotUseAbilities)) Lines.Add({ TEXT("SEM HABILIDADES"), Bad });
+	if (Hero->IsStealthActive())
+	{
+		Lines.Add({ Hero->IsHiddenByStealth() ? TEXT("INVISÍVEL") : TEXT("REVELADO (inimigo perto)"), FLinearColor(0.75f, 0.5f, 1.f) });
+	}
+	if (Hero->GetPassiveDamageReduction() > 0.f)
+	{
+		Lines.Add({ FString::Printf(TEXT("PROTEÇÃO -%d%% (%d aliado%s perto)"), FMath::RoundToInt(Hero->GetPassiveDamageReduction() * 100.f),
+			Hero->GetAlliesNearby(), Hero->GetAlliesNearby() == 1 ? TEXT("") : TEXT("s")), FLinearColor(1.f, 0.7f, 0.35f) });
+	}
+	float Y = H - 170.f * S;
+	for (const TPair<FString, FLinearColor>& Line : Lines)
+	{
+		DrawLabel(Line.Key, W * 0.5f, Y, Line.Value, 0.95f * S, true);
+		Y -= 22.f * S;
+	}
+	// Moldura roxa nas bordas enquanto invisível.
+	if (Hero->IsHiddenByStealth())
+	{
+		const FLinearColor Edge(0.45f, 0.15f, 0.8f, 0.18f);
+		DrawRect(0.f, 0.f, W, 18.f * S, Edge);
+		DrawRect(0.f, H - 18.f * S, W, 18.f * S, Edge);
+		DrawRect(0.f, 0.f, 18.f * S, H, Edge);
+		DrawRect(W - 18.f * S, 0.f, 18.f * S, H, Edge);
 	}
 }

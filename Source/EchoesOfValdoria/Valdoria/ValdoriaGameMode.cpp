@@ -87,6 +87,14 @@ void AValdoriaGameMode::StartPlay()
 	{
 		GetWorldTimerManager().SetTimer(AutoTestTimer, this, &AValdoriaGameMode::RunAutoTestStep, 0.15f, true, 4.f);
 	}
+	if (FParse::Param(FCommandLine::Get(), TEXT("ValdoriaHeroTest")))
+	{
+		FTSTicker::GetCoreTicker().AddTicker(FTickerDelegate::CreateWeakLambda(this, [this](float)
+		{
+			RunHeroTestStep();
+			return HeroTestStep < 100000;
+		}), 0.25f);
+	}
 	if (FParse::Param(FCommandLine::Get(), TEXT("ValdoriaInputTest")))
 	{
 		FTSTicker::GetCoreTicker().AddTicker(FTickerDelegate::CreateWeakLambda(this, [this](float)
@@ -496,5 +504,138 @@ void AValdoriaGameMode::RunInputTestStep()
 		UE_LOG(LogValdoria, Display, TEXT("INPUTTEST fim"));
 		InputTestStep = 100000;
 		FPlatformMisc::RequestExit(false);
+	}
+}
+
+void AValdoriaGameMode::RunHeroTestStep()
+{
+	++HeroTestStep;
+	const int32 Warmup = 16;
+	if (HeroTestStep < Warmup)
+	{
+		return;
+	}
+	AValdoriaPlayerController* PC = Cast<AValdoriaPlayerController>(GetWorld()->GetFirstPlayerController());
+	AValdoriaHeroCharacter* Hero = PC ? Cast<AValdoriaHeroCharacter>(PC->GetPawn()) : nullptr;
+	static const TCHAR* Ids[] = { TEXT("brasa"), TEXT("kael"), TEXT("iara"), TEXT("vex") };
+	const int32 PerHero = 44;
+	const int32 Index = (HeroTestStep - Warmup) / PerHero;
+	const int32 S = (HeroTestStep - Warmup) % PerHero;
+	if (Index >= 4 || !Hero)
+	{
+		UE_LOG(LogValdoria, Display, TEXT("HEROTEST fim"));
+		HeroTestStep = 100000;
+		FPlatformMisc::RequestExit(false);
+		return;
+	}
+	const FString Id = Ids[Index];
+	AValdoriaTrainingDummy* Enemy = HeroTestEnemy.Get();
+	AValdoriaTrainingDummy* Ally = HeroTestAlly.Get();
+	auto Shot = [&Id](int32 N)
+	{
+		FScreenshotRequest::RequestScreenshot(FPaths::ConvertRelativePathToFull(FPaths::ProjectSavedDir()
+			/ TEXT("Screenshots") / FString::Printf(TEXT("Heroi_%s_%d.png"), *Id, N)), true, false);
+	};
+	auto Report = [&](const TCHAR* What)
+	{
+		UE_LOG(LogValdoria, Display, TEXT("HEROTEST %s %s: inimigo vida=%.0f escudo=%.0f arm=%.0f | aliado vida=%.0f | eu vida=%.0f arm=%.0f prot=%.2f invisivel=%d ult=%.0f%% municao=%d"),
+			*Id, What, Enemy ? Enemy->GetHealth() : -1.f, Enemy ? Enemy->GetShield() : -1.f, Enemy ? Enemy->GetArmor() : -1.f,
+			Ally ? Ally->GetHealth() : -1.f, Hero->GetHealth(), Hero->GetArmor(), Hero->GetPassiveDamageReduction(),
+			Hero->IsHiddenByStealth(), Hero->GetUltimatePercent() * 100.f, Hero->GetAmmo());
+	};
+	auto AimAtEnemy = [&]()
+	{
+		if (Enemy)
+		{
+			const FVector Eye = Hero->GetFollowCamera()->GetComponentLocation();
+			PC->SetControlRotation((Enemy->GetActorLocation() + FVector(0, 0, 20.f) - Eye).Rotation());
+		}
+	};
+	auto Use = [&](EValdoriaAbilitySlot Slot, const TCHAR* Name)
+	{
+		AimAtEnemy();
+		Hero->TryActivateSlot(Slot);
+		UE_LOG(LogValdoria, Display, TEXT("HEROTEST %s usou %s (recarga=%.1f)"), *Id, Name, Hero->GetCooldownRemaining(Slot));
+	};
+
+	switch (S)
+	{
+	case 0:
+	{
+		if (Enemy) Enemy->Destroy();
+		if (Ally) Ally->Destroy();
+		Hero->bGodMode = false;
+		PC->SelectHero(FName(*Id));
+		Hero->ResetCombatState();
+		if (Index == 0)
+		{
+			HeroTestHome = Hero->GetActorLocation();
+			HeroTestHomeRot = Hero->GetActorRotation();
+		}
+		else
+		{
+			Hero->TeleportTo(HeroTestHome, HeroTestHomeRot);
+			PC->SetControlRotation(HeroTestHomeRot);
+		}
+		const FVector Fwd = Hero->GetActorForwardVector().GetSafeNormal2D();
+		const FVector Right = FVector::CrossProduct(FVector::UpVector, Fwd);
+		FActorSpawnParameters P;
+		P.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AdjustIfPossibleButAlwaysSpawn;
+		Enemy = GetWorld()->SpawnActor<AValdoriaTrainingDummy>(AValdoriaTrainingDummy::StaticClass(),
+			Hero->GetActorLocation() + Fwd * 330.f, (-Fwd).Rotation(), P);
+		Ally = GetWorld()->SpawnActor<AValdoriaTrainingDummy>(AValdoriaTrainingDummy::StaticClass(),
+			Hero->GetActorLocation() + Right * 250.f + Fwd * 150.f, (-Fwd).Rotation(), P);
+		if (Enemy) { Enemy->bNoAutoHeal = true; }
+		if (Ally) { Ally->bNoAutoHeal = true; Ally->TeamId = Hero->TeamId; }
+		HeroTestEnemy = Enemy;
+		HeroTestAlly = Ally;
+		UE_LOG(LogValdoria, Display, TEXT("HEROTEST %s escolhido: nome=%s vida max=%.0f armadura=%.0f escudo=%.0f habilidades=%d"), *Id,
+			Hero->GetHeroDefinition() ? *Hero->GetHeroDefinition()->DisplayName.ToString() : TEXT("?"), Hero->GetMaxHealth(),
+			Hero->GetMaxArmor(), Hero->GetMaxShield(), Hero->GetHeroDefinition() ? Hero->GetHeroDefinition()->Abilities.Num() : 0);
+		break;
+	}
+	case 2:
+		if (Ally) { Hero->DealDamageTo(Ally, 120.f); }
+		Report(TEXT("inicio"));
+		break;
+	case 3: case 5: case 7: case 9:
+		Use(EValdoriaAbilitySlot::PrimaryFire, TEXT("ataque"));
+		break;
+	case 11: Report(TEXT("depois do ataque")); Shot(1); break;
+	case 13: Use(EValdoriaAbilitySlot::SecondaryFire, TEXT("botao direito")); break;
+	case 16: Report(TEXT("depois do botao direito")); Shot(2); break;
+	case 18: Use(EValdoriaAbilitySlot::Ability1, TEXT("F")); break;
+	case 21: Report(TEXT("depois do F")); Shot(3); break;
+	case 24: Use(EValdoriaAbilitySlot::Ability2, TEXT("E")); break;
+	case 27: Report(TEXT("depois do E")); Shot(4); break;
+	case 29: Hero->AdminFillUltimate(); break;
+	case 30: Use(EValdoriaAbilitySlot::Ultimate, TEXT("ultimate")); break;
+	case 33: Use(EValdoriaAbilitySlot::PrimaryFire, TEXT("ataque na ultimate")); Shot(5); break;
+	case 38: Report(TEXT("depois da ultimate")); Shot(6); break;
+	// Dano recebido: um bot atira em mim (testa a passiva de proteção da Brasa).
+	case 40:
+		if (Enemy)
+		{
+			const float Before = Hero->GetHealth() + Hero->GetArmor() + Hero->GetShield();
+			Enemy->DealTypedDamage(Hero, 50.f, EValdoriaDamageType::Physical);
+			const float After = Hero->GetHealth() + Hero->GetArmor() + Hero->GetShield();
+			UE_LOG(LogValdoria, Display, TEXT("HEROTEST %s levou 50 fisico -> perdeu %.1f (aliados perto=%d)"), *Id, Before - After, Hero->GetAlliesNearby());
+		}
+		break;
+	case 42:
+		if (Index == 3)
+		{
+			// Locomoção "flutuar": só em memória, para conferir a animação de pairar e a hitbox elevada.
+			UValdoriaHeroDefinition* Def = const_cast<UValdoriaHeroDefinition*>(Hero->GetHeroDefinition());
+			Def->Locomotion = EValdoriaLocomotion::Float;
+			Def->HoverHeight = 35.f;
+			Hero->ApplyHeroDefinition();
+			PC->SetControlRotation(FRotator(-10.f, Hero->GetActorRotation().Yaw + 150.f, 0.f));
+		}
+		break;
+	case 43:
+		if (Index == 3) { Shot(7); }
+		break;
+	default: break;
 	}
 }

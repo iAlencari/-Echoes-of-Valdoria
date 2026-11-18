@@ -38,6 +38,11 @@ public:
 	void HelpReleased();
 	bool IsHelpOpen() const { return HelpWidget.IsValid(); }
 
+	/** Troca o herói do jogador ("brasa", "kael", "iara", "vex" ou "recruta"). Usa o Data Asset
+	 *  de Content/Valdoria/Heroes; se ainda não existir, cria um igual em memória. */
+	bool SelectHero(FName HeroId);
+	UValdoriaHeroDefinition* FindHero(FName HeroId);
+
 	/** Inimigo/personagem sob a mira (o que o painel edita). */
 	AValdoriaHeroCharacter* PickAimedCharacter() const;
 
@@ -107,4 +112,7 @@ protected:
 	bool bSavedPosition[3] = { false, false, false };
 	int32 AdminBotDifficulty = 0;
 	bool bAltHeld = false;
+
+	UPROPERTY(Transient)
+	TMap<FName, TObjectPtr<UValdoriaHeroDefinition>> HeroCache;
 };

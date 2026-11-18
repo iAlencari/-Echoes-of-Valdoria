@@ -10,6 +10,7 @@
 class USkeletalMesh;
 class UStaticMesh;
 class UAnimInstance;
+class UTexture2D;
 
 /**
  * Tudo que diferencia um herói fica aqui: vida, escudo, armadura, velocidade,
@@ -102,6 +103,30 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Habilidades", meta = (MultiLine = true))
 	FText PassiveDescription;
 
+	/** Números da passiva (distância, porcentagens). */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Habilidades")
+	FValdoriaPassiveRules Passive;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Habilidades")
+	TSoftObjectPtr<UTexture2D> PassiveIcon;
+
+	// --- Poder e resistências (a loja e itens somam a estes valores)
+	/** Multiplica o dano físico causado (1 = normal). */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Poder", meta = (ClampMin = "0"))
+	float PhysicalPower = 1.f;
+
+	/** Multiplica o dano mágico causado (1 = normal). */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Poder", meta = (ClampMin = "0"))
+	float MagicPower = 1.f;
+
+	/** Reduz o dano físico recebido (0.2 = 20% a menos). */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Poder", meta = (ClampMin = "0", ClampMax = "0.9"))
+	float PhysicalResistance = 0.f;
+
+	/** Reduz o dano mágico recebido (0.2 = 20% a menos). */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Poder", meta = (ClampMin = "0", ClampMax = "0.9"))
+	float MagicResistance = 0.f;
+
 	/** Carga necessária para a ultimate. */
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Habilidades", meta = (ClampMin = "1"))
 	float UltimateCost = 1500.f;
@@ -121,8 +146,27 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Visual")
 	TSoftClassPtr<UAnimInstance> AnimClass;
 
+	/** Tamanho do modelo. Para heróis baixos (anões) ou grandes, ajuste junto com a cápsula
+	 *  (CapsuleRadius = largura, CapsuleHalfHeight = metade da altura) para a hitbox acompanhar. */
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Visual")
 	float MeshScale = 1.f;
+
+	/** Flutua sempre esta altura (cm) acima do chão (não é voo). A malha, que é a hitbox dos
+	 *  tiros e da cabeça, sobe junto. Some esta altura em CapsuleHalfHeight/2 se quiser a cápsula maior. */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Visual", meta = (ClampMin = "0"))
+	float HoverHeight = 0.f;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Visual")
+	EValdoriaLocomotion Locomotion = EValdoriaLocomotion::Walk;
+
+	/** Visual de "andar sobre efeito": malha (vazio = disco), escala e cor (preto = cor do herói).
+	 *  Pode ser água, gelo, placas antigravidade, um campo de energia... */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Visual")
+	TSoftObjectPtr<UStaticMesh> RideEffectMesh;
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Visual")
+	FVector RideEffectScale = FVector(1.3f, 1.3f, 0.03f);
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Visual")
+	FLinearColor RideEffectColor = FLinearColor::Black;
 
 	/** Modelo 3D da arma (malha estática) e onde ela fica presa na malha do herói. */
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Visual|Arma")
@@ -150,4 +194,18 @@ public:
 
 	/** Personagem padrão usado quando nenhum Data Asset foi escolhido (para testes). */
 	static UValdoriaHeroDefinition* CreateFallbackRecruit(UObject* Outer);
+
+	/**
+	 * Preenche este arquivo com os valores iniciais de um herói pronto: "brasa", "kael",
+	 * "iara" ou "vex" (Scripts/create_heroes.py usa isto para criar os Data Assets; depois
+	 * é só editar no editor). Retorna falso se o nome não existir.
+	 */
+	UFUNCTION(BlueprintCallable, Category = "Herói")
+	bool ApplyPreset(FName PresetId);
+
+	/** Nomes dos heróis prontos. */
+	static TArray<FName> GetPresetIds();
+
+	/** Cria um herói pronto em memória (usado se o Data Asset ainda não existir). */
+	static UValdoriaHeroDefinition* CreatePreset(UObject* Outer, FName PresetId);
 };

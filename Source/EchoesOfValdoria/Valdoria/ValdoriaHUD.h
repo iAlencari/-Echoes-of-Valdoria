@@ -9,6 +9,7 @@
 #include "ValdoriaHUD.generated.h"
 
 class AValdoriaHeroCharacter;
+class UTexture2D;
 
 UCLASS()
 class ECHOESOFVALDORIA_API AValdoriaHUD : public AHUD
@@ -67,6 +68,9 @@ protected:
 	void DrawChat(float W, float H);
 
 	void DrawRect(float X, float Y, float W, float H, const FLinearColor& Color);
+	/** Desenha um ícone (textura do Data Asset). Retorna falso se não houver. */
+	bool DrawIcon(const TSoftObjectPtr<UTexture2D>& Icon, float X, float Y, float Size, const FLinearColor& Tint = FLinearColor::White);
+	void DrawStatusLine(AValdoriaHeroCharacter* Hero, float W, float H);
 	void DrawFrame(float X, float Y, float W, float H, const FLinearColor& Color, float Thickness = 2.f);
 	void DrawLabel(const FString& Text, float X, float Y, const FLinearColor& Color, float TextScale = 1.f, bool bCenter = false, bool bLarge = false);
 	void DrawSegmentedBar(float X, float Y, float W, float H, AValdoriaHeroCharacter* Hero, const FLinearColor& HealthColor);

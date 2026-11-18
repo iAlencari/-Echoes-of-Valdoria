@@ -2,6 +2,8 @@
 
 #include "ValdoriaPlayerController.h"
 #include "ValdoriaHeroCharacter.h"
+#include "ValdoriaHeroDefinition.h"
+#include "AssetRegistry/AssetRegistryModule.h"
 #include "Components/InputComponent.h"
 #include "Engine/Engine.h"
 #include "Engine/GameViewportClient.h"
@@ -157,6 +159,32 @@ void AValdoriaPlayerController::OpenPauseMenu()
 	{
 		return;
 	}
+	// Escolha de herói: um botão por herói pronto, na cor dele.
+	TSharedRef<SHorizontalBox> HeroRow = SNew(SHorizontalBox);
+	struct FHeroButton { const TCHAR* Id; FText Name; FLinearColor Color; };
+	const FHeroButton HeroButtons[] = {
+		{ TEXT("brasa"), LOCTEXT("PickBrasa", "Brasa"), FLinearColor(1.f, 0.45f, 0.1f) },
+		{ TEXT("kael"), LOCTEXT("PickKael", "Kael"), FLinearColor(0.15f, 0.75f, 0.7f) },
+		{ TEXT("iara"), LOCTEXT("PickIara", "Iara"), FLinearColor(0.2f, 0.85f, 0.8f) },
+		{ TEXT("vex"), LOCTEXT("PickVex", "Vex"), FLinearColor(0.6f, 0.25f, 0.95f) },
+		{ TEXT("recruta"), LOCTEXT("PickRecruit", "Recruta"), FLinearColor(0.8f, 0.8f, 0.8f) },
+	};
+	for (const FHeroButton& B : HeroButtons)
+	{
+		const FName Id(B.Id);
+		HeroRow->AddSlot().AutoWidth().Padding(4.f, 0.f)
+		[
+			SNew(SBox).WidthOverride(110.f).HeightOverride(44.f)
+			[
+				SNew(SButton).HAlign(HAlign_Center).VAlign(VAlign_Center).ButtonColorAndOpacity(B.Color * 0.6f)
+				.OnClicked_Lambda([this, Id]() { SelectHero(Id); ClosePauseMenu(); return FReply::Handled(); })
+				[
+					SNew(STextBlock).Text(B.Name).Font(FCoreStyle::GetDefaultFontStyle("Bold", 14)).ColorAndOpacity(FLinearColor::White)
+				]
+			]
+		];
+	}
+
 	PauseWidget =
 		SNew(SBorder)
 		.BorderImage(FCoreStyle::Get().GetBrush("WhiteBrush"))
@@ -171,6 +199,15 @@ void AValdoriaPlayerController::OpenPauseMenu()
 				.Text(LOCTEXT("Title", "PAUSA"))
 				.Font(FCoreStyle::GetDefaultFontStyle("Bold", 40))
 				.ColorAndOpacity(FLinearColor(0.97f, 0.83f, 0.48f))
+			]
+			+ SVerticalBox::Slot().AutoHeight().HAlign(HAlign_Center).Padding(0.f, 0.f, 0.f, 6.f)
+			[
+				SNew(STextBlock).Text(LOCTEXT("PickHero", "ESCOLHER HERÓI  (ou /heroi nome no chat)"))
+				.Font(FCoreStyle::GetDefaultFontStyle("Bold", 12)).ColorAndOpacity(FLinearColor(0.75f, 0.78f, 0.85f))
+			]
+			+ SVerticalBox::Slot().AutoHeight().HAlign(HAlign_Center).Padding(0.f, 0.f, 0.f, 18.f)
+			[
+				HeroRow
 			]
 			+ SVerticalBox::Slot().AutoHeight().Padding(0.f, 6.f)
 			[
@@ -269,4 +306,58 @@ void AValdoriaPlayerController::ToggleCameraMode()
 	{
 		Hero->SetFirstPerson(!Hero->IsFirstPerson());
 	}
+}
+
+UValdoriaHeroDefinition* AValdoriaPlayerController::FindHero(FName HeroId)
+{
+	const FName Key(*HeroId.ToString().ToLower());
+	if (TObjectPtr<UValdoriaHeroDefinition>* Cached = HeroCache.Find(Key))
+	{
+		return *Cached;
+	}
+	UValdoriaHeroDefinition* Found = nullptr;
+	// 1) Data Asset do projeto com esse HeroId (o que o dono edita no editor).
+	IAssetRegistry& Registry = FModuleManager::LoadModuleChecked<FAssetRegistryModule>("AssetRegistry").Get();
+	TArray<FAssetData> Assets;
+	Registry.GetAssetsByClass(UValdoriaHeroDefinition::StaticClass()->GetClassPathName(), Assets, true);
+	for (const FAssetData& Data : Assets)
+	{
+		UValdoriaHeroDefinition* Def = Cast<UValdoriaHeroDefinition>(Data.GetAsset());
+		if (Def && Def->HeroId.ToString().ToLower() == Key.ToString())
+		{
+			Found = Def;
+			break;
+		}
+	}
+	// 2) Sem arquivo ainda: cria em memória com os valores iniciais.
+	if (!Found)
+	{
+		Found = UValdoriaHeroDefinition::CreatePreset(this, Key);
+	}
+	if (Found)
+	{
+		HeroCache.Add(Key, Found);
+	}
+	return Found;
+}
+
+bool AValdoriaPlayerController::SelectHero(FName HeroId)
+{
+	AValdoriaHeroCharacter* Hero = Cast<AValdoriaHeroCharacter>(GetPawn());
+	if (!Hero)
+	{
+		return false;
+	}
+	if (HeroId == TEXT("recruta"))
+	{
+		Hero->SetHeroDefinition(nullptr);
+		return true;
+	}
+	UValdoriaHeroDefinition* Def = FindHero(HeroId);
+	if (!Def)
+	{
+		return false;
+	}
+	Hero->SetHeroDefinition(Def);
+	return true;
 }

@@ -50,6 +50,13 @@ protected:
 	int32 InputTestStep = 0;
 	FVector InputTestStartLoc = FVector::ZeroVector;
 	int32 InputTestDeaths = 0;
+	/** Teste dos heróis (-ValdoriaHeroTest): troca para cada herói e usa todas as habilidades num boneco. */
+	void RunHeroTestStep();
+	int32 HeroTestStep = 0;
+	TWeakObjectPtr<class AValdoriaTrainingDummy> HeroTestEnemy;
+	TWeakObjectPtr<class AValdoriaTrainingDummy> HeroTestAlly;
+	FVector HeroTestHome = FVector::ZeroVector;
+	FRotator HeroTestHomeRot = FRotator::ZeroRotator;
 	int32 AutoTestStep = 0;
 	FTimerHandle AutoTestTimer;
 };

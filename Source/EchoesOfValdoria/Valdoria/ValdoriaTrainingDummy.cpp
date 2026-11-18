@@ -96,7 +96,8 @@ void AValdoriaTrainingDummy::TickBot(float DeltaSeconds)
 
 	APawn* Player = GetWorld()->GetFirstPlayerController() ? GetWorld()->GetFirstPlayerController()->GetPawn() : nullptr;
 	AValdoriaHeroCharacter* Target = Cast<AValdoriaHeroCharacter>(Player);
-	if (!Target || Target->IsDead() || !IsEnemy(Target))
+	// Bots não enxergam quem está invisível (a não ser que cheguem perto, o que o revela).
+	if (!Target || Target->IsDead() || !IsEnemy(Target) || Target->IsHiddenByStealth())
 	{
 		return;
 	}
@@ -131,6 +132,6 @@ void AValdoriaTrainingDummy::TickBot(float DeltaSeconds)
 	PlayShotEffects(Impact, bHit);
 	if (bHit)
 	{
-		DealDamageTo(Target, Damage[D]);
+		DealTypedDamage(Target, Damage[D], EValdoriaDamageType::Physical);
 	}
 }

@@ -64,6 +64,8 @@ public:
 	int32 GetAmmo() const { return CurrentAmmo; }
 	bool IsReloading() const { return bReloading; }
 	void StartReload();
+	/** Enche o pente na hora (estimulante, renascer). */
+	void RefillAmmo() { bReloading = false; CurrentAmmo = GetWeaponStats().MagazineSize; }
 
 	// --- Recargas e ultimate
 	float GetCooldownRemaining(EValdoriaAbilitySlot Slot) const;
@@ -122,6 +124,49 @@ public:
 
 	/** Volta ao estado inicial (vida cheia, munição, sem recargas). */
 	void ResetCombatState();
+
+	// --- Dano por tipo, cura e efeitos (habilidades e projéteis usam isto; só servidor)
+	/**
+	 * Dano com tipo: aplica Poder Físico/Mágico de quem ataca, resistências e passivas
+	 * (cabeça, costas, proteção de aliado) e então chama DealDamageTo. Também acerta barreiras
+	 * inimigas. Retorna o dano final.
+	 */
+	float DealTypedDamage(AActor* Target, float BaseDamage, EValdoriaDamageType Type, float MagicShare = 0.5f, bool bHeadshot = false);
+	void HealTarget(AActor* Target, float Amount);
+	/** Fica mais lento: Fraction 0.3 = 30% mais devagar, por Seconds. */
+	void ApplySlow(float Fraction, float Seconds);
+	/** Fica mais rápido: Fraction 0.3 = 30% mais rápido, por Seconds. */
+	void ApplySpeedBuff(float Fraction, float Seconds);
+	/** Aplica um estado de controle por Seconds (o maior tempo vale). */
+	void ApplyStatus(EValdoriaStatus Status, float Seconds);
+	bool HasStatus(EValdoriaStatus Status) const;
+	/** Pode usar este botão agora (considerando atordoado, silêncio etc.)? */
+	bool CanUseSlot(EValdoriaAbilitySlot Slot) const;
+	/** Invisibilidade parcial: some para os inimigos até chegar a RevealDistance deles. */
+	void StartStealth(float Seconds, float RevealDistance, EValdoriaAbilitySlot FromSlot);
+	void BreakStealth();
+	bool IsStealthActive() const { return bStealthActive; }
+	/** Invisível agora (ativo e sem inimigo perto). */
+	bool IsHiddenByStealth() const { return bStealthActive && !bStealthRevealed; }
+	/** Troca os números da arma por um tempo (ex.: ultimate de precisão). */
+	void SetWeaponOverride(const FValdoriaWeaponStats& Stats, float Seconds);
+	bool HasWeaponOverride() const { return bHasWeaponOverride; }
+	/** Salta para frente e explode ao cair. */
+	void StartLeapSlam(float Damage, float Radius, EValdoriaDamageType Type);
+	/** Mira sobe (recuo). */
+	void ApplyRecoil(float Degrees);
+	/** Dispersão atual x (passiva de mira parada). */
+	float GetSpreadMultiplier() const;
+	/** Barreiras do próprio time não bloqueiam os próprios tiros. */
+	void IgnoreFriendlyBarriers(FCollisionQueryParams& Params) const;
+	void IgnoreFriendlyBarriers(UPrimitiveComponent* Component) const;
+	const FValdoriaPassiveRules& GetPassive() const;
+	float GetPassiveDamageReduction() const { return PassiveReduction; }
+	int32 GetAlliesNearby() const { return AlliesNearby; }
+	float GetPhysicalPower() const;
+	float GetMagicPower() const;
+	float GetPhysicalResistance() const;
+	float GetMagicResistance() const;
 
 	int32 GetDashCharges() const { return DashChargesLeft; }
 	bool IsSprinting() const { return bIsSprinting; }
@@ -254,6 +299,10 @@ protected:
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Componentes")
 	TObjectPtr<UStaticMeshComponent> WeaponComponent;
 
+	/** Disco mágico sob os pés (locomoção "andar sobre efeito"). */
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Componentes")
+	TObjectPtr<UStaticMeshComponent> RideDisc;
+
 	UPROPERTY()
 	TObjectPtr<UValdoriaAttributeSet> Attributes;
 
@@ -288,6 +337,33 @@ protected:
 	float LastDamageTakenTime = -100.f;
 	bool bFireHeld = false;
 	bool bAbilitiesGranted = false;
+
+	// Efeitos temporários e passivas
+	void TickStatusEffects(float DeltaSeconds);
+	void UpdateStealthVisibility();
+	void DoLeapSlamImpact();
+	TMap<EValdoriaStatus, float> StatusEndTimes;
+	float SlowFraction = 0.f;
+	float SlowEndTime = 0.f;
+	float BuffFraction = 0.f;
+	float BuffEndTime = 0.f;
+	bool bStealthActive = false;
+	bool bStealthRevealed = false;
+	float StealthEndTime = 0.f;
+	float StealthRevealDistance = 600.f;
+	EValdoriaAbilitySlot StealthSlot = EValdoriaAbilitySlot::None;
+	bool bHasWeaponOverride = false;
+	FValdoriaWeaponStats WeaponOverride;
+	float WeaponOverrideEndTime = 0.f;
+	int32 SavedAmmo = 0;
+	bool bPendingSlam = false;
+	float SlamDamage = 0.f;
+	float SlamRadius = 0.f;
+	EValdoriaDamageType SlamType = EValdoriaDamageType::Physical;
+	float SlamTimeout = 0.f;
+	float PassiveTimer = 0.f;
+	float PassiveReduction = 0.f;
+	int32 AlliesNearby = 0;
 	FTransform DefaultMeshRelativeTransform;
 
 	friend class AValdoriaGameMode;

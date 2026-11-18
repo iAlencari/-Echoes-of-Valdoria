@@ -44,6 +44,8 @@ UValdoriaHeroDefinition::UValdoriaHeroDefinition()
 	Animations.DashBackward = Anim(TEXT("MM_Dash_Backward"));
 	Animations.DashLeft = Anim(TEXT("MM_Dash_Left"));
 	Animations.DashRight = Anim(TEXT("MM_Dash_Right"));
+	Animations.Hover = Anim(TEXT("MM_Fly_Loop"));
+	Animations.Fly = Anim(TEXT("MM_Fly_Loop"));
 }
 
 FPrimaryAssetId UValdoriaHeroDefinition::GetPrimaryAssetId() const

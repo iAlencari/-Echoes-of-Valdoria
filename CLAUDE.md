@@ -51,6 +51,36 @@ português simples. **Leia `LOG.md` inteiro antes de mexer.**
 - Não versionar `Binaries/`, `Intermediate/`, `Saved/`, `DerivedDataCache/`.
 - Commits em português; não envie (`push`) sem o dono pedir.
 
+## Decisões de design do dono (turno 20, 18/11/2026)
+- **Heróis prontos**: Brasa, Kael Rook, Iara e Vex em `Content/Valdoria/Heroes/DA_*.uasset`
+  (criados por `Scripts/create_heroes.py` a partir de `ValdoriaHeroPresets.cpp`; o script **não**
+  sobrescreve DA_ existentes, a não ser com `VALDORIA_RESET_HEROES=1`). Balancear = editar o DA_.
+- **Botões**: botão direito, F e E são as 3 habilidades; Q é a ultimate; a passiva é sempre ativa.
+- **Tipos de dano**: Físico (armas, golpes), Mágico (cajados, magias) e Híbrido (parte de cada).
+  Cada arma/habilidade declara o tipo no Data Asset; cada herói tem Poder Físico/Mágico e
+  Resistência Física/Mágica. A loja e itens vão somar a esses valores.
+- **Loja na tecla B** (referência: Paladins, e Deadlock também): poucas categorias (defesa,
+  utilidade, cura, dano), itens com ~3 níveis comprados em sequência, limite de slots, créditos
+  ganhos na partida, tudo zera a cada partida. Itens num arquivo de dados para o dono balancear.
+- **Biblioteca de habilidades reutilizáveis** (`ValdoriaHeroAbilities.h`): cada classe lê
+  Magnitude/Radius/Duration/SecondaryMagnitude do Data Asset. Estados genéricos: Silenciado,
+  Enraizado, Atordoado, Sem ataque, Sem habilidades (`ApplyStatus`, no alvo ou em si mesmo).
+- **Ideias para a biblioteca / próximos heróis** (originais; outros jogos só como referência de
+  mecânica): teleporte com retorno, portais (só time / todos / inimigos também), puxar aliado ou ir
+  até ele, refletir projéteis, absorver dano virando escudo, intangível (imune a físico, mágico
+  ainda acerta, sem atacar), invisibilidade parcial (já existe), rastro para deslizar (já existe,
+  inclusive como rampa no ar no futuro), arma de feixe contínuo que trava no alvo e cura aliados
+  (5º herói), habilidades em dupla entre heróis, cartas/talentos que modificam habilidades.
+  Lista de padrões de habilidades: `docs/HabilidadesReferencia.md`.
+- **Modos de jogo**: vários, incluindo **MOBA 6v6 com 3 lanes** (a NP já tem 3 rotas). Plano: um
+  GameMode por modo, com as regras do modo num arquivo de dados.
+- **Corpo e locomoção**: heróis baixos, altos, largos; `CapsuleRadius`/`CapsuleHalfHeight` =
+  hitbox, `MeshScale`, `HoverHeight` (flutua acima do chão, hitbox sobe junto), `Locomotion`
+  (Andar / Flutuar sem passos / Andar sobre efeito mágico **ou tecnológico**, visual configurável).
+  A câmera acompanha o tamanho.
+- **Diversidade**: corpos variados (retos, curvilíneos, combinações), identidades cis e trans,
+  todas as etnias, proporções naturais e **sem sexualização exagerada**. Design caso a caso.
+
 ## Pendências atuais (decisão do dono) — ver LOG.md (Turno 11)
 - Animações Quaternius (CC0): convertidas para o Manny em `/Game/Valdoria/Animations/Retarget`
   por `Scripts/retarget_ual.py` (deslizar, subir/escalar, deitar = natação por enquanto; o dono

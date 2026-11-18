@@ -1,0 +1,85 @@
+# Cria (ou atualiza) os arquivos dos heróis prontos e o que eles usam:
+#  - ícones do HUD (recortados da imagem do dono, em RawContent/Icons) -> /Game/Valdoria/UI/Icons
+#  - material de energia translúcido (barreira, zonas, projéteis) -> /Game/Valdoria/Materials
+#  - Data Assets DA_Brasa, DA_Kael, DA_Iara, DA_Vex -> /Game/Valdoria/Heroes
+# Rodar:  UnrealEditor-Cmd.exe EchoesOfValdoria.uproject -run=pythonscript -script="Scripts/create_heroes.py"
+# Se um DA_ já existir ele NÃO é sobrescrito (para não apagar o balanceamento feito no editor),
+# a não ser que a variável de ambiente VALDORIA_RESET_HEROES=1 esteja definida.
+import os
+import unreal
+
+LOG = unreal.Paths.project_saved_dir() + "create_heroes.txt"
+lines = []
+eal = unreal.EditorAssetLibrary
+tools = unreal.AssetToolsHelpers.get_asset_tools()
+mel = unreal.MaterialEditingLibrary
+
+# --- 1) Ícones
+icon_dir = os.path.join(unreal.Paths.convert_relative_path_to_full(unreal.Paths.project_dir()), "RawContent", "Icons")
+tasks = []
+for name in sorted(os.listdir(icon_dir)):
+    if not name.lower().endswith(".png"):
+        continue
+    t = unreal.AssetImportTask()
+    t.filename = os.path.join(icon_dir, name)
+    t.destination_path = "/Game/Valdoria/UI/Icons"
+    t.replace_existing = True
+    t.automated = True
+    t.save = True
+    tasks.append(t)
+tools.import_asset_tasks(tasks)
+for t in tasks:
+    for p in t.imported_object_paths:
+        tex = unreal.load_asset(p)
+        if tex:
+            tex.set_editor_property("lod_group", unreal.TextureGroup.TEXTUREGROUP_UI)
+            tex.set_editor_property("compression_settings", unreal.TextureCompressionSettings.TC_EDITOR_ICON)
+            tex.set_editor_property("never_stream", True)
+            eal.save_loaded_asset(tex)
+    lines.append("icone: %s -> %s" % (os.path.basename(t.filename), list(t.imported_object_paths)))
+
+# --- 2) Material de energia
+MAT = "/Game/Valdoria/Materials/M_Valdoria_Energia"
+if not eal.does_asset_exist(MAT):
+    eal.make_directory("/Game/Valdoria/Materials")
+    mat = tools.create_asset("M_Valdoria_Energia", "/Game/Valdoria/Materials", unreal.Material, unreal.MaterialFactoryNew())
+    mat.set_editor_property("blend_mode", unreal.BlendMode.BLEND_TRANSLUCENT)
+    mat.set_editor_property("shading_model", unreal.MaterialShadingModel.MSM_UNLIT)
+    mat.set_editor_property("two_sided", True)
+    cor = mel.create_material_expression(mat, unreal.MaterialExpressionVectorParameter, -600, 0)
+    cor.set_editor_property("parameter_name", "Cor")
+    cor.set_editor_property("default_value", unreal.LinearColor(1, 0.5, 0.1, 1))
+    forca = mel.create_material_expression(mat, unreal.MaterialExpressionConstant, -600, 200)
+    forca.set_editor_property("r", 3.0)
+    mult = mel.create_material_expression(mat, unreal.MaterialExpressionMultiply, -300, 0)
+    mel.connect_material_expressions(cor, "", mult, "A")
+    mel.connect_material_expressions(forca, "", mult, "B")
+    mel.connect_material_property(mult, "", unreal.MaterialProperty.MP_EMISSIVE_COLOR)
+    opac = mel.create_material_expression(mat, unreal.MaterialExpressionScalarParameter, -600, 350)
+    opac.set_editor_property("parameter_name", "Opacidade")
+    opac.set_editor_property("default_value", 0.35)
+    mel.connect_material_property(opac, "", unreal.MaterialProperty.MP_OPACITY)
+    mel.recompile_material(mat)
+    eal.save_loaded_asset(mat)
+    lines.append("material criado")
+else:
+    lines.append("material ja existe")
+
+# --- 3) Heróis
+factory = unreal.DataAssetFactory()
+factory.set_editor_property("data_asset_class", unreal.ValdoriaHeroDefinition)
+reset = os.environ.get("VALDORIA_RESET_HEROES") == "1"
+eal.make_directory("/Game/Valdoria/Heroes")
+for hero_id, asset_name in (("brasa", "DA_Brasa"), ("kael", "DA_Kael"), ("iara", "DA_Iara"), ("vex", "DA_Vex")):
+    path = "/Game/Valdoria/Heroes/" + asset_name
+    if eal.does_asset_exist(path) and not reset:
+        lines.append("ja existe (mantido): " + path)
+        continue
+    asset = unreal.load_asset(path) if eal.does_asset_exist(path) else \
+        tools.create_asset(asset_name, "/Game/Valdoria/Heroes", unreal.ValdoriaHeroDefinition, factory)
+    ok = asset.apply_preset(hero_id)
+    eal.save_loaded_asset(asset)
+    lines.append("heroi %s: %s" % (path, ok))
+
+with open(LOG, "w", encoding="utf-8") as fh:
+    fh.write("\n".join(lines))

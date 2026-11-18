@@ -177,10 +177,22 @@ void AValdoriaPlayerController::RunChatCommand(const FString& Command)
 	else if (Cmd == TEXT("ajuda") || Cmd == TEXT("help"))
 	{
 		ChatPrint(TEXT("/adm  liga/desliga o modo administrador"), Ok);
+		ChatPrint(TEXT("/heroi brasa | kael | iara | vex | recruta  troca de herói (também no Esc)"), Ok);
 		ChatPrint(TEXT("/imortal  /recarga  /municao  /voar  (liga/desliga no seu herói)"), Ok);
 		ChatPrint(TEXT("/bots 0-3  bonecos atiram (0 parados, 3 difícil)"), Ok);
 		ChatPrint(TEXT("/dano N  tira N de vida de você  •  /vida  enche a vida  •  /ult  ultimate cheia"), Ok);
 		ChatPrint(TEXT("/mapa np | treino  troca de mapa  •  /tempo N  velocidade do jogo"), Ok);
+	}
+	else if (Cmd == TEXT("heroi") || Cmd == TEXT("herói") || Cmd == TEXT("hero"))
+	{
+		if (!Arg.IsEmpty() && SelectHero(FName(*Arg)))
+		{
+			ChatPrint(FString::Printf(TEXT("Herói trocado: %s"), *Arg), Ok);
+		}
+		else
+		{
+			ChatPrint(TEXT("Heróis: /heroi brasa | kael | iara | vex | recruta"), Bad);
+		}
 	}
 	else if (!bAdminMode)
 	{

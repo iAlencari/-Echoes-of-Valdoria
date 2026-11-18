@@ -31,6 +31,9 @@
 #include "ValdoriaSettings.h"
 #include "AbilitySystemBlueprintLibrary.h"
 #include "ValdoriaEffects.h"
+#include "ValdoriaWorldActors.h"
+#include "EngineUtils.h"
+#include "UObject/ConstructorHelpers.h"
 
 DEFINE_LOG_CATEGORY(LogValdoria);
 
@@ -77,6 +80,16 @@ AValdoriaHeroCharacter::AValdoriaHeroCharacter()
 	WeaponComponent->SetCollisionEnabled(ECollisionEnabled::NoCollision);
 	WeaponComponent->SetCastShadow(true);
 
+	RideDisc = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("RideDisc"));
+	RideDisc->SetupAttachment(RootComponent);
+	RideDisc->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+	RideDisc->SetCastShadow(false);
+	RideDisc->SetVisibility(false);
+	static ConstructorHelpers::FObjectFinder<UStaticMesh> DiscMesh(TEXT("/Engine/BasicShapes/Cylinder.Cylinder"));
+	if (DiscMesh.Succeeded())
+	{
+		RideDisc->SetStaticMesh(DiscMesh.Object);
+	}
 	AbilitySystem = CreateDefaultSubobject<UAbilitySystemComponent>(TEXT("AbilitySystem"));
 	AbilitySystem->SetIsReplicated(true);
 	AbilitySystem->SetReplicationMode(EGameplayEffectReplicationMode::Mixed);
@@ -172,8 +185,8 @@ void AValdoriaHeroCharacter::ApplyHeroDefinition()
 	bIsSprinting = false;
 	bIsProne = false;
 	UpdateMovementSpeed();
-	CameraBoom->TargetArmLength = Def->CameraDistance;
-	CameraBoom->SocketOffset = Def->CameraOffset;
+	CameraBoom->TargetArmLength = Def->CameraDistance * FMath::Max(1.f, Def->CapsuleHalfHeight / 96.f);
+	CameraBoom->SocketOffset = Def->CameraOffset * FVector(1.f, 1.f, Def->CapsuleHalfHeight / 96.f) + FVector(0.f, 0.f, Def->HoverHeight);
 
 	if (USkeletalMesh* NewMesh = Def->Mesh.LoadSynchronous())
 	{
@@ -193,7 +206,21 @@ void AValdoriaHeroCharacter::ApplyHeroDefinition()
 		WeaponComponent->AttachToComponent(GetMesh(), FAttachmentTransformRules::SnapToTargetNotIncludingScale, Def->WeaponSocket);
 		WeaponComponent->SetRelativeTransform(Def->WeaponOffset);
 	}
-	GetMesh()->SetRelativeLocation(FVector(0.f, 0.f, -Def->CapsuleHalfHeight));
+	GetMesh()->SetRelativeLocation(FVector(0.f, 0.f, -Def->CapsuleHalfHeight + Def->HoverHeight));
+	// Andar sobre efeito: disco brilhante sob os pés, na altura da flutuação.
+	const bool bRide = Def->Locomotion == EValdoriaLocomotion::RideEffect;
+	RideDisc->SetVisibility(bRide);
+	if (bRide)
+	{
+		RideDisc->SetRelativeLocation(FVector(0.f, 0.f, -Def->CapsuleHalfHeight + Def->HoverHeight * 0.5f));
+		if (UStaticMesh* Custom = Def->RideEffectMesh.IsNull() ? nullptr : Def->RideEffectMesh.LoadSynchronous())
+		{
+			RideDisc->SetStaticMesh(Custom);
+		}
+		RideDisc->SetRelativeScale3D(Def->RideEffectScale);
+		const FLinearColor RideColor = Def->RideEffectColor.Equals(FLinearColor::Black) ? Def->ThemeColor : Def->RideEffectColor;
+		RideDisc->SetMaterial(0, ValdoriaMakeGlowMaterial(this, RideColor, 0.5f));
+	}
 
 	if (HasAuthority())
 	{
@@ -204,6 +231,11 @@ void AValdoriaHeroCharacter::ApplyHeroDefinition()
 		AbilitySystem->SetNumericAttributeBase(UValdoriaAttributeSet::GetMaxShieldAttribute(), Def->MaxShield);
 		AbilitySystem->SetNumericAttributeBase(UValdoriaAttributeSet::GetShieldAttribute(), Def->MaxShield);
 	}
+	bHasWeaponOverride = false;
+	bPendingSlam = false;
+	BreakStealth();
+	SlowFraction = BuffFraction = 0.f;
+	StatusEndTimes.Reset();
 	CurrentAmmo = Def->Weapon.MagazineSize;
 	bReloading = false;
 	CooldownEndTimes.Reset();
@@ -246,6 +278,10 @@ const FValdoriaAbilityEntry* AValdoriaHeroCharacter::FindAbilityEntry(EValdoriaA
 const FValdoriaWeaponStats& AValdoriaHeroCharacter::GetWeaponStats() const
 {
 	static const FValdoriaWeaponStats Default;
+	if (bHasWeaponOverride)
+	{
+		return WeaponOverride;
+	}
 	return ActiveDefinition ? ActiveDefinition->Weapon : Default;
 }
 
@@ -365,7 +401,7 @@ void AValdoriaHeroCharacter::SetupPlayerInputComponent(UInputComponent* PlayerIn
 void AValdoriaHeroCharacter::Input_Move(const FInputActionValue& Value)
 {
 	const FVector2D Axis = Value.Get<FVector2D>();
-	if (!Controller || bIsDead)
+	if (!Controller || bIsDead || HasStatus(EValdoriaStatus::Rooted) || HasStatus(EValdoriaStatus::Stunned))
 	{
 		return;
 	}
@@ -428,6 +464,15 @@ void AValdoriaHeroCharacter::TryActivateSlot(EValdoriaAbilitySlot Slot)
 	{
 		return;
 	}
+	if (!CanUseSlot(Slot))
+	{
+		return;
+	}
+	// Atacar ou usar outra habilidade revela quem está invisível.
+	if (bStealthActive && Slot != StealthSlot)
+	{
+		BreakStealth();
+	}
 	for (const FGameplayAbilitySpec& Spec : AbilitySystem->GetActivatableAbilities())
 	{
 		if (Spec.InputID == static_cast<int32>(Slot))
@@ -442,11 +487,19 @@ void AValdoriaHeroCharacter::TryActivateSlot(EValdoriaAbilitySlot Slot)
 
 bool AValdoriaHeroCharacter::CanFireWeapon() const
 {
+	if (!GetWeaponStats().bUsesAmmo)
+	{
+		return !bIsDead;
+	}
 	return !bIsDead && !bReloading && (CurrentAmmo > 0 || bInfiniteAmmo);
 }
 
 void AValdoriaHeroCharacter::ConsumeAmmo()
 {
+	if (!GetWeaponStats().bUsesAmmo)
+	{
+		return;
+	}
 	if (!bInfiniteAmmo)
 	{
 		CurrentAmmo = FMath::Max(0, CurrentAmmo - 1);
@@ -490,7 +543,7 @@ bool AValdoriaHeroCharacter::IsHeadshot(const FHitResult& Hit)
 void AValdoriaHeroCharacter::StartReload()
 {
 	const FValdoriaWeaponStats& Weapon = GetWeaponStats();
-	if (bIsDead || bReloading || CurrentAmmo >= Weapon.MagazineSize)
+	if (bIsDead || bReloading || !Weapon.bUsesAmmo || CurrentAmmo >= Weapon.MagazineSize)
 	{
 		return;
 	}
@@ -562,6 +615,312 @@ void AValdoriaHeroCharacter::OnDamageTaken(AValdoriaHeroCharacter* DamageInstiga
 	LastDamageTakenTime = GetWorld()->GetTimeSeconds();
 }
 
+// ------------------------------------------------------------------ dano por tipo, cura e efeitos
+
+const FValdoriaPassiveRules& AValdoriaHeroCharacter::GetPassive() const
+{
+	static const FValdoriaPassiveRules Default;
+	return ActiveDefinition ? ActiveDefinition->Passive : Default;
+}
+
+float AValdoriaHeroCharacter::GetPhysicalPower() const { return ActiveDefinition ? ActiveDefinition->PhysicalPower : 1.f; }
+float AValdoriaHeroCharacter::GetMagicPower() const { return ActiveDefinition ? ActiveDefinition->MagicPower : 1.f; }
+float AValdoriaHeroCharacter::GetPhysicalResistance() const { return ActiveDefinition ? ActiveDefinition->PhysicalResistance : 0.f; }
+float AValdoriaHeroCharacter::GetMagicResistance() const { return ActiveDefinition ? ActiveDefinition->MagicResistance : 0.f; }
+
+float AValdoriaHeroCharacter::DealTypedDamage(AActor* Target, float BaseDamage, EValdoriaDamageType Type, float MagicShare, bool bHeadshot)
+{
+	if (!HasAuthority() || !Target || BaseDamage <= 0.f)
+	{
+		return 0.f;
+	}
+	const float Magic = Type == EValdoriaDamageType::Physical ? 0.f : (Type == EValdoriaDamageType::Magical ? 1.f : FMath::Clamp(MagicShare, 0.f, 1.f));
+	float Physical = BaseDamage * (1.f - Magic) * GetPhysicalPower();
+	float Magical = BaseDamage * Magic * GetMagicPower();
+
+	// Barreira inimiga: absorve o dano (sem resistências).
+	if (AValdoriaBarrier* Barrier = Cast<AValdoriaBarrier>(Target))
+	{
+		if (Barrier->TeamId != TeamId)
+		{
+			Barrier->AbsorbDamage((Physical + Magical) * FMath::Max(0.f, GetDamageMultiplier()));
+		}
+		return 0.f;
+	}
+	AValdoriaHeroCharacter* Victim = Cast<AValdoriaHeroCharacter>(Target);
+	if (!Victim || !IsEnemy(Victim))
+	{
+		return 0.f;
+	}
+
+	// Passivas de quem ataca.
+	const FValdoriaPassiveRules& Mine = GetPassive();
+	float Scale = 1.f;
+	if (bHeadshot)
+	{
+		Scale *= 1.f + Mine.HeadshotBonus;
+	}
+	if (Mine.BackstabMultiplier > 1.f)
+	{
+		const FVector ToMe = (GetActorLocation() - Victim->GetActorLocation()).GetSafeNormal2D();
+		if (FVector::DotProduct(Victim->GetActorForwardVector().GetSafeNormal2D(), ToMe) < -0.3f)
+		{
+			Scale *= Mine.BackstabMultiplier;
+		}
+	}
+	// Resistências e passiva de quem apanha.
+	Physical *= 1.f - FMath::Clamp(Victim->GetPhysicalResistance(), 0.f, 0.9f);
+	Magical *= 1.f - FMath::Clamp(Victim->GetMagicResistance(), 0.f, 0.9f);
+	float Total = (Physical + Magical) * Scale * (1.f - Victim->GetPassiveDamageReduction());
+
+	// Proteção de aliado (ex.: Brasa): um aliado perto do alvo assume parte do dano.
+	for (TActorIterator<AValdoriaHeroCharacter> It(GetWorld()); It; ++It)
+	{
+		AValdoriaHeroCharacter* Guard = *It;
+		const FValdoriaPassiveRules& GuardPassive = Guard->GetPassive();
+		if (Guard == Victim || Guard->IsDead() || Guard->TeamId != Victim->TeamId || GuardPassive.AllyDamageShare <= 0.f
+			|| FVector::Dist(Guard->GetActorLocation(), Victim->GetActorLocation()) > GuardPassive.Radius)
+		{
+			continue;
+		}
+		const float Shared = Total * GuardPassive.AllyDamageShare;
+		Total -= Shared;
+		DealDamageTo(Guard, Shared);
+		break;
+	}
+	DealDamageTo(Victim, Total, bHeadshot);
+	return Total;
+}
+
+void AValdoriaHeroCharacter::HealTarget(AActor* Target, float Amount)
+{
+	UAbilitySystemComponent* TargetASC = UAbilitySystemBlueprintLibrary::GetAbilitySystemComponent(Target);
+	const AValdoriaHeroCharacter* Other = Cast<AValdoriaHeroCharacter>(Target);
+	if (!HasAuthority() || !TargetASC || Amount <= 0.f || !Other || Other->IsDead() || Other->GetHealth() >= Other->GetMaxHealth())
+	{
+		return;
+	}
+	FGameplayEffectSpecHandle Spec = AbilitySystem->MakeOutgoingSpec(UValdoriaHealEffect::StaticClass(), 1.f, AbilitySystem->MakeEffectContext());
+	if (Spec.IsValid())
+	{
+		Spec.Data->SetSetByCallerMagnitude(ValdoriaTags::Data_Heal, Amount);
+		AbilitySystem->ApplyGameplayEffectSpecToTarget(*Spec.Data.Get(), TargetASC);
+	}
+}
+
+void AValdoriaHeroCharacter::ApplySlow(float Fraction, float Seconds)
+{
+	const float Now = GetWorld()->GetTimeSeconds();
+	SlowFraction = FMath::Clamp(FMath::Max(Fraction, Now < SlowEndTime ? SlowFraction : 0.f), 0.f, 0.9f);
+	SlowEndTime = FMath::Max(SlowEndTime, Now + Seconds);
+	UpdateMovementSpeed();
+}
+
+void AValdoriaHeroCharacter::ApplySpeedBuff(float Fraction, float Seconds)
+{
+	const float Now = GetWorld()->GetTimeSeconds();
+	BuffFraction = FMath::Max(Fraction, Now < BuffEndTime ? BuffFraction : 0.f);
+	BuffEndTime = FMath::Max(BuffEndTime, Now + Seconds);
+	UpdateMovementSpeed();
+}
+
+void AValdoriaHeroCharacter::StartStealth(float Seconds, float RevealDistance, EValdoriaAbilitySlot FromSlot)
+{
+	bStealthActive = true;
+	bStealthRevealed = false;
+	StealthEndTime = GetWorld()->GetTimeSeconds() + Seconds;
+	StealthRevealDistance = RevealDistance;
+	StealthSlot = FromSlot;
+	UpdateStealthVisibility();
+}
+
+void AValdoriaHeroCharacter::BreakStealth()
+{
+	if (!bStealthActive)
+	{
+		return;
+	}
+	bStealthActive = false;
+	bStealthRevealed = false;
+	UpdateStealthVisibility();
+}
+
+void AValdoriaHeroCharacter::UpdateStealthVisibility()
+{
+	// Invisível = só o próprio jogador vê o corpo (os outros e os bots não).
+	const bool bStealthHidden = IsHiddenByStealth();
+	GetMesh()->SetOnlyOwnerSee(bStealthHidden);
+	WeaponComponent->SetOnlyOwnerSee(bStealthHidden);
+}
+
+void AValdoriaHeroCharacter::SetWeaponOverride(const FValdoriaWeaponStats& Stats, float Seconds)
+{
+	if (!bHasWeaponOverride)
+	{
+		SavedAmmo = CurrentAmmo;
+	}
+	WeaponOverride = Stats;
+	bHasWeaponOverride = true;
+	WeaponOverrideEndTime = GetWorld()->GetTimeSeconds() + Seconds;
+	bReloading = false;
+	GetWorldTimerManager().ClearTimer(ReloadTimer);
+	CurrentAmmo = Stats.MagazineSize;
+}
+
+void AValdoriaHeroCharacter::StartLeapSlam(float Damage, float Radius, EValdoriaDamageType Type)
+{
+	bPendingSlam = true;
+	SlamDamage = Damage;
+	SlamRadius = Radius;
+	SlamType = Type;
+	SlamTimeout = GetWorld()->GetTimeSeconds() + 3.f;
+	const FVector Forward = GetActorForwardVector().GetSafeNormal2D();
+	LaunchCharacter(Forward * 1100.f + FVector(0.f, 0.f, 950.f), true, true);
+}
+
+void AValdoriaHeroCharacter::DoLeapSlamImpact()
+{
+	bPendingSlam = false;
+	const FVector Center = GetActorLocation();
+	PlayAreaEffect(Center, SlamRadius, ActiveDefinition ? ActiveDefinition->ThemeColor : FLinearColor(1.f, 0.4f, 0.1f));
+	if (!HasAuthority())
+	{
+		return;
+	}
+	for (TActorIterator<AValdoriaHeroCharacter> It(GetWorld()); It; ++It)
+	{
+		AValdoriaHeroCharacter* Other = *It;
+		if (!IsEnemy(Other) || FVector::Dist(Other->GetActorLocation(), Center) > SlamRadius)
+		{
+			continue;
+		}
+		DealTypedDamage(Other, SlamDamage, SlamType);
+		const FVector Push = (Other->GetActorLocation() - Center).GetSafeNormal2D() * 900.f + FVector(0.f, 0.f, 500.f);
+		Other->LaunchCharacter(Push, true, true);
+	}
+}
+
+void AValdoriaHeroCharacter::ApplyRecoil(float Degrees)
+{
+	if (Degrees <= 0.f || !IsLocallyControlled() || !Controller)
+	{
+		return;
+	}
+	FRotator Rot = Controller->GetControlRotation();
+	Rot.Pitch += Degrees;
+	Rot.Yaw += FMath::FRandRange(-0.3f, 0.3f) * Degrees;
+	Controller->SetControlRotation(Rot);
+}
+
+float AValdoriaHeroCharacter::GetSpreadMultiplier() const
+{
+	const float Still = GetPassive().StillSpreadMultiplier;
+	if (Still < 1.f && (bIsCrouched || GetVelocity().Size2D() < 50.f) && !GetCharacterMovement()->IsFalling())
+	{
+		return Still;
+	}
+	return 1.f;
+}
+
+void AValdoriaHeroCharacter::IgnoreFriendlyBarriers(FCollisionQueryParams& Params) const
+{
+	for (TActorIterator<AValdoriaBarrier> It(GetWorld()); It; ++It)
+	{
+		if (It->TeamId == TeamId)
+		{
+			Params.AddIgnoredActor(*It);
+		}
+	}
+}
+
+void AValdoriaHeroCharacter::IgnoreFriendlyBarriers(UPrimitiveComponent* Component) const
+{
+	for (TActorIterator<AValdoriaBarrier> It(GetWorld()); It; ++It)
+	{
+		if (It->TeamId == TeamId)
+		{
+			Component->IgnoreActorWhenMoving(*It, true);
+		}
+	}
+}
+
+void AValdoriaHeroCharacter::TickStatusEffects(float DeltaSeconds)
+{
+	const float Now = GetWorld()->GetTimeSeconds();
+	if ((SlowFraction > 0.f && Now >= SlowEndTime) || (BuffFraction > 0.f && Now >= BuffEndTime))
+	{
+		if (Now >= SlowEndTime) SlowFraction = 0.f;
+		if (Now >= BuffEndTime) BuffFraction = 0.f;
+		UpdateMovementSpeed();
+	}
+	if (bHasWeaponOverride && Now >= WeaponOverrideEndTime)
+	{
+		bHasWeaponOverride = false;
+		CurrentAmmo = FMath::Min(SavedAmmo, GetWeaponStats().MagazineSize);
+	}
+	if (bPendingSlam && Now >= SlamTimeout)
+	{
+		DoLeapSlamImpact();
+	}
+	if (bStealthActive)
+	{
+		if (Now >= StealthEndTime || bIsDead)
+		{
+			BreakStealth();
+		}
+		else
+		{
+			// Revela enquanto houver inimigo a menos de StealthRevealDistance.
+			bool bNear = false;
+			for (TActorIterator<AValdoriaHeroCharacter> It(GetWorld()); It && !bNear; ++It)
+			{
+				bNear = IsEnemy(*It) && FVector::Dist(It->GetActorLocation(), GetActorLocation()) <= StealthRevealDistance;
+			}
+			if (bNear != bStealthRevealed)
+			{
+				bStealthRevealed = bNear;
+				UpdateStealthVisibility();
+			}
+		}
+	}
+
+	// Passivas de aliados e aura (4x por segundo, no servidor).
+	PassiveTimer += DeltaSeconds;
+	if (!HasAuthority() || bIsDead || PassiveTimer < 0.25f)
+	{
+		return;
+	}
+	const float Step = PassiveTimer;
+	PassiveTimer = 0.f;
+	const FValdoriaPassiveRules& P = GetPassive();
+	if (P.DamageReductionPerAlly <= 0.f && P.AuraHealPerSecond <= 0.f && P.AllyDamageShare <= 0.f)
+	{
+		PassiveReduction = 0.f;
+		AlliesNearby = 0;
+		return;
+	}
+	int32 Count = 0;
+	for (TActorIterator<AValdoriaHeroCharacter> It(GetWorld()); It; ++It)
+	{
+		AValdoriaHeroCharacter* Other = *It;
+		if (Other == this || Other->IsDead() || Other->TeamId != TeamId || FVector::Dist(Other->GetActorLocation(), GetActorLocation()) > P.Radius)
+		{
+			continue;
+		}
+		++Count;
+		if (P.AuraHealPerSecond > 0.f)
+		{
+			HealTarget(Other, P.AuraHealPerSecond * Step);
+		}
+	}
+	if (P.AuraHealPerSecond > 0.f)
+	{
+		HealTarget(this, P.AuraHealPerSecond * Step);
+	}
+	AlliesNearby = Count;
+	PassiveReduction = FMath::Min(P.MaxDamageReduction, P.DamageReductionPerAlly * Count);
+}
+
 void AValdoriaHeroCharacter::OnDamageDealt(AValdoriaHeroCharacter* Victim, float Damage, bool bHeadshot)
 {
 	if (ActiveDefinition && HasAuthority() && !IsUltimateReady())
@@ -631,7 +990,7 @@ void AValdoriaHeroCharacter::LeaveRagdoll()
 	GetMesh()->SetRelativeTransform(DefaultMeshRelativeTransform);
 	if (ActiveDefinition)
 	{
-		GetMesh()->SetRelativeLocation(FVector(0.f, 0.f, -ActiveDefinition->CapsuleHalfHeight));
+		GetMesh()->SetRelativeLocation(FVector(0.f, 0.f, -ActiveDefinition->CapsuleHalfHeight + ActiveDefinition->HoverHeight));
 	}
 	GetCapsuleComponent()->SetCollisionEnabled(ECollisionEnabled::QueryAndPhysics);
 	GetCharacterMovement()->SetMovementMode(MOVE_Walking);
@@ -655,6 +1014,7 @@ void AValdoriaHeroCharacter::Tick(float DeltaSeconds)
 {
 	Super::Tick(DeltaSeconds);
 	TickMovementFeatures(DeltaSeconds);
+	TickStatusEffects(DeltaSeconds);
 	if (!bIsDead)
 	{
 		UpdateMovementAnimation();
@@ -715,8 +1075,8 @@ void AValdoriaHeroCharacter::SetFirstPerson(bool bEnable)
 	}
 	else if (ActiveDefinition)
 	{
-		CameraBoom->TargetArmLength = ActiveDefinition->CameraDistance;
-		CameraBoom->SocketOffset = ActiveDefinition->CameraOffset;
+		CameraBoom->TargetArmLength = ActiveDefinition->CameraDistance * FMath::Max(1.f, ActiveDefinition->CapsuleHalfHeight / 96.f);
+		CameraBoom->SocketOffset = ActiveDefinition->CameraOffset * FVector(1.f, 1.f, ActiveDefinition->CapsuleHalfHeight / 96.f) + FVector(0.f, 0.f, ActiveDefinition->HoverHeight);
 	}
 	GetMesh()->SetOwnerNoSee(bEnable);
 	WeaponComponent->SetOwnerNoSee(bEnable);
@@ -867,7 +1227,7 @@ void AValdoriaHeroCharacter::UpdateMovementSpeed()
 	}
 	const FValdoriaMovementRules& Rules = GetMovementRules();
 	UCharacterMovementComponent* Move = GetCharacterMovement();
-	float Speed = ActiveDefinition->MoveSpeed * AdminSpeedMultiplier;
+	float Speed = ActiveDefinition->MoveSpeed * AdminSpeedMultiplier * (1.f - SlowFraction) * (1.f + BuffFraction);
 	if (bIsSprinting)
 	{
 		Speed *= Rules.SprintMultiplier;
@@ -1115,6 +1475,10 @@ void AValdoriaHeroCharacter::OnRep_IsProne()
 
 void AValdoriaHeroCharacter::Input_JumpPressed()
 {
+	if (HasStatus(EValdoriaStatus::Rooted) || HasStatus(EValdoriaStatus::Stunned))
+	{
+		return;
+	}
 	bJumpHeld = true;
 	if (!HasAuthority())
 	{
@@ -1387,6 +1751,10 @@ void AValdoriaHeroCharacter::Landed(const FHitResult& Hit)
 	Super::Landed(Hit);
 	WallClimbTimeUsed = 0.f;
 	bWallClimbing = false;
+	if (bPendingSlam)
+	{
+		DoLeapSlamImpact();
+	}
 }
 
 // ------------------------------------------------------------------ animações de movimento
@@ -1413,6 +1781,15 @@ UAnimSequenceBase* AValdoriaHeroCharacter::PickMovementAnimation(bool& bOutLoop)
 	if (bWallClimbing)
 	{
 		return Load(Set.WallClimb);
+	}
+	if (bFlying && !Set.Fly.IsNull())
+	{
+		return Load(Set.Fly);
+	}
+	// Flutuar: pairando sem passos (qualquer velocidade), a não ser agachado.
+	if (ActiveDefinition->Locomotion == EValdoriaLocomotion::Float && !bIsCrouched && !bSliding && !Set.Hover.IsNull())
+	{
+		return Load(Set.Hover);
 	}
 	if (bIsProne)
 	{
@@ -1514,4 +1891,39 @@ void AValdoriaHeroCharacter::StopFlight()
 	{
 		GetCharacterMovement()->SetMovementMode(MOVE_Falling);
 	}
+}
+// ------------------------------------------------------------------ estados de controle
+
+void AValdoriaHeroCharacter::ApplyStatus(EValdoriaStatus Status, float Seconds)
+{
+	if (Seconds <= 0.f || bGodMode)
+	{
+		return;
+	}
+	const float End = GetWorld()->GetTimeSeconds() + Seconds;
+	float& Current = StatusEndTimes.FindOrAdd(Status);
+	Current = FMath::Max(Current, End);
+	if (Status == EValdoriaStatus::Stunned || Status == EValdoriaStatus::CannotAttack)
+	{
+		bFireHeld = false;
+	}
+}
+
+bool AValdoriaHeroCharacter::HasStatus(EValdoriaStatus Status) const
+{
+	const float* End = StatusEndTimes.Find(Status);
+	return End && *End > GetWorld()->GetTimeSeconds();
+}
+
+bool AValdoriaHeroCharacter::CanUseSlot(EValdoriaAbilitySlot Slot) const
+{
+	if (HasStatus(EValdoriaStatus::Stunned))
+	{
+		return false;
+	}
+	if (Slot == EValdoriaAbilitySlot::PrimaryFire)
+	{
+		return !HasStatus(EValdoriaStatus::CannotAttack);
+	}
+	return !HasStatus(EValdoriaStatus::Silenced) && !HasStatus(EValdoriaStatus::CannotUseAbilities);
 }

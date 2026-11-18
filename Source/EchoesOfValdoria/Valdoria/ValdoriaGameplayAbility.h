@@ -31,6 +31,16 @@ public:
 	UPROPERTY(EditDefaultsOnly, Category = "Valdoria")
 	float DefaultRadius = 0.f;
 
+	UPROPERTY(EditDefaultsOnly, Category = "Valdoria")
+	float DefaultDuration = 0.f;
+
+	UPROPERTY(EditDefaultsOnly, Category = "Valdoria")
+	float DefaultSecondary = 0.f;
+
+	/** Tipo de dano padrão (o Data Asset pode trocar). */
+	UPROPERTY(EditDefaultsOnly, Category = "Valdoria")
+	EValdoriaDamageType DefaultDamageType = EValdoriaDamageType::Physical;
+
 	/** Gasta a carga de ultimate inteira ao usar. */
 	UPROPERTY(EditDefaultsOnly, Category = "Valdoria")
 	bool bIsUltimate = false;
@@ -44,6 +54,14 @@ protected:
 	float GetEffectiveCooldown() const;
 	float GetMagnitude() const;
 	float GetRadius() const;
+	float GetDuration() const;
+	float GetSecondary() const;
+	EValdoriaDamageType GetDamageType() const;
+	float GetMagicShare() const;
+	/** Cor do herói (efeitos). */
+	FLinearColor GetThemeColor() const;
+	/** Entrada da habilidade no Data Asset (pode ser nula). */
+	const FValdoriaAbilityEntry* GetEntry() const;
 
 	/** Inicia a recarga e, se for ultimate, consome a carga. Chame ao usar. */
 	void StartCooldownAndCost();

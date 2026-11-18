@@ -7,6 +7,40 @@
 
 class UValdoriaGameplayAbility;
 class UAnimSequenceBase;
+class UTexture2D;
+
+/**
+ * Tipo de dano. Físico = armas e golpes; Mágico = cajados e magias; Híbrido = parte de cada
+ * (a fração mágica fica em HybridMagicShare). O Poder Físico/Mágico de quem ataca aumenta o
+ * dano e a Resistência Física/Mágica de quem apanha reduz.
+ */
+UENUM(BlueprintType)
+enum class EValdoriaDamageType : uint8
+{
+	Physical	UMETA(DisplayName = "Físico"),
+	Magical		UMETA(DisplayName = "Mágico"),
+	Hybrid		UMETA(DisplayName = "Híbrido (físico + mágico)")
+};
+
+/** Como o herói se locomove no chão (visual e altura da hitbox). */
+UENUM(BlueprintType)
+enum class EValdoriaLocomotion : uint8
+{
+	Walk		UMETA(DisplayName = "Andar (passos)"),
+	Float		UMETA(DisplayName = "Flutuar (sem passos, pairando; use HoverHeight)"),
+	RideEffect	UMETA(DisplayName = "Andar sobre um efeito (mágico ou tecnológico; veja RideEffect*; use HoverHeight)")
+};
+
+/** Estados de controle (no alvo ou no próprio herói durante uma habilidade). */
+UENUM(BlueprintType)
+enum class EValdoriaStatus : uint8
+{
+	Silenced			UMETA(DisplayName = "Silenciado (sem habilidades, pode atirar)"),
+	Rooted				UMETA(DisplayName = "Enraizado (não anda, pode atirar)"),
+	Stunned				UMETA(DisplayName = "Atordoado (não faz nada)"),
+	CannotAttack		UMETA(DisplayName = "Não pode atacar"),
+	CannotUseAbilities	UMETA(DisplayName = "Não pode usar habilidades")
+};
 
 /** Funções (roles). São só etiquetas: os atributos vêm de cada personagem. */
 UENUM(BlueprintType)
@@ -25,7 +59,7 @@ enum class EValdoriaAbilitySlot : uint8
 	None		UMETA(DisplayName = "Nenhum"),
 	PrimaryFire	UMETA(DisplayName = "Tiro principal (botão esquerdo)"),
 	SecondaryFire UMETA(DisplayName = "Tiro secundário (botão direito)"),
-	Ability1	UMETA(DisplayName = "Habilidade 1 (Shift)"),
+	Ability1	UMETA(DisplayName = "Habilidade 1 (F)"),
 	Ability2	UMETA(DisplayName = "Habilidade 2 (E)"),
 	Ultimate	UMETA(DisplayName = "Ultimate (Q)")
 };
@@ -104,6 +138,79 @@ struct FValdoriaWeaponStats
 	/** Fração do dano que sobra no fim da queda (0.5 = metade). */
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Arma|Queda de dano", meta = (ClampMin = "0", ClampMax = "1"))
 	float FalloffMinMultiplier = 0.5f;
+
+	// --- Tipo de ataque (o tipo de tiro é a habilidade do botão esquerdo; estes são os números)
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Arma|Tipo")
+	EValdoriaDamageType DamageType = EValdoriaDamageType::Physical;
+
+	/** Fração mágica quando o tipo é Híbrido (0.5 = metade de cada). */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Arma|Tipo", meta = (ClampMin = "0", ClampMax = "1"))
+	float HybridMagicShare = 0.5f;
+
+	/** Usa munição? Desligado = arma corpo a corpo (martelo, lâminas na mão). */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Arma|Tipo")
+	bool bUsesAmmo = true;
+
+	/** Recuo: quanto a mira sobe a cada tiro, em graus. */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Arma|Recuo", meta = (ClampMin = "0"))
+	float RecoilDegrees = 0.f;
+
+	/** Projétil: velocidade (cm/s) e gravidade (0 = reto, 1 = cai como objeto). */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Arma|Projétil", meta = (ClampMin = "100"))
+	float ProjectileSpeed = 6000.f;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Arma|Projétil", meta = (ClampMin = "0"))
+	float ProjectileGravity = 0.f;
+
+	/** Explosão ao bater (raio em cm, 0 = sem explosão). */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Arma|Projétil", meta = (ClampMin = "0"))
+	float SplashRadius = 0.f;
+
+	/** Cura em aliados atingidos pelo projétil (0 = não cura). */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Arma|Projétil", meta = (ClampMin = "0"))
+	float AllyHeal = 0.f;
+};
+
+/**
+ * Passiva do herói: todos os números ficam aqui; o que for 0 (ou 1 nos multiplicadores)
+ * não faz nada. Assim cada herói liga só a parte dele, e dá para misturar.
+ */
+USTRUCT(BlueprintType)
+struct FValdoriaPassiveRules
+{
+	GENERATED_BODY()
+
+	/** Distância (cm) que conta como "perto" para as partes de aliados e aura. */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Passiva", meta = (ClampMin = "0"))
+	float Radius = 800.f;
+
+	/** Redução de dano recebido por aliado perto (0.1 = 10% por aliado). */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Passiva|Aliados", meta = (ClampMin = "0", ClampMax = "1"))
+	float DamageReductionPerAlly = 0.f;
+
+	/** Teto da redução acima. */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Passiva|Aliados", meta = (ClampMin = "0", ClampMax = "0.9"))
+	float MaxDamageReduction = 0.f;
+
+	/** Parte do dano que aliados perto levam e que vem para você (0.05 = 5%). */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Passiva|Aliados", meta = (ClampMin = "0", ClampMax = "1"))
+	float AllyDamageShare = 0.f;
+
+	/** Cura por segundo em você e nos aliados perto. */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Passiva|Aura", meta = (ClampMin = "0"))
+	float AuraHealPerSecond = 0.f;
+
+	/** Dispersão parado ou agachado = dispersão x este valor (1 = sem efeito). */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Passiva|Mira", meta = (ClampMin = "0", ClampMax = "1"))
+	float StillSpreadMultiplier = 1.f;
+
+	/** Dano extra em acertos na cabeça (0.25 = +25%). */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Passiva|Mira", meta = (ClampMin = "0"))
+	float HeadshotBonus = 0.f;
+
+	/** Dano pelas costas = dano x este valor (1 = sem efeito). */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Passiva|Furtivo", meta = (ClampMin = "1"))
+	float BackstabMultiplier = 1.f;
 };
 
 /**
@@ -288,6 +395,12 @@ struct FValdoriaAnimationSet
 	TSoftObjectPtr<UAnimSequenceBase> DashLeft;
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Animações|Impulso")
 	TSoftObjectPtr<UAnimSequenceBase> DashRight;
+
+	/** Pairando (locomoção Flutuar) e voando. */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Animações|Voo")
+	TSoftObjectPtr<UAnimSequenceBase> Hover;
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Animações|Voo")
+	TSoftObjectPtr<UAnimSequenceBase> Fly;
 };
 
 /** Uma habilidade concedida ao personagem. */
@@ -320,4 +433,22 @@ struct FValdoriaAbilityEntry
 	/** Raio/alcance em cm, quando fizer sentido. 0 = padrão. */
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Habilidade")
 	float Radius = 0.f;
+
+	/** Duração em segundos (barreira, zona, invisibilidade, lentidão...). 0 = padrão. */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Habilidade")
+	float Duration = 0.f;
+
+	/** Segundo valor; o significado depende da habilidade (está na descrição dela). 0 = padrão. */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Habilidade")
+	float SecondaryMagnitude = 0.f;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Habilidade")
+	EValdoriaDamageType DamageType = EValdoriaDamageType::Physical;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Habilidade", meta = (ClampMin = "0", ClampMax = "1"))
+	float HybridMagicShare = 0.5f;
+
+	/** Ícone no HUD. */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Habilidade")
+	TSoftObjectPtr<UTexture2D> Icon;
 };
