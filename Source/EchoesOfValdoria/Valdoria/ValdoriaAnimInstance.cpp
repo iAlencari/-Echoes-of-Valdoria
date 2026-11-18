@@ -171,7 +171,7 @@ bool FValdoriaAnimProxy::Evaluate(FPoseContext& Output)
 	};
 
 	// 2) Held pose (e.g. arm forward while flying fast).
-	if (Frame.Pose && Frame.PoseWeight > 0.f)
+	if (Frame.Pose && Frame.PoseWeight > 0.f && Frame.Pose->GetAdditiveAnimType() == AAT_None)
 	{
 		FPoseContext Pose(Output);
 		ExtractPose(Frame.Pose, Frame.PoseTime, false, Pose);
@@ -181,9 +181,24 @@ bool FValdoriaAnimProxy::Evaluate(FPoseContext& Output)
 	// 3) Action: whole body or spine_01 and up.
 	if (Frame.Action && Frame.ActionWeight > 0.f)
 	{
-		FPoseContext Action(Output);
-		ExtractPose(Frame.Action, Frame.ActionTime, false, Action);
-		BlendUpper(Action, Frame.ActionWeight, Frame.bActionFullBody);
+		const EAdditiveAnimationType Additive = Frame.Action->GetAdditiveAnimType();
+		if (Additive != AAT_None)
+		{
+			// Additive clips (e.g. the Epic rifle fire/reload) only hold differences: add them on top.
+			// Extracting them as a normal pose collapsed the upper body (it "disappeared").
+			FPoseContext Delta(Output, true);
+			ExtractPose(Frame.Action, Frame.ActionTime, false, Delta);
+			FAnimationPoseData OutData(Output);
+			const FAnimationPoseData DeltaData(Delta);
+			FAnimationRuntime::AccumulateAdditivePose(OutData, DeltaData, Frame.ActionWeight, Additive);
+			Output.Pose.NormalizeRotations();
+		}
+		else
+		{
+			FPoseContext Action(Output);
+			ExtractPose(Frame.Action, Frame.ActionTime, false, Action);
+			BlendUpper(Action, Frame.ActionWeight, Frame.bActionFullBody);
+		}
 	}
 	return true;
 }

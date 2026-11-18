@@ -114,6 +114,10 @@ UValdoriaHeroDefinition* UValdoriaHeroDefinition::CreateFallbackRecruit(UObject*
 	// Rifle (Kael) do pacote de armas do Meshy, separado por Scripts/split_weapons.py.
 	Def->WeaponMesh = TSoftObjectPtr<UStaticMesh>(FSoftObjectPath(TEXT("/Game/Valdoria/Weapons/Merged/SM_Arma_Rifle.SM_Arma_Rifle")));
 	Def->WeaponOffset = FTransform(FRotator(90.f, 0.f, 0.f), FVector(0.f, 0.f, 0.f), FVector(1.6f));
+	// The Recruit holds the rifle too: use the same rifle animations, socket and offset as Kael
+	// (before this it punched with the rifle in hand).
+	Def->ApplyPresetLooks(TEXT("kael"));
+	Def->BodyWidth = Def->BodyDepth = Def->BodyHeight = 1.f;
 	Def->PassiveName = NSLOCTEXT("Valdoria", "RecruitPassive", "Treinamento básico");
 	Def->PassiveDescription = NSLOCTEXT("Valdoria", "RecruitPassiveDesc", "Shift: segurar corre, dois toques dão um impulso (2 cargas). Ctrl agacha (correndo, desliza), X deita, Espaço sobe em beiradas e escala paredes.");
 	return Def;
