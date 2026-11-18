@@ -1,0 +1,209 @@
+// Echoes of Valdoria - modo de jogo de treino.
+
+#include "ValdoriaGameMode.h"
+#include "EngineUtils.h"
+#include "Camera/CameraComponent.h"
+#include "GameFramework/SpringArmComponent.h"
+#include "Components/CapsuleComponent.h"
+#include "GameFramework/CharacterMovementComponent.h"
+#include "Misc/CommandLine.h"
+#include "Misc/Paths.h"
+#include "UnrealClient.h"
+#include "GameFramework/PlayerStart.h"
+#include "TimerManager.h"
+#include "ValdoriaHUD.h"
+#include "ValdoriaHeroCharacter.h"
+#include "ValdoriaHeroDefinition.h"
+#include "ValdoriaPlayerController.h"
+#include "ValdoriaTrainingDummy.h"
+
+AValdoriaGameMode::AValdoriaGameMode()
+{
+	DefaultPawnClass = AValdoriaHeroCharacter::StaticClass();
+	PlayerControllerClass = AValdoriaPlayerController::StaticClass();
+	HUDClass = AValdoriaHUD::StaticClass();
+}
+
+APawn* AValdoriaGameMode::SpawnDefaultPawnFor_Implementation(AController* NewPlayer, AActor* StartSpot)
+{
+	APawn* Pawn = Super::SpawnDefaultPawnFor_Implementation(NewPlayer, StartSpot);
+	if (AValdoriaHeroCharacter* Hero = Cast<AValdoriaHeroCharacter>(Pawn))
+	{
+		if (DefaultHero)
+		{
+			Hero->SetHeroDefinition(DefaultHero);
+		}
+	}
+	return Pawn;
+}
+
+void AValdoriaGameMode::StartPlay()
+{
+	Super::StartPlay();
+	if (bSpawnTrainingDummies)
+	{
+		SpawnTrainingDummies();
+	}
+	if (FParse::Param(FCommandLine::Get(), TEXT("ValdoriaAutoTest")))
+	{
+		GetWorldTimerManager().SetTimer(AutoTestTimer, this, &AValdoriaGameMode::RunAutoTestStep, 0.15f, true, 4.f);
+	}
+}
+
+void AValdoriaGameMode::RunAutoTestStep()
+{
+	APlayerController* PC = GetWorld()->GetFirstPlayerController();
+	AValdoriaHeroCharacter* Hero = PC ? Cast<AValdoriaHeroCharacter>(PC->GetPawn()) : nullptr;
+	AValdoriaTrainingDummy* Target = nullptr;
+	for (TActorIterator<AValdoriaTrainingDummy> It(GetWorld()); It; ++It)
+	{
+		if (It->Kind == EValdoriaDummyKind::Basic)
+		{
+			Target = *It;
+		}
+	}
+	if (!Hero || !Target)
+	{
+		UE_LOG(LogValdoria, Error, TEXT("AUTOTEST falhou: heroi=%d boneco=%d"), Hero != nullptr, Target != nullptr);
+		FPlatformMisc::RequestExit(false);
+		return;
+	}
+	++AutoTestStep;
+	// Mira no peito do boneco básico.
+	const FVector Aim = Target->GetActorLocation() + FVector(0, 0, 30.f);
+	FVector CamStart, Dir;
+	Hero->GetAimRay(CamStart, Dir);
+	// Mira a partir da câmera (como o jogador faz com a mira no centro da tela).
+	for (int32 i = 0; i < 2; ++i)
+	{
+		PC->SetControlRotation((Aim - Hero->GetFollowCamera()->GetComponentLocation()).Rotation());
+		Hero->GetCameraBoom()->UpdateComponentToWorld();
+		Hero->GetCameraBoom()->TickComponent(0.f, LEVELTICK_All, nullptr);
+	}
+
+	if (AutoTestStep <= 12)
+	{
+		Hero->TryActivateSlot(EValdoriaAbilitySlot::PrimaryFire);
+	}
+	else if (AutoTestStep == 14)
+	{
+		UE_LOG(LogValdoria, Display, TEXT("AUTOTEST tiro: boneco vida=%.0f/%.0f municao=%d"), Target->GetHealth(), Target->GetMaxHealth(), Hero->GetAmmo());
+		Hero->SetSprinting(true);
+		UE_LOG(LogValdoria, Display, TEXT("AUTOTEST correr: velocidade=%.0f"), Hero->GetCharacterMovement()->MaxWalkSpeed);
+		Hero->SetSprinting(false);
+		// impulso testado depois do deitar (precisa estar no chão)
+	}
+	else if (AutoTestStep == 17)
+	{
+		Hero->SetProne(true);
+	}
+	else if (AutoTestStep == 18)
+	{
+		UE_LOG(LogValdoria, Display, TEXT("AUTOTEST deitar: deitado=%d agachado=%d altura=%.0f"), Hero->IsProne(), Hero->bIsCrouched,
+			Hero->GetCapsuleComponent()->GetUnscaledCapsuleHalfHeight());
+		Hero->SetProne(false);
+		Hero->TryDash();
+		UE_LOG(LogValdoria, Display, TEXT("AUTOTEST impulso: cargas restantes=%d"), Hero->GetDashCharges());
+	}
+	else if (AutoTestStep == 19)
+	{
+		Hero->AdminFillUltimate();
+	}
+	else if (AutoTestStep == 20)
+	{
+		Hero->TryActivateSlot(EValdoriaAbilitySlot::Ultimate);
+	}
+	else if (AutoTestStep == 21)
+	{
+		UE_LOG(LogValdoria, Display, TEXT("AUTOTEST ultimate: carga=%.0f%% boneco vida=%.0f"), Hero->GetUltimatePercent() * 100.f, Target->GetHealth());
+		PC->SetControlRotation((Target->GetActorLocation() - Hero->GetActorLocation()).Rotation() + FRotator(-8.f, 0.f, 0.f));
+	}
+	else if (AutoTestStep == 26)
+	{
+		const FString Path = FPaths::ConvertRelativePathToFull(FPaths::ProjectSavedDir() / TEXT("Screenshots/AutoTest.png"));
+		FScreenshotRequest::RequestScreenshot(Path, true, false);
+		UE_LOG(LogValdoria, Display, TEXT("AUTOTEST captura: %s"), *Path);
+	}
+	else if (AutoTestStep >= 34)
+	{
+		UE_LOG(LogValdoria, Display, TEXT("AUTOTEST fim"));
+		GetWorldTimerManager().ClearTimer(AutoTestTimer);
+		FPlatformMisc::RequestExit(false);
+	}
+}
+
+void AValdoriaGameMode::SpawnTrainingDummies()
+{
+	FTransform Origin = FTransform::Identity;
+	for (TActorIterator<APlayerStart> It(GetWorld()); It; ++It)
+	{
+		Origin = It->GetActorTransform();
+		break;
+	}
+	const FVector Forward = Origin.GetRotation().GetForwardVector().GetSafeNormal2D();
+	const FVector Right = FVector::CrossProduct(FVector::UpVector, Forward);
+	const FRotator Facing = (-Forward).Rotation();
+
+	struct FDummySetup { float Distance; float Side; EValdoriaDummyKind Kind; };
+	const FDummySetup Setups[] = {
+		{ 900.f, -350.f, EValdoriaDummyKind::Basic },
+		{ 900.f, 0.f, EValdoriaDummyKind::Armored },
+		{ 900.f, 350.f, EValdoriaDummyKind::Shielded },
+		{ 1800.f, 0.f, EValdoriaDummyKind::Strafing },
+	};
+	for (const FDummySetup& S : Setups)
+	{
+		const FVector Location = Origin.GetLocation() + Forward * S.Distance + Right * S.Side + FVector(0, 0, 20.f);
+		FActorSpawnParameters Params;
+		Params.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AdjustIfPossibleButAlwaysSpawn;
+		if (AValdoriaTrainingDummy* Dummy = GetWorld()->SpawnActorDeferred<AValdoriaTrainingDummy>(
+			AValdoriaTrainingDummy::StaticClass(), FTransform(Facing, Location), nullptr, nullptr,
+			ESpawnActorCollisionHandlingMethod::AdjustIfPossibleButAlwaysSpawn))
+		{
+			Dummy->Kind = S.Kind;
+			Dummy->FinishSpawning(FTransform(Facing, Location));
+		}
+	}
+}
+
+void AValdoriaGameMode::OnHeroKilled(AValdoriaHeroCharacter* Victim, AValdoriaHeroCharacter* Killer)
+{
+	if (!Victim)
+	{
+		return;
+	}
+	if (AValdoriaTrainingDummy* Dummy = Cast<AValdoriaTrainingDummy>(Victim))
+	{
+		Dummy->ScheduleRevive();
+		return;
+	}
+	if (AController* Controller = Victim->GetController())
+	{
+		FTimerHandle Handle;
+		FTimerDelegate Delegate = FTimerDelegate::CreateUObject(this, &AValdoriaGameMode::RespawnPlayer, Controller);
+		GetWorldTimerManager().SetTimer(Handle, Delegate, PlayerRespawnDelay, false);
+	}
+}
+
+void AValdoriaGameMode::RespawnPlayer(AController* Controller)
+{
+	if (!Controller)
+	{
+		return;
+	}
+	UValdoriaHeroDefinition* Keep = nullptr;
+	if (AValdoriaHeroCharacter* Old = Cast<AValdoriaHeroCharacter>(Controller->GetPawn()))
+	{
+		Keep = Old->HeroDefinition;
+		Controller->UnPossess();
+		Old->Destroy();
+	}
+	RestartPlayer(Controller);
+	if (Keep)
+	{
+		if (AValdoriaHeroCharacter* NewHero = Cast<AValdoriaHeroCharacter>(Controller->GetPawn()))
+		{
+			NewHero->SetHeroDefinition(Keep);
+		}
+	}
+}

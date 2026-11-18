@@ -1,0 +1,27 @@
+# Unreal Engine - arquivos gerados (não versionar)
+Binaries/
+DerivedDataCache/
+Intermediate/
+Saved/
+.vs/
+.vsconfig.user
+*.sln
+*.slnx
+*.suo
+*.opensdf
+*.sdf
+*.VC.db
+*.VC.opendb
+*.xcworkspace
+.idea/
+Build/
+!Build/**/*.ico
+
+# Plugins compilados localmente
+Plugins/**/Binaries/
+Plugins/**/Intermediate/
+
+# Sistema
+Thumbs.db
+desktop.ini
+.DS_Store
