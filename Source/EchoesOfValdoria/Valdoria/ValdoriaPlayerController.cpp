@@ -5,6 +5,7 @@
 #include "Engine/Engine.h"
 #include "Engine/GameViewportClient.h"
 #include "Framework/Application/SlateApplication.h"
+#include "Framework/Application/NavigationConfig.h"
 #include "Kismet/KismetSystemLibrary.h"
 #include "Styling/CoreStyle.h"
 #include "Widgets/Input/SButton.h"
@@ -22,6 +23,8 @@ void AValdoriaPlayerController::BeginPlay()
 	{
 		ApplyGameInput();
 		ApplyOptionsToGame();
+		// Enter abre o chat (capturado antes do Slate, que engolia a tecla).
+		RegisterChatKey();
 	}
 }
 
@@ -29,6 +32,7 @@ void AValdoriaPlayerController::EndPlay(const EEndPlayReason::Type EndPlayReason
 {
 	ClosePauseMenu();
 	CloseAdminPanel();
+	UnregisterChatKey();
 	Super::EndPlay(EndPlayReason);
 }
 
@@ -42,7 +46,7 @@ void AValdoriaPlayerController::SetupInputComponent()
 	AltDown.bExecuteWhenPaused = true;
 	FInputKeyBinding& AltUp = InputComponent->BindKey(EKeys::LeftAlt, IE_Released, this, &AValdoriaPlayerController::FreeCursorReleased);
 	AltUp.bExecuteWhenPaused = true;
-	FInputKeyBinding& Admin = InputComponent->BindKey(EKeys::F1, IE_Pressed, this, &AValdoriaPlayerController::ToggleAdminPanel);
+	FInputKeyBinding& Admin = InputComponent->BindKey(EKeys::F10, IE_Pressed, this, &AValdoriaPlayerController::ToggleAdminPanel);
 	Admin.bExecuteWhenPaused = true;
 	InputComponent->BindKey(EKeys::Enter, IE_Pressed, this, &AValdoriaPlayerController::OpenChat);
 	InputComponent->BindKey(EKeys::K, IE_Pressed, this, &AValdoriaPlayerController::HelpPressed);
@@ -195,7 +199,7 @@ void AValdoriaPlayerController::OpenPauseMenu()
 					})
 					[
 						SNew(STextBlock).Font(FCoreStyle::GetDefaultFontStyle("Bold", 16))
-						.Text_Lambda([this]() { return bAdminMode ? LOCTEXT("AdminOn", "Modo administrador: LIGADO (F1)") : LOCTEXT("AdminOff", "Modo administrador: desligado"); })
+						.Text_Lambda([this]() { return bAdminMode ? LOCTEXT("AdminOn", "Modo administrador: LIGADO (F10)") : LOCTEXT("AdminOff", "Modo administrador: desligado"); })
 					]
 				]
 			]

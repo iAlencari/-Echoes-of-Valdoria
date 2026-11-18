@@ -19,6 +19,8 @@ class ECHOESOFVALDORIA_API AValdoriaPlayerController : public APlayerController
 public:
 	bool IsPauseMenuOpen() const { return PauseWidget.IsValid(); }
 	bool IsAdminPanelOpen() const { return AdminWidget.IsValid(); }
+	bool IsChatOpen() const { return ChatWidget.IsValid(); }
+	bool IsAdminMode() const { return bAdminMode; }
 	void DebugSetAdminMode(bool bOn) { bAdminMode = bOn; }
 	void DebugOpenSettings() { OpenSettings(); }
 
@@ -76,7 +78,12 @@ protected:
 	TSharedPtr<SWidget> SettingsWidget;
 
 	// --- Chat (Enter) com comandos: /adm, /ajuda... (ValdoriaChat.cpp)
+public:
 	void OpenChat();
+protected:
+	void RegisterChatKey();
+	void UnregisterChatKey();
+	TSharedPtr<class IInputProcessor> ChatKeyProcessor;
 	void CloseChat();
 	void SubmitChat(const FString& Text);
 	void RunChatCommand(const FString& Command);

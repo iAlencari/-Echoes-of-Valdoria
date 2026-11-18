@@ -248,7 +248,7 @@ TSharedRef<SWidget> AValdoriaPlayerController::BuildSettingsScreen()
 	Ctrl->AddSlot().AutoHeight().Padding(4.f, 12.f)
 	[
 		SNew(STextBlock).AutoWrapText(true).Font(Font(11)).ColorAndOpacity(FLinearColor(0.75f, 0.77f, 0.82f))
-		.Text(LOCTEXT("Keys", "Teclas: WASD andar • Mouse mirar • Esq. atirar • Dir. secundário • R recarregar • Shift correr/impulso • Ctrl agachar (correndo, desliza) • X deitar • Espaço pular/subir/escalar • F e E habilidades • Q ultimate • K ajuda das habilidades • Esc menu • Alt soltar o mouse • F1 painel de administrador"))
+		.Text(LOCTEXT("Keys", "Teclas: WASD andar • Mouse mirar • Esq. atirar • Dir. secundário • R recarregar • Shift correr/impulso • Ctrl agachar (correndo, desliza) • X deitar • Espaço pular/subir/escalar • F e E habilidades • Q ultimate • K ajuda das habilidades • Esc menu • Alt soltar o mouse • F10 painel de administrador"))
 	];
 
 	Pages->AddSlot()[SNew(SScrollBox) + SScrollBox::Slot()[Gfx]];

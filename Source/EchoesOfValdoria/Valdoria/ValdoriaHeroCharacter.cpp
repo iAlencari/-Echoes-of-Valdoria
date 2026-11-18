@@ -326,6 +326,9 @@ void AValdoriaHeroCharacter::NotifyControllerChanged()
 	{
 		if (UEnhancedInputLocalPlayerSubsystem* Subsystem = ULocalPlayer::GetSubsystem<UEnhancedInputLocalPlayerSubsystem>(PC->GetLocalPlayer()))
 		{
+			// Limpa contextos de personagens anteriores (após renascer, o contexto do corpo antigo
+			// ainda "segurava" o WASD e o herói novo ficava parado).
+			Subsystem->ClearAllMappings();
 			Subsystem->AddMappingContext(DefaultMapping, 10);
 		}
 	}

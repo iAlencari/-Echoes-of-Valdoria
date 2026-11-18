@@ -44,6 +44,12 @@ protected:
 	/** Teste automático (-ValdoriaAutoTest): atira nos bonecos, usa habilidades,
 	 *  registra o resultado no log, tira uma captura de tela e fecha o jogo. */
 	void RunAutoTestStep();
+	/** Teste de entrada (-ValdoriaInputTest): teclas de verdade pelo Slate + morrer duas vezes. */
+	void RunInputTestStep();
+	void PressKey(const FKey& Key, bool bDown);
+	int32 InputTestStep = 0;
+	FVector InputTestStartLoc = FVector::ZeroVector;
+	int32 InputTestDeaths = 0;
 	int32 AutoTestStep = 0;
 	FTimerHandle AutoTestTimer;
 };

@@ -247,3 +247,17 @@ Referências do dono (imagens, descritas em texto): barra de aliado ciano e de i
   - Materiais `M_NP_Blockout` + instâncias em `/Game/Maps/NP_Materials`. O modo de jogo escolhe o spawn sem etiqueta (time 1). Abre pelo painel (Mapa) ou `/mapa np`.
 - **Armas**: `Scripts/split_weapons.py` agora separa as 158 peças do FBX por região (vista de frente) em 11 malhas: `SM_Arma_Rifle`, `Martelo`, `EscudoA`, `EscudoB`, `CajadoA`, `CajadoB`, `Bastao`, `LaminasA`, `LaminasB`, `PecaPequena`, `Extras` (uma placa grande). O Recruta segura o **rifle** (novo campo `WeaponMesh`/`WeaponSocket`/`WeaponOffset` no Data Asset; escala 2,2, rotação Pitch 90 no `hand_r`). A pose de segurar ainda é a de mãos livres (falta animação de arma).
 - Teste automático completo passou no mapa NP (tiro, correr, deitar sem ação, impulso, ultimate, agachar, admin, ajuda, pausa/configurações).
+
+### Turno 18 — Claude Code — 18/11/2026 (bugs relatados pelo dono, agora testados com teclas de verdade)
+**Falas do dono:**
+> "bug do hp continua, outro bug a segunda vez que morri meu boneco ficou travado no spawn, enter nao abre chat nenhum, tem certeza que vc fez isso?"
+>
+> "o botao f1 ativa outros graficos entao tem que trocar o atalho"
+
+- **Honestidade:** no turno 17 o chat, o painel e as correções foram só compilados, sem teste de tecla real. Os três bugs eram reais.
+- Novo teste `-ValdoriaInputTest` (`AValdoriaGameMode::RunInputTestStep`): aperta teclas pelo mesmo caminho do teclado (Slate → viewport → jogo): Enter, digita "/adm", Enter, F10, Esc, Esc, K; depois mata o herói **duas vezes** e confere se ele anda depois de cada renascimento. Resultado final: tudo OK (chat abre, /adm liga o modo e abre o painel, F10 alterna, Esc pausa/volta, K abre/fecha, anda 7,6 m depois de cada renascimento).
+- **Enter não abria o chat** — duas causas: (1) o Slate usa Enter como "confirmar" e engolia a tecla; agora um `IInputProcessor` (`FValdoriaChatKeyProcessor`) pega o Enter antes; (2) o chat fechava sozinho ao perder o foco; agora só fecha com Enter (envia) ou Esc (cancela).
+- **Travado depois da 2ª morte:** o contexto de entrada (WASD) do corpo antigo continuava registrado e "segurava" as teclas; agora `ClearAllMappings()` antes de adicionar o do herói novo.
+- **Barra de vida "no cilindro verde":** era o boneco "andando de lado", que nascia em cima do cilindro (1800 cm à frente). Agora cada boneco procura chão na mesma altura do spawn, aproximando-se até achar.
+- **Painel de admin passou do F1 para o F10** (no editor, F1 é o atalho da Unreal que muda o modo de visualização).
+- Prints: `Saved/Screenshots/Input_Chat.png`, `Input_Adm.png`, `Input_Renasceu1.png`, `Input_Renasceu2.png`.

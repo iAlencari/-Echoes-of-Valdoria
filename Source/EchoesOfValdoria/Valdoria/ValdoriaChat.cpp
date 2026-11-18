@@ -14,7 +14,47 @@
 #include "Widgets/Input/SEditableTextBox.h"
 #include "Widgets/Layout/SBox.h"
 
+#include "Framework/Application/IInputProcessor.h"
+
 #define LOCTEXT_NAMESPACE "ValdoriaChat"
+
+/** Pega o Enter antes de qualquer widget (o Slate usava o Enter para "confirmar" e ele nunca
+ *  chegava ao jogo). Só age quando o chat está fechado e não há menu aberto. */
+class FValdoriaChatKeyProcessor : public IInputProcessor
+{
+public:
+	explicit FValdoriaChatKeyProcessor(AValdoriaPlayerController* InPC) : PC(InPC) {}
+	virtual void Tick(const float DeltaTime, FSlateApplication& SlateApp, TSharedRef<ICursor> Cursor) override {}
+	virtual bool HandleKeyDownEvent(FSlateApplication& SlateApp, const FKeyEvent& InKeyEvent) override
+	{
+		if (InKeyEvent.GetKey() == EKeys::Enter && PC.IsValid() && !PC->IsChatOpen() && !PC->IsPauseMenuOpen())
+		{
+			PC->OpenChat();
+			return true;
+		}
+		return false;
+	}
+	virtual const TCHAR* GetDebugName() const override { return TEXT("ValdoriaChat"); }
+	TWeakObjectPtr<AValdoriaPlayerController> PC;
+};
+
+void AValdoriaPlayerController::RegisterChatKey()
+{
+	if (FSlateApplication::IsInitialized() && !ChatKeyProcessor.IsValid())
+	{
+		ChatKeyProcessor = MakeShared<FValdoriaChatKeyProcessor>(this);
+		FSlateApplication::Get().RegisterInputPreProcessor(ChatKeyProcessor);
+	}
+}
+
+void AValdoriaPlayerController::UnregisterChatKey()
+{
+	if (FSlateApplication::IsInitialized() && ChatKeyProcessor.IsValid())
+	{
+		FSlateApplication::Get().UnregisterInputPreProcessor(ChatKeyProcessor);
+	}
+	ChatKeyProcessor.Reset();
+}
 
 void AValdoriaPlayerController::ChatPrint(const FString& Line, const FLinearColor& Color)
 {
@@ -48,11 +88,17 @@ void AValdoriaPlayerController::OpenChat()
 					{
 						return;
 					}
+					// Só fecha ao apertar Enter (envia) ou Esc (cancela). Perder o foco (ex.: o jogo
+					// mudando o modo de entrada) fechava o chat logo depois de abrir.
 					if (Type == ETextCommit::OnEnter)
 					{
 						WeakThis->SubmitChat(Text.ToString());
+						WeakThis->CloseChat();
 					}
-					WeakThis->CloseChat();
+					else if (Type == ETextCommit::OnCleared)
+					{
+						WeakThis->CloseChat();
+					}
 				})
 			]
 		];
@@ -120,7 +166,7 @@ void AValdoriaPlayerController::RunChatCommand(const FString& Command)
 		if (bAdminMode)
 		{
 			OpenAdminPanel();
-			ChatPrint(TEXT("Modo administrador LIGADO. F1 abre/fecha o painel; segure Alt para clicar nele."), Ok);
+			ChatPrint(TEXT("Modo administrador LIGADO. F10 abre/fecha o painel; segure Alt para clicar nele."), Ok);
 		}
 		else
 		{

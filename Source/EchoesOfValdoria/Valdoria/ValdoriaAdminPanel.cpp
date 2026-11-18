@@ -273,7 +273,7 @@ TSharedRef<SWidget> AValdoriaPlayerController::BuildAdminPanel()
 	];
 	Box->AddSlot().AutoHeight()
 	[
-		SNew(STextBlock).Text(LOCTEXT("Hint", "F1 fecha  •  segure Alt para clicar aqui  •  sem Alt você anda e mira normalmente")).Font(Font(10)).ColorAndOpacity(FLinearColor(0.7f, 0.72f, 0.78f))
+		SNew(STextBlock).Text(LOCTEXT("Hint", "F10 fecha  •  segure Alt para clicar aqui  •  sem Alt você anda e mira normalmente")).Font(Font(10)).ColorAndOpacity(FLinearColor(0.7f, 0.72f, 0.78f))
 	];
 
 	// --- Herói
@@ -612,7 +612,7 @@ TSharedRef<SWidget> AValdoriaPlayerController::BuildAdminPanel()
 		[WeakThis]() { const AValdoriaHUD* H = WeakThis.IsValid() ? Cast<AValdoriaHUD>(WeakThis->GetHUD()) : nullptr; return H && H->bShowStats; },
 		[WeakThis](bool b) { if (AValdoriaHUD* H = WeakThis.IsValid() ? Cast<AValdoriaHUD>(WeakThis->GetHUD()) : nullptr) H->bShowStats = b; })];
 
-	Box->AddSlot().AutoHeight().Padding(0.f, 12.f, 0.f, 0.f)[Button(LOCTEXT("Close", "Fechar (F1)"), [WeakThis]() { if (WeakThis.IsValid()) WeakThis->CloseAdminPanel(); })];
+	Box->AddSlot().AutoHeight().Padding(0.f, 12.f, 0.f, 0.f)[Button(LOCTEXT("Close", "Fechar (F10)"), [WeakThis]() { if (WeakThis.IsValid()) WeakThis->CloseAdminPanel(); })];
 
 	return SNew(SBox)
 		.HAlign(HAlign_Left)

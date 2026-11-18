@@ -20,6 +20,8 @@
 #include "ValdoriaHeroDefinition.h"
 #include "ValdoriaPlayerController.h"
 #include "ValdoriaTrainingDummy.h"
+#include "Framework/Application/SlateApplication.h"
+#include "Input/Events.h"
 
 AValdoriaGameMode::AValdoriaGameMode()
 {
@@ -84,6 +86,14 @@ void AValdoriaGameMode::StartPlay()
 	if (FParse::Param(FCommandLine::Get(), TEXT("ValdoriaAutoTest")))
 	{
 		GetWorldTimerManager().SetTimer(AutoTestTimer, this, &AValdoriaGameMode::RunAutoTestStep, 0.15f, true, 4.f);
+	}
+	if (FParse::Param(FCommandLine::Get(), TEXT("ValdoriaInputTest")))
+	{
+		FTSTicker::GetCoreTicker().AddTicker(FTickerDelegate::CreateWeakLambda(this, [this](float)
+		{
+			RunInputTestStep();
+			return InputTestStep < 1000;
+		}), 0.25f);
 	}
 }
 
@@ -283,9 +293,39 @@ void AValdoriaGameMode::SpawnTrainingDummies()
 		{ 900.f, 350.f, EValdoriaDummyKind::Shielded },
 		{ 1800.f, 0.f, EValdoriaDummyKind::Strafing },
 	};
+	// Altura do chão no ponto de nascimento: os bonecos só ficam onde o chão tem a mesma altura
+	// (antes um deles podia nascer em cima de um bloco do mapa, e a barra aparecia "no bloco").
+	auto GroundZ = [this](const FVector& P, float& OutZ)
+	{
+		FHitResult Hit;
+		FCollisionQueryParams Params(SCENE_QUERY_STAT(ValdoriaDummyGround), false);
+		if (GetWorld()->LineTraceSingleByChannel(Hit, P + FVector(0, 0, 400.f), P - FVector(0, 0, 3000.f), ECC_WorldStatic, Params))
+		{
+			OutZ = Hit.ImpactPoint.Z;
+			return true;
+		}
+		return false;
+	};
+	float StartGround = Origin.GetLocation().Z - 90.f;
+	GroundZ(Origin.GetLocation(), StartGround);
 	for (const FDummySetup& S : Setups)
 	{
-		const FVector Location = Origin.GetLocation() + Forward * S.Distance + Right * S.Side + FVector(0, 0, 20.f);
+		FVector Location = FVector::ZeroVector;
+		bool bFound = false;
+		for (float Dist = S.Distance; Dist >= 300.f && !bFound; Dist -= 150.f)
+		{
+			const FVector Candidate = Origin.GetLocation() + Forward * Dist + Right * S.Side;
+			float Z = 0.f;
+			if (GroundZ(Candidate, Z) && FMath::Abs(Z - StartGround) < 60.f)
+			{
+				Location = FVector(Candidate.X, Candidate.Y, Z + 100.f);
+				bFound = true;
+			}
+		}
+		if (!bFound)
+		{
+			continue;
+		}
 		FActorSpawnParameters Params;
 		Params.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AdjustIfPossibleButAlwaysSpawn;
 		if (AValdoriaTrainingDummy* Dummy = GetWorld()->SpawnActorDeferred<AValdoriaTrainingDummy>(
@@ -350,5 +390,93 @@ void AValdoriaGameMode::RespawnPlayer(AController* Controller)
 		{
 			NewHero->SetHeroDefinition(Keep);
 		}
+	}
+}
+
+
+void AValdoriaGameMode::PressKey(const FKey& Key, bool bDown)
+{
+	// Passa pelo mesmo caminho do teclado de verdade (Slate -> viewport -> jogo).
+	FKeyEvent Event(Key, FModifierKeysState(), 0, false, 0, 0);
+	if (bDown)
+	{
+		FSlateApplication::Get().ProcessKeyDownEvent(Event);
+	}
+	else
+	{
+		FSlateApplication::Get().ProcessKeyUpEvent(Event);
+	}
+}
+
+void AValdoriaGameMode::RunInputTestStep()
+{
+	++InputTestStep;
+	if (InputTestStep < 16)
+	{
+		return; // ~4 s para o jogo assentar
+	}
+	AValdoriaPlayerController* PC = Cast<AValdoriaPlayerController>(GetWorld()->GetFirstPlayerController());
+	AValdoriaHeroCharacter* Hero = PC ? Cast<AValdoriaHeroCharacter>(PC->GetPawn()) : nullptr;
+	const int32 S = InputTestStep - 15;
+	auto Shot = [](const TCHAR* Name)
+	{
+		FScreenshotRequest::RequestScreenshot(FPaths::ConvertRelativePathToFull(FPaths::ProjectSavedDir() / TEXT("Screenshots") / Name), true, false);
+	};
+	switch (S)
+	{
+	case 1: PressKey(EKeys::Enter, true); PressKey(EKeys::Enter, false); break;
+	case 3:
+		UE_LOG(LogValdoria, Display, TEXT("INPUTTEST enter: chat aberto=%d"), PC && PC->IsChatOpen());
+		for (const TCHAR* C = TEXT("/adm"); *C; ++C)
+		{
+			FSlateApplication::Get().ProcessKeyCharEvent(FCharacterEvent(*C, FModifierKeysState(), 0, false));
+		}
+		break;
+	case 4: Shot(TEXT("Input_Chat.png")); break;
+	case 5: PressKey(EKeys::Enter, true); PressKey(EKeys::Enter, false); break;
+	case 7:
+		UE_LOG(LogValdoria, Display, TEXT("INPUTTEST /adm: modo admin=%d painel=%d chat aberto=%d"), PC && PC->IsAdminMode(), PC && PC->IsAdminPanelOpen(), PC && PC->IsChatOpen());
+		Shot(TEXT("Input_Adm.png"));
+		break;
+	case 9: PressKey(EKeys::F10, true); PressKey(EKeys::F10, false); break;
+	case 10: UE_LOG(LogValdoria, Display, TEXT("INPUTTEST F10: painel=%d"), PC && PC->IsAdminPanelOpen()); break;
+	case 11: PressKey(EKeys::Escape, true); PressKey(EKeys::Escape, false); break;
+	case 12: UE_LOG(LogValdoria, Display, TEXT("INPUTTEST esc: pausa=%d"), PC && PC->IsPauseMenuOpen()); break;
+	case 13: PressKey(EKeys::Escape, true); PressKey(EKeys::Escape, false); break;
+	case 14: UE_LOG(LogValdoria, Display, TEXT("INPUTTEST esc de novo: pausa=%d"), PC && PC->IsPauseMenuOpen()); break;
+	case 15: PressKey(EKeys::K, true); break;
+	case 16: UE_LOG(LogValdoria, Display, TEXT("INPUTTEST K segurado: ajuda=%d"), PC && PC->IsHelpOpen()); PressKey(EKeys::K, false); break;
+	case 17: UE_LOG(LogValdoria, Display, TEXT("INPUTTEST K solto: ajuda=%d"), PC && PC->IsHelpOpen()); break;
+	default: break;
+	}
+	// Morrer duas vezes e conferir se dá para andar depois de cada renascimento.
+	if ((S == 20 || S == 60) && Hero)
+	{
+		Hero->bGodMode = false;
+		Hero->DealDamageTo(Hero, 99999.f);
+		UE_LOG(LogValdoria, Display, TEXT("INPUTTEST morte %d: morto=%d"), ++InputTestDeaths, Hero->IsDead());
+	}
+	if (S == 44 || S == 84)
+	{
+		if (Hero)
+		{
+			InputTestStartLoc = Hero->GetActorLocation();
+			PressKey(EKeys::W, true);
+		}
+		UE_LOG(LogValdoria, Display, TEXT("INPUTTEST renasceu: heroi=%d morto=%d modo=%d"), Hero != nullptr, Hero && Hero->IsDead(),
+			Hero ? (int32)Hero->GetCharacterMovement()->MovementMode.GetValue() : -1);
+	}
+	if (S == 50 || S == 90)
+	{
+		PressKey(EKeys::W, false);
+		const float Moved = Hero ? FVector::Dist2D(Hero->GetActorLocation(), InputTestStartLoc) : -1.f;
+		UE_LOG(LogValdoria, Display, TEXT("INPUTTEST andou depois de renascer: %.0f cm"), Moved);
+		Shot(S == 50 ? TEXT("Input_Renasceu1.png") : TEXT("Input_Renasceu2.png"));
+	}
+	if (S >= 95)
+	{
+		UE_LOG(LogValdoria, Display, TEXT("INPUTTEST fim"));
+		InputTestStep = 100000;
+		FPlatformMisc::RequestExit(false);
 	}
 }
