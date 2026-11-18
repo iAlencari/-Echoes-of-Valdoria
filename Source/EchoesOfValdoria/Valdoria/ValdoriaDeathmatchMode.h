@@ -71,4 +71,5 @@ protected:
 	int32 PlayerScore = 0;
 	int32 Result = 0;
 	float MatchStart = 0.f;
+	bool bAutoPlayer = false;
 };

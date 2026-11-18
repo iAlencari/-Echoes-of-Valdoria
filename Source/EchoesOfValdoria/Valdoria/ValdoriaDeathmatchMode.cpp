@@ -27,6 +27,11 @@ void AValdoriaDeathmatchMode::StartPlay()
 	Super::StartPlay();
 	MatchStart = GetWorld()->GetTimeSeconds();
 	SpawnBots();
+	// Bots vs bots: ?bots=1 puts the player's hero on autopilot too (watch them play).
+	if (UGameplayStatics::HasOption(OptionsString, TEXT("bots")))
+	{
+		bAutoPlayer = true;
+	}
 }
 
 void AValdoriaDeathmatchMode::SpawnBots()
@@ -56,11 +61,13 @@ void AValdoriaDeathmatchMode::SpawnBots()
 		Bot->TeamId = static_cast<uint8>(100 + i); // free-for-all: everyone is an enemy
 		Bot->BotDifficulty = Rules->BotDifficulty;
 		Bot->bHunter = true;
+		Bot->BotDifficulty = 0; // no fake shots: the autopilot uses the hero's real weapon and abilities
 		Bot->bNoAutoHeal = true;
 		if (PC && Rules->BotHeroes.Num() > 0)
 		{
 			Bot->SetHeroDefinition(PC->FindHero(Rules->BotHeroes[i % Rules->BotHeroes.Num()]));
 		}
+		Bot->SetAutopilot(true, 0.35f + 0.2f * Rules->BotDifficulty);
 		Bots.Add(Bot);
 		BotScores.Add(Bot->TeamId, 0);
 	}
@@ -113,6 +120,17 @@ void AValdoriaDeathmatchMode::OnHeroKilled(AValdoriaHeroCharacter* Victim, AVald
 void AValdoriaDeathmatchMode::Tick(float DeltaSeconds)
 {
 	Super::Tick(DeltaSeconds);
+	if (bAutoPlayer)
+	{
+		// Keep the player's (re)spawned hero on autopilot.
+		if (APlayerController* PC = GetWorld()->GetFirstPlayerController())
+		{
+			if (AValdoriaHeroCharacter* Hero = Cast<AValdoriaHeroCharacter>(PC->GetPawn()); Hero && !Hero->IsAutopilot())
+			{
+				Hero->SetAutopilot(true, 0.7f);
+			}
+		}
+	}
 	if (Result == 0 && Rules && Rules->TimeLimit > 0.f && GetTimeLeft() <= 0.f)
 	{
 		EndMatch(PlayerScore > GetBestBotScore());
@@ -127,6 +145,6 @@ void AValdoriaDeathmatchMode::EndMatch(bool bPlayerWon)
 	GetWorldTimerManager().SetTimer(Restart, FTimerDelegate::CreateWeakLambda(this, [this]()
 	{
 		UGameplayStatics::OpenLevel(this, FName(*UGameplayStatics::GetCurrentLevelName(this)), true,
-			TEXT("game=/Script/EchoesOfValdoria.ValdoriaDeathmatchMode"));
+			bAutoPlayer ? TEXT("game=/Script/EchoesOfValdoria.ValdoriaDeathmatchMode?bots=1") : TEXT("game=/Script/EchoesOfValdoria.ValdoriaDeathmatchMode"));
 	}), 6.f, false);
 }

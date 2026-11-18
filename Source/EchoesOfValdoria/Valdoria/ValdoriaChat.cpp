@@ -204,13 +204,17 @@ void AValdoriaPlayerController::RunChatCommand(const FString& Command)
 		{
 			UGameplayStatics::OpenLevel(this, FName(*Map), true, TEXT("game=/Script/EchoesOfValdoria.ValdoriaDeathmatchMode"));
 		}
+		else if (Arg == TEXT("bots"))
+		{
+			UGameplayStatics::OpenLevel(this, FName(*Map), true, TEXT("game=/Script/EchoesOfValdoria.ValdoriaDeathmatchMode?bots=1"));
+		}
 		else if (Arg == TEXT("treino") || Arg == TEXT("training"))
 		{
 			UGameplayStatics::OpenLevel(this, FName(*Map), true, TEXT("game=/Script/EchoesOfValdoria.ValdoriaGameMode"));
 		}
 		else
 		{
-			ChatPrint(TEXT("Modes: /modo mm (deathmatch) | /modo treino"), Bad);
+			ChatPrint(TEXT("Modes: /modo mm (deathmatch) | /modo bots (bots vs bots, you on autopilot) | /modo treino"), Bad);
 		}
 	}
 	else if (!bAdminMode)
@@ -220,6 +224,11 @@ void AValdoriaPlayerController::RunChatCommand(const FString& Command)
 	else if (!Hero)
 	{
 		ChatPrint(TEXT("Sem herói agora."), Bad);
+	}
+	else if (Cmd == TEXT("auto") || Cmd == TEXT("bot"))
+	{
+		Hero->SetAutopilot(!Hero->IsAutopilot(), 0.7f);
+		ChatPrint(Hero->IsAutopilot() ? TEXT("Autopilot ON: your hero plays by itself (/auto again to stop).") : TEXT("Autopilot off."), Ok);
 	}
 	else if (Cmd == TEXT("imortal"))
 	{

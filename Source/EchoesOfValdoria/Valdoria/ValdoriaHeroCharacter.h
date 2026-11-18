@@ -185,6 +185,9 @@ public:
 
 	/** Bônus da loja (a loja do jogador chama isto ao comprar e ao renascer). */
 	void SetShopBonus(const FValdoriaShopBonus& Bonus);
+	/** Autopilot: the hero plays by itself with its real kit (bots, and /auto for the player). Skill 0..1 = aim. */
+	void SetAutopilot(bool bEnable, float Skill = 0.6f);
+	bool IsAutopilot() const { return bAutopilot; }
 	/** Reaplica as teclas das habilidades (ao trocar o esquema nas Configurações). */
 	void RefreshKeyScheme();
 	/** Animação de base agora (o animador em C++ pergunta isto a cada quadro). */
@@ -382,6 +385,14 @@ protected:
 	void TickFlightPose(float DeltaSeconds);
 	bool bWasFlyingPose = false;
 	bool bLandAfterFlight = false;
+	void TickAutopilot(float DeltaSeconds);
+	bool bAutopilot = false;
+	float AutopilotSkill = 0.6f;
+	FRotator AutopilotAim = FRotator::ZeroRotator;
+	TWeakObjectPtr<AValdoriaHeroCharacter> AutopilotTarget;
+	float AutopilotNextPick = 0.f;
+	float AutopilotNextAbility = 0.f;
+	float AutopilotStrafe = 0.f;
 	float SkateEndTime = 0.f;
 	bool bWasSkating = false;
 	float FlightLeanAlpha = 0.f;

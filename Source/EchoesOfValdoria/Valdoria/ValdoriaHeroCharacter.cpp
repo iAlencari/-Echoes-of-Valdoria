@@ -562,6 +562,12 @@ void AValdoriaHeroCharacter::ConsumeAmmo()
 
 void AValdoriaHeroCharacter::GetAimRay(FVector& OutStart, FVector& OutDirection) const
 {
+	if (bAutopilot)
+	{
+		OutStart = GetActorLocation() + FVector(0.f, 0.f, BaseEyeHeight);
+		OutDirection = AutopilotAim.Vector();
+		return;
+	}
 	// Mira pelo centro da câmera; o raio começa na altura do personagem para não
 	// acertar coisas entre a câmera e o herói.
 	const FVector CamLoc = FollowCamera->GetComponentLocation();
@@ -1156,6 +1162,7 @@ void AValdoriaHeroCharacter::Tick(float DeltaSeconds)
 	TickHover(DeltaSeconds);
 	TickFootsteps(DeltaSeconds);
 	TickFlightPose(DeltaSeconds);
+	TickAutopilot(DeltaSeconds);
 	if (!bIsDead)
 	{
 		UpdateMovementAnimation();
@@ -2362,5 +2369,133 @@ void AValdoriaHeroCharacter::TickFlightPose(float DeltaSeconds)
 	if (Anim)
 	{
 		Anim->SetUpperPose(bSuperhero ? Load(Set.FlyForwardPose) : nullptr, Set.FlyForwardPoseTime, bSuperhero ? FlightLeanAlpha : 0.f);
+	}
+}
+
+// ------------------------------------------------------------------ autopilot (bot brain)
+// Used by deathmatch bots and by the player's own hero when switched on (/auto, admin).
+// Unlike the old training-dummy shooting, it uses the hero's real kit: weapon, abilities, ultimate.
+
+void AValdoriaHeroCharacter::SetAutopilot(bool bEnable, float Skill)
+{
+	bAutopilot = bEnable;
+	AutopilotSkill = FMath::Clamp(Skill, 0.f, 1.f);
+	AutopilotAim = GetActorRotation();
+	bFireHeld = false;
+}
+
+void AValdoriaHeroCharacter::TickAutopilot(float DeltaSeconds)
+{
+	if (!bAutopilot || bIsDead || !ActiveDefinition)
+	{
+		return;
+	}
+	const float Now = GetWorld()->GetTimeSeconds();
+	const FVector Eye = GetActorLocation() + FVector(0.f, 0.f, BaseEyeHeight);
+	auto CanSee = [this, &Eye](const AValdoriaHeroCharacter* Other)
+	{
+		FHitResult Hit;
+		FCollisionQueryParams Params(SCENE_QUERY_STAT(ValdoriaAutopilot), false, this);
+		IgnoreFriendlyBarriers(Params);
+		return !GetWorld()->LineTraceSingleByChannel(Hit, Eye, Other->GetActorLocation() + FVector(0.f, 0.f, 40.f), ECC_Visibility, Params)
+			|| Hit.GetActor() == Other;
+	};
+
+	// Target: nearest visible enemy, re-checked twice a second.
+	if (Now >= AutopilotNextPick)
+	{
+		AutopilotNextPick = Now + 0.5f;
+		AutopilotTarget = nullptr;
+		float Best = 5000.f;
+		for (TActorIterator<AValdoriaHeroCharacter> It(GetWorld()); It; ++It)
+		{
+			if (!IsEnemy(*It) || It->IsHiddenByStealth())
+			{
+				continue;
+			}
+			const float Dist = FVector::Dist(GetActorLocation(), It->GetActorLocation());
+			if (Dist < Best && CanSee(*It))
+			{
+				Best = Dist;
+				AutopilotTarget = *It;
+			}
+		}
+	}
+	AValdoriaHeroCharacter* Target = AutopilotTarget.Get();
+	const FVector Fwd = GetActorForwardVector().GetSafeNormal2D();
+	if (!Target || Target->IsDead())
+	{
+		// Roam: walk forward, turn slowly, jump at walls.
+		AutopilotAim.Yaw += 20.f * DeltaSeconds;
+		AutopilotAim.Pitch = 0.f;
+		SetActorRotation(FRotator(0.f, AutopilotAim.Yaw, 0.f));
+		AddMovementInput(Fwd, 0.6f);
+		if (IsFacingWall(90.f))
+		{
+			AutopilotAim.Yaw += 90.f;
+			Jump();
+		}
+		if (Controller)
+		{
+			Controller->SetControlRotation(AutopilotAim);
+		}
+		return;
+	}
+
+	// Aim at the chest with a skill-based wobble.
+	const FVector Chest = Target->GetActorLocation() + FVector(0.f, 0.f, 30.f);
+	const float Wobble = (1.f - AutopilotSkill) * 4.f;
+	const FRotator Wanted = (Chest - Eye).Rotation() + FRotator(FMath::FRandRange(-Wobble, Wobble), FMath::FRandRange(-Wobble, Wobble), 0.f);
+	AutopilotAim = FMath::RInterpTo(AutopilotAim, Wanted, DeltaSeconds, 4.f + 8.f * AutopilotSkill);
+	SetActorRotation(FRotator(0.f, AutopilotAim.Yaw, 0.f));
+	if (Controller)
+	{
+		Controller->SetControlRotation(AutopilotAim);
+	}
+
+	// Distance: close in with melee weapons, keep range with guns; strafe and hop.
+	const float Dist = FVector::Dist(GetActorLocation(), Target->GetActorLocation());
+	const FValdoriaWeaponStats& Weapon = GetWeaponStats();
+	const float Desired = FMath::Clamp(Weapon.Range * 0.6f, 250.f, 1200.f);
+	if (Dist > Desired + 250.f)
+	{
+		AddMovementInput(Fwd, 1.f);
+	}
+	else if (Dist < Desired * 0.5f)
+	{
+		AddMovementInput(-Fwd, 0.7f);
+	}
+	AutopilotStrafe += DeltaSeconds;
+	AddMovementInput(GetActorRightVector(), FMath::Sin(AutopilotStrafe * 1.1f + TeamId) >= 0.f ? 0.6f : -0.6f);
+	if (IsFacingWall(90.f) || FMath::FRand() < 0.003f)
+	{
+		Jump();
+	}
+
+	// Shoot when roughly on target and in range.
+	const float AimError = FMath::Abs(FRotator::NormalizeAxis(Wanted.Yaw - AutopilotAim.Yaw));
+	if (Dist <= Weapon.Range && AimError < 12.f && CanSee(Target))
+	{
+		TryActivateSlot(EValdoriaAbilitySlot::PrimaryFire);
+	}
+	if (Weapon.bUsesAmmo && CurrentAmmo <= 0 && !bReloading)
+	{
+		StartReload();
+	}
+	// Abilities now and then (cooldowns and ranges are checked by the abilities themselves).
+	if (Now >= AutopilotNextAbility && Dist < 1800.f)
+	{
+		AutopilotNextAbility = Now + FMath::FRandRange(1.f, 2.5f);
+		static const EValdoriaAbilitySlot Slots[] = { EValdoriaAbilitySlot::SecondaryFire, EValdoriaAbilitySlot::Ability1,
+			EValdoriaAbilitySlot::Ability2, EValdoriaAbilitySlot::Ability3 };
+		const EValdoriaAbilitySlot Pick = Slots[FMath::RandRange(0, 3)];
+		if (FindAbilityEntry(Pick) && GetCooldownRemaining(Pick) <= 0.f)
+		{
+			TryActivateSlot(Pick);
+		}
+		if (IsUltimateReady() && Dist < 1200.f)
+		{
+			TryActivateSlot(EValdoriaAbilitySlot::Ultimate);
+		}
 	}
 }
