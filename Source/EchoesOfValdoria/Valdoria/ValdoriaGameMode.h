@@ -52,6 +52,9 @@ protected:
 	int32 InputTestDeaths = 0;
 	/** Teste dos heróis (-ValdoriaHeroTest): troca para cada herói e usa todas as habilidades num boneco. */
 	void RunHeroTestStep();
+	/** Teste de pose da arma (-ValdoriaWeaponPose): gira a arma do Kael e tira um print de cada. */
+	void RunWeaponPoseStep();
+	int32 WeaponPoseStep = 0;
 	int32 HeroTestStep = 0;
 	TWeakObjectPtr<class AValdoriaTrainingDummy> HeroTestEnemy;
 	TWeakObjectPtr<class AValdoriaTrainingDummy> HeroTestAlly;

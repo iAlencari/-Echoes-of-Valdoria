@@ -389,3 +389,106 @@ void AValdoriaBarrier::Tick(float DeltaSeconds)
 	}
 #endif
 }
+
+// ------------------------------------------------------------------ efeitos visuais
+
+AValdoriaFx::AValdoriaFx()
+{
+	PrimaryActorTick.bCanEverTick = true;
+	Shape = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("Shape"));
+	RootComponent = Shape;
+	Shape->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+	Shape->SetCastShadow(false);
+}
+
+AValdoriaFx* AValdoriaFx::SpawnFx(UWorld* World, const FVector& Where, EKind InKind, const FLinearColor& Color, float InLife)
+{
+	if (!World || World->GetNetMode() == NM_DedicatedServer)
+	{
+		return nullptr;
+	}
+	FActorSpawnParameters Params;
+	Params.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
+	AValdoriaFx* Fx = World->SpawnActor<AValdoriaFx>(AValdoriaFx::StaticClass(), Where, FRotator::ZeroRotator, Params);
+	if (!Fx)
+	{
+		return nullptr;
+	}
+	Fx->Kind = InKind;
+	Fx->Life = FMath::Max(0.03f, InLife);
+	Fx->Shape->SetStaticMesh(LoadShape(InKind == EKind::Burst ? TEXT("Sphere") : TEXT("Cylinder")));
+	Fx->Material = ValdoriaMakeGlowMaterial(Fx, InKind == EKind::Beam ? Color * 1.6f : Color, Fx->StartOpacity);
+	if (Fx->Material)
+	{
+		Fx->Shape->SetMaterial(0, Fx->Material);
+	}
+	return Fx;
+}
+
+void AValdoriaFx::Beam(UWorld* World, const FVector& From, const FVector& To, const FLinearColor& Color, float Thickness, float InLife)
+{
+	const FVector Delta = To - From;
+	const float Len = Delta.Size();
+	if (Len < 1.f)
+	{
+		return;
+	}
+	if (AValdoriaFx* Fx = SpawnFx(World, (From + To) * 0.5f, EKind::Beam, Color, InLife))
+	{
+		// Cilindro de 100 cm em pé: deita na direção do tiro.
+		Fx->SetActorRotation(FRotationMatrix::MakeFromZ(Delta / Len).Rotator());
+		Fx->StartScale = FVector(Thickness / 100.f, Thickness / 100.f, Len / 100.f);
+		Fx->EndScale = FVector(Thickness / 300.f, Thickness / 300.f, Len / 100.f);
+		Fx->StartOpacity = 0.85f;
+		Fx->SetActorScale3D(Fx->StartScale);
+	}
+}
+
+void AValdoriaFx::Ring(UWorld* World, const FVector& Center, float Radius, const FLinearColor& Color, float InLife)
+{
+	if (AValdoriaFx* Fx = SpawnFx(World, Center, EKind::Ring, Color, InLife))
+	{
+		Fx->StartScale = FVector(Radius / 50.f * 0.25f, Radius / 50.f * 0.25f, 0.02f);
+		Fx->EndScale = FVector(Radius / 50.f, Radius / 50.f, 0.02f);
+		Fx->StartOpacity = 0.55f;
+		Fx->SetActorScale3D(Fx->StartScale);
+	}
+	// Uma "bolha" bem fraca junto, para a área ter volume sem tampar a visão.
+	if (AValdoriaFx* Dome = SpawnFx(World, Center, EKind::Burst, Color, InLife * 0.7f))
+	{
+		Dome->StartScale = FVector(Radius / 50.f * 0.2f);
+		Dome->EndScale = FVector(Radius / 50.f * 0.9f, Radius / 50.f * 0.9f, Radius / 50.f * 0.35f);
+		Dome->StartOpacity = 0.1f;
+		Dome->SetActorScale3D(Dome->StartScale);
+	}
+}
+
+void AValdoriaFx::Burst(UWorld* World, const FVector& Center, float Size, const FLinearColor& Color, float InLife)
+{
+	if (AValdoriaFx* Fx = SpawnFx(World, Center, EKind::Burst, Color, InLife))
+	{
+		Fx->StartScale = FVector(Size / 100.f * 0.3f);
+		Fx->EndScale = FVector(Size / 100.f);
+		Fx->StartOpacity = 0.35f;
+		Fx->SetActorScale3D(Fx->StartScale);
+	}
+}
+
+void AValdoriaFx::Tick(float DeltaSeconds)
+{
+	Super::Tick(DeltaSeconds);
+	Age += DeltaSeconds;
+	const float T = FMath::Clamp(Age / Life, 0.f, 1.f);
+	if (T >= 1.f)
+	{
+		Destroy();
+		return;
+	}
+	// Cresce rápido no começo e apaga no fim.
+	const float Ease = 1.f - FMath::Square(1.f - T);
+	SetActorScale3D(FMath::Lerp(StartScale, EndScale, Ease));
+	if (Material)
+	{
+		Material->SetScalarParameterValue(TEXT("Opacidade"), StartOpacity * (1.f - T * T));
+	}
+}

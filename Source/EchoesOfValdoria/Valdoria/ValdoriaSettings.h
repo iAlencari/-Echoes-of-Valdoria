@@ -5,6 +5,8 @@
 #pragma once
 
 #include "CoreMinimal.h"
+#include "InputCoreTypes.h"
+#include "ValdoriaTypes.h"
 
 struct ECHOESOFVALDORIA_API FValdoriaOptions
 {
@@ -27,6 +29,8 @@ struct ECHOESOFVALDORIA_API FValdoriaOptions
 	bool bInvertY = false;
 	float CrosshairSize = 1.f;
 	int32 CrosshairColor = 0;         // 0 branco, 1 verde, 2 ciano, 3 amarelo, 4 vermelho, 5 rosa
+	/** Teclas das habilidades: 0 = Valdoria (botão direito, F, E, C; Q ultimate), 1 = estilo Valorant (botão direito, Q, E, C; X ultimate). */
+	int32 KeyScheme = 0;
 
 	static FValdoriaOptions& Get();
 	void Load();
@@ -34,4 +38,7 @@ struct ECHOESOFVALDORIA_API FValdoriaOptions
 	/** Aplica o que é global (console variables e volume). FOV e mira são lidos pelo jogo. */
 	void Apply() const;
 	FLinearColor GetCrosshairColor() const;
+	/** Tecla de cada botão de habilidade no esquema atual. */
+	FKey GetSlotKey(EValdoriaAbilitySlot Slot) const;
+	FString GetSlotKeyLabel(EValdoriaAbilitySlot Slot) const;
 };

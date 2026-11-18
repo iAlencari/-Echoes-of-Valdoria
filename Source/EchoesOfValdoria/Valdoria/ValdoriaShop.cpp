@@ -19,6 +19,7 @@
 
 void UValdoriaShopCatalog::ApplyDefaultItems()
 {
+	Modify();
 	Items.Reset();
 	auto Add = [this](const TCHAR* Id, const FText& Name, const FText& Desc, EValdoriaShopCategory Cat, EValdoriaShopStat Stat,
 		TArray<int32> Costs, TArray<float> Values)

@@ -127,6 +127,10 @@ void AValdoriaPlayerController::CloseSettings()
 		return;
 	}
 	FValdoriaOptions::Get().Save();
+	if (AValdoriaHeroCharacter* KeyHero = Cast<AValdoriaHeroCharacter>(GetPawn()))
+	{
+		KeyHero->RefreshKeyScheme();
+	}
 	if (UGameUserSettings* GUS = UGameUserSettings::GetGameUserSettings())
 	{
 		GUS->ApplySettings(false);
@@ -238,6 +242,10 @@ TSharedRef<SWidget> AValdoriaPlayerController::BuildSettingsScreen()
 	Ctrl->AddSlot().AutoHeight()[Slider(LOCTEXT("Sens", "Sensibilidade do mouse"), 0.1f, 3.f,
 		[Opt]() { return Opt().MouseSensitivity; }, [Opt](float V) { Opt().MouseSensitivity = V; },
 		[Opt]() { return FText::FromString(FString::Printf(TEXT("%.2f"), Opt().MouseSensitivity)); })];
+	const TArray<FText> Schemes = { LOCTEXT("Scheme0", "Valdoria: botão direito, F, E, C; Q ultimate"), LOCTEXT("Scheme1", "Estilo Valorant: botão direito, Q, E, C; X ultimate") };
+	Ctrl->AddSlot().AutoHeight()[Choice(LOCTEXT("Scheme", "Teclas das habilidades"),
+		[Opt, Schemes]() { return Schemes[FMath::Clamp(Opt().KeyScheme, 0, 1)]; },
+		[Opt](int32 D) { Opt().KeyScheme = (Opt().KeyScheme + D + 2) % 2; })];
 	Ctrl->AddSlot().AutoHeight()[Toggle(LOCTEXT("Invert", "Inverter eixo Y"), [Opt]() { return Opt().bInvertY; }, [Opt](bool b) { Opt().bInvertY = b; })];
 	Ctrl->AddSlot().AutoHeight()[Slider(LOCTEXT("XSize", "Tamanho da mira"), 0.5f, 2.5f,
 		[Opt]() { return Opt().CrosshairSize; }, [Opt](float V) { Opt().CrosshairSize = V; }, [Opt]() { return Pct(Opt().CrosshairSize); })];
@@ -248,7 +256,7 @@ TSharedRef<SWidget> AValdoriaPlayerController::BuildSettingsScreen()
 	Ctrl->AddSlot().AutoHeight().Padding(4.f, 12.f)
 	[
 		SNew(STextBlock).AutoWrapText(true).Font(Font(11)).ColorAndOpacity(FLinearColor(0.75f, 0.77f, 0.82f))
-		.Text(LOCTEXT("Keys", "Teclas: WASD andar • Mouse mirar • Esq. atirar • Dir. secundário • R recarregar • Shift correr/impulso • Ctrl agachar (correndo, desliza) • X deitar • Espaço pular/subir/escalar • F e E habilidades • Q ultimate • K ajuda das habilidades • Esc menu • Alt soltar o mouse • F10 painel de administrador"))
+		.Text(LOCTEXT("Keys", "Teclas: WASD andar • Mouse mirar • Esq. atirar • Dir. secundário • R recarregar • Shift correr/impulso • Ctrl agachar (correndo, desliza) • Espaço pular/subir/escalar • habilidades e ultimate: veja Teclas das habilidades acima • K ajuda das habilidades • Esc menu • Alt soltar o mouse • F10 painel de administrador"))
 	];
 
 	Pages->AddSlot()[SNew(SScrollBox) + SScrollBox::Slot()[Gfx]];

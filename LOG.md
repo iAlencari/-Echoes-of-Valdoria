@@ -314,3 +314,15 @@ Referências do dono (imagens, descritas em texto): barra de aliado ciano e de i
 - **Bordas vermelhas** pulsando com menos de 30% de vida + armadura + escudo.
 - Aviso **"ULTIMATE PRONTA (Q)"** no centro por 2 s quando a ultimate enche.
 - Testado no `-ValdoriaHeroTest` (print `Heroi_kael_9.png`: arco no topo, inimigo à frente).
+### Turno 24 — Claude Code — 18/11/2026 (animações de arma e ataque, flutuar, efeitos, corpos, teclas)
+**Pedido do dono:** diferenças corporais, visual das habilidades, animar segurar/atirar, ajustar a flutuação; teclas no padrão Valorant (Q/E/C/X) com botão direito e C extras; biblioteca de áudio gratuita (só com aprovação).
+- **Animador próprio em C++** (`ValdoriaAnimInstance.h/.cpp`, substitui o ABP quando `Animations.bUseValdoriaAnimator`): o herói escolhe a animação de base (parado, andar/correr em 4 direções com ritmo pela velocidade, cair, agachar, deslizar, subir, voar, flutuar) e o animador troca suavemente (0,18 s, mantendo a fase do passo). Tiros, golpes, habilidades e recarga tocam **só da coluna para cima** (pernas continuam andando); impulso toca no corpo todo. Usa só animações da Epic que já vinham no projeto (`/Game/Characters/Mannequins/Anims`: Unarmed, Rifle, Attack).
+  - Kael: andar/correr/cair/atirar/recarregar de rifle; arma no soquete `HandGrip_R`, rotação (0, 90, 0) escolhida por um teste que gira a arma e tira prints (`-ValdoriaWeaponPose`).
+  - Brasa e Vex: combo de golpes (Attack 01/02/03); Iara: gesto de lançar; ultimate: golpe carregado.
+  - Novos campos em `FValdoriaAnimationSet`: Idle, Walk*/Jog* (4 direções), FallLoop, WalkRunSpeed, WalkAnimSpeed, JogAnimSpeed, FireActions (combo), FireActionRate, AbilityAction, UltimateAction, ReloadAction.
+- **Flutuar**: sem passos (pose parada), sobe e desce devagar (`HoverBob`) e inclina na direção do movimento (`HoverLean`).
+- **Corpos**: `BodyWidth`, `BodyDepth`, `BodyHeight` no Data Asset (escala da malha por eixo). Brasa agora é Quinn larga e forte; Vex esguia; Kael e Lume um pouco mais altos. Proporções naturais, sem sexualizar. Para formas de corpo de verdade (quadril, peito etc.) vão ser precisos modelos próprios.
+- `ApplyPresetLooks` + `VALDORIA_APPLY_LOOKS=1` no `Scripts/create_heroes.py`: aplica só animações e corpo nos DA_ existentes, sem mexer no balanceamento. **Correção:** os presets agora chamam `Modify()`; sem isso o script não salvava DA_ já existentes.
+- **Efeitos das habilidades** (`AValdoriaFx`): os tiros viraram raios brilhantes com estouro no impacto, e as áreas viraram um anel que se expande no chão com uma bolha fraca. Substituem as linhas de depuração.
+- **Teclas**: novo botão `Ability3` (C). Configurações > Controles > "Teclas das habilidades": Valdoria (botão direito, F, E, C; Q ultimate) ou estilo Valorant (botão direito, Q, E, C; X ultimate). HUD e tela K mostram as teclas do esquema escolhido. Testado com tecla de verdade: no esquema Valorant, Q usou a habilidade 1 da Brasa.
+- Testes: `-ValdoriaHeroTest` (agora anda de lado enquanto ataca, print `Heroi_*_10.png`), `-ValdoriaLineup` (5 heróis lado a lado, `Herois_Lado_a_Lado.png`), `-ValdoriaWeaponPose`.

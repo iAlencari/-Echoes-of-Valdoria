@@ -22,6 +22,7 @@
 #include "ValdoriaHUD.h"
 #include "ValdoriaHeroCharacter.h"
 #include "ValdoriaHeroDefinition.h"
+#include "ValdoriaSettings.h"
 #include "ValdoriaTrainingDummy.h"
 #include "Widgets/Input/SButton.h"
 #include "Widgets/Input/SCheckBox.h"
@@ -722,15 +723,17 @@ TSharedRef<SWidget> AValdoriaPlayerController::BuildHelpScreen()
 	{
 		Box->AddSlot().AutoHeight()[SNew(STextBlock).Text(Def->Description).Font(Font(11)).AutoWrapText(true).ColorAndOpacity(FLinearColor(0.75f, 0.77f, 0.82f))];
 		Entry(TEXT("PASSIVA"), Def->PassiveName, Def->PassiveDescription);
-		struct FKey { EValdoriaAbilitySlot Slot; const TCHAR* Key; };
-		const FKey Keys[] = {
+		struct FSlotKey { EValdoriaAbilitySlot Slot; FString Key; };
+		const FValdoriaOptions& KeyOpt = FValdoriaOptions::Get();
+		const FSlotKey Keys[] = {
 			{ EValdoriaAbilitySlot::PrimaryFire, TEXT("BOTÃO ESQ.") },
 			{ EValdoriaAbilitySlot::SecondaryFire, TEXT("BOTÃO DIR.") },
-			{ EValdoriaAbilitySlot::Ability1, TEXT("F") },
-			{ EValdoriaAbilitySlot::Ability2, TEXT("E") },
-			{ EValdoriaAbilitySlot::Ultimate, TEXT("Q (ULT)") },
+			{ EValdoriaAbilitySlot::Ability1, KeyOpt.GetSlotKeyLabel(EValdoriaAbilitySlot::Ability1) },
+			{ EValdoriaAbilitySlot::Ability2, KeyOpt.GetSlotKeyLabel(EValdoriaAbilitySlot::Ability2) },
+			{ EValdoriaAbilitySlot::Ability3, KeyOpt.GetSlotKeyLabel(EValdoriaAbilitySlot::Ability3) },
+			{ EValdoriaAbilitySlot::Ultimate, KeyOpt.GetSlotKeyLabel(EValdoriaAbilitySlot::Ultimate) + TEXT(" (ULT)") },
 		};
-		for (const FKey& K : Keys)
+		for (const FSlotKey& K : Keys)
 		{
 			if (const FValdoriaAbilityEntry* A = H->FindAbilityEntry(K.Slot))
 			{

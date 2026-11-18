@@ -73,11 +73,17 @@ eal.make_directory("/Game/Valdoria/Heroes")
 for hero_id, asset_name in (("brasa", "DA_Brasa"), ("kael", "DA_Kael"), ("iara", "DA_Iara"), ("vex", "DA_Vex"), ("lume", "DA_Lume")):
     path = "/Game/Valdoria/Heroes/" + asset_name
     if eal.does_asset_exist(path) and not reset:
+        if os.environ.get("VALDORIA_APPLY_LOOKS") == "1":
+            existing = unreal.load_asset(path)
+            existing.apply_preset_looks(hero_id)
+            eal.save_loaded_asset(existing)
+            lines.append("aparencia aplicada (animacoes e corpo): " + path)
         lines.append("ja existe (mantido): " + path)
         continue
     asset = unreal.load_asset(path) if eal.does_asset_exist(path) else \
         tools.create_asset(asset_name, "/Game/Valdoria/Heroes", unreal.ValdoriaHeroDefinition, factory)
     ok = asset.apply_preset(hero_id)
+    asset.apply_preset_looks(hero_id)
     eal.save_loaded_asset(asset)
     lines.append("heroi %s: %s" % (path, ok))
 

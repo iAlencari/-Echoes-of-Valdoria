@@ -61,7 +61,8 @@ enum class EValdoriaAbilitySlot : uint8
 	SecondaryFire UMETA(DisplayName = "Tiro secundário (botão direito)"),
 	Ability1	UMETA(DisplayName = "Habilidade 1 (F)"),
 	Ability2	UMETA(DisplayName = "Habilidade 2 (E)"),
-	Ultimate	UMETA(DisplayName = "Ultimate (Q)")
+	Ultimate	UMETA(DisplayName = "Ultimate (Q ou X)"),
+	Ability3	UMETA(DisplayName = "Habilidade 3 (C)")
 };
 
 /** Como o herói voa. */
@@ -403,6 +404,52 @@ struct FValdoriaAnimationSet
 	TSoftObjectPtr<UAnimSequenceBase> DashLeft;
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Animações|Impulso")
 	TSoftObjectPtr<UAnimSequenceBase> DashRight;
+
+	// --- Animador próprio (ValdoriaAnimInstance): andar, correr, cair e ações por cima.
+	/** Ligado: usa o animador em C++ com as animações abaixo (o AnimClass do herói é ignorado). */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Animações|Base")
+	bool bUseValdoriaAnimator = true;
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Animações|Base")
+	TSoftObjectPtr<UAnimSequenceBase> Idle;
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Animações|Base")
+	TSoftObjectPtr<UAnimSequenceBase> WalkForward;
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Animações|Base")
+	TSoftObjectPtr<UAnimSequenceBase> WalkBackward;
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Animações|Base")
+	TSoftObjectPtr<UAnimSequenceBase> WalkLeft;
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Animações|Base")
+	TSoftObjectPtr<UAnimSequenceBase> WalkRight;
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Animações|Base")
+	TSoftObjectPtr<UAnimSequenceBase> JogForward;
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Animações|Base")
+	TSoftObjectPtr<UAnimSequenceBase> JogBackward;
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Animações|Base")
+	TSoftObjectPtr<UAnimSequenceBase> JogLeft;
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Animações|Base")
+	TSoftObjectPtr<UAnimSequenceBase> JogRight;
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Animações|Base")
+	TSoftObjectPtr<UAnimSequenceBase> FallLoop;
+	/** Acima desta velocidade (cm/s) usa correr; abaixo, andar. */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Animações|Base")
+	float WalkRunSpeed = 320.f;
+	/** Velocidades em que as animações de andar/correr foram feitas (ajusta o ritmo dos passos). */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Animações|Base")
+	float WalkAnimSpeed = 230.f;
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Animações|Base")
+	float JogAnimSpeed = 500.f;
+
+	/** Ataque principal: tocadas em sequência (combo), da cintura para cima. */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Animações|Ações")
+	TArray<TSoftObjectPtr<UAnimSequenceBase>> FireActions;
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Animações|Ações")
+	float FireActionRate = 1.f;
+	/** Ao usar habilidade (botão direito, F, E) e ultimate. */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Animações|Ações")
+	TSoftObjectPtr<UAnimSequenceBase> AbilityAction;
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Animações|Ações")
+	TSoftObjectPtr<UAnimSequenceBase> UltimateAction;
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Animações|Ações")
+	TSoftObjectPtr<UAnimSequenceBase> ReloadAction;
 
 	/** Pairando (locomoção Flutuar) e voando. */
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Animações|Voo")

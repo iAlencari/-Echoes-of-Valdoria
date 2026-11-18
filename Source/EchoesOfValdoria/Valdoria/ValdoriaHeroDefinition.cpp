@@ -44,7 +44,26 @@ UValdoriaHeroDefinition::UValdoriaHeroDefinition()
 	Animations.DashBackward = Anim(TEXT("MM_Dash_Backward"));
 	Animations.DashLeft = Anim(TEXT("MM_Dash_Left"));
 	Animations.DashRight = Anim(TEXT("MM_Dash_Right"));
-	Animations.Hover = Anim(TEXT("MM_Fly_Loop"));
+	// Pairar: parado e calmo (o corpo sobe, desce e inclina por código).
+	Animations.Hover = TSoftObjectPtr<UAnimSequenceBase>(FSoftObjectPath(TEXT("/Game/Characters/Mannequins/Anims/Unarmed/MM_Idle.MM_Idle")));
+	// Andar e correr sem arma (modelo Third Person da Epic).
+	auto Un = [](const TCHAR* Sub, const TCHAR* Name)
+	{
+		return TSoftObjectPtr<UAnimSequenceBase>(FSoftObjectPath(FString::Printf(TEXT("/Game/Characters/Mannequins/Anims/Unarmed/%s%s.%s"), Sub, Name, Name)));
+	};
+	Animations.Idle = Un(TEXT(""), TEXT("MM_Idle"));
+	Animations.WalkForward = Un(TEXT("Walk/"), TEXT("MF_Unarmed_Walk_Fwd"));
+	Animations.WalkBackward = Un(TEXT("Walk/"), TEXT("MF_Unarmed_Walk_Bwd"));
+	Animations.WalkLeft = Un(TEXT("Walk/"), TEXT("MF_Unarmed_Walk_Left"));
+	Animations.WalkRight = Un(TEXT("Walk/"), TEXT("MF_Unarmed_Walk_Right"));
+	Animations.JogForward = Un(TEXT("Jog/"), TEXT("MF_Unarmed_Jog_Fwd"));
+	Animations.JogBackward = Un(TEXT("Jog/"), TEXT("MF_Unarmed_Jog_Bwd"));
+	Animations.JogLeft = Un(TEXT("Jog/"), TEXT("MF_Unarmed_Jog_Left"));
+	Animations.JogRight = Un(TEXT("Jog/"), TEXT("MF_Unarmed_Jog_Right"));
+	Animations.FallLoop = Un(TEXT("Jump/"), TEXT("MM_Fall_Loop"));
+	Animations.FireActions.Add(Un(TEXT("Attack/"), TEXT("MM_Attack_01")));
+	Animations.AbilityAction = Un(TEXT("Attack/"), TEXT("MM_Attack_03"));
+	Animations.UltimateAction = Un(TEXT("Attack/"), TEXT("MM_ChargedAttack"));
 	Animations.Fly = Anim(TEXT("MM_Fly_Loop"));
 }
 

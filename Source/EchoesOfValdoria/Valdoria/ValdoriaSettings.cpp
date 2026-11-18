@@ -35,6 +35,7 @@ void FValdoriaOptions::Load()
 	GConfig->GetFloat(Section, TEXT("EffectsVolume"), EffectsVolume, Ini);
 	GConfig->GetFloat(Section, TEXT("MouseSensitivity"), MouseSensitivity, Ini);
 	GConfig->GetBool(Section, TEXT("InvertY"), bInvertY, Ini);
+	GConfig->GetInt(Section, TEXT("KeyScheme"), KeyScheme, Ini);
 	GConfig->GetFloat(Section, TEXT("CrosshairSize"), CrosshairSize, Ini);
 	GConfig->GetInt(Section, TEXT("CrosshairColor"), CrosshairColor, Ini);
 }
@@ -54,6 +55,7 @@ void FValdoriaOptions::Save() const
 	GConfig->SetFloat(Section, TEXT("EffectsVolume"), EffectsVolume, Ini);
 	GConfig->SetFloat(Section, TEXT("MouseSensitivity"), MouseSensitivity, Ini);
 	GConfig->SetBool(Section, TEXT("InvertY"), bInvertY, Ini);
+	GConfig->SetInt(Section, TEXT("KeyScheme"), KeyScheme, Ini);
 	GConfig->SetFloat(Section, TEXT("CrosshairSize"), CrosshairSize, Ini);
 	GConfig->SetInt(Section, TEXT("CrosshairColor"), CrosshairColor, Ini);
 	GConfig->Flush(false, Ini);
@@ -95,5 +97,30 @@ FLinearColor FValdoriaOptions::GetCrosshairColor() const
 	case 4: return FLinearColor(1.f, 0.25f, 0.2f);
 	case 5: return FLinearColor(1.f, 0.4f, 0.9f);
 	default: return FLinearColor::White;
+	}
+}
+
+FKey FValdoriaOptions::GetSlotKey(EValdoriaAbilitySlot Slot) const
+{
+	const bool bValorant = KeyScheme == 1;
+	switch (Slot)
+	{
+	case EValdoriaAbilitySlot::PrimaryFire: return EKeys::LeftMouseButton;
+	case EValdoriaAbilitySlot::SecondaryFire: return EKeys::RightMouseButton;
+	case EValdoriaAbilitySlot::Ability1: return bValorant ? EKeys::Q : EKeys::F;
+	case EValdoriaAbilitySlot::Ability2: return EKeys::E;
+	case EValdoriaAbilitySlot::Ability3: return EKeys::C;
+	case EValdoriaAbilitySlot::Ultimate: return bValorant ? EKeys::X : EKeys::Q;
+	default: return EKeys::Invalid;
+	}
+}
+
+FString FValdoriaOptions::GetSlotKeyLabel(EValdoriaAbilitySlot Slot) const
+{
+	switch (Slot)
+	{
+	case EValdoriaAbilitySlot::PrimaryFire: return TEXT("ESQ.");
+	case EValdoriaAbilitySlot::SecondaryFire: return TEXT("BD");
+	default: return GetSlotKey(Slot).GetDisplayName().ToString();
 	}
 }

@@ -120,3 +120,31 @@ protected:
 	float EndTime = 0.f;
 	float FlashTime = 0.f;
 };
+
+/** Efeito visual simples feito de malhas brilhantes (sem assets de terceiros):
+ *  raio (tiro/feixe), anel que se expande (área) e estouro (impacto). Some sozinho. */
+UCLASS()
+class ECHOESOFVALDORIA_API AValdoriaFx : public AActor
+{
+	GENERATED_BODY()
+public:
+	AValdoriaFx();
+	virtual void Tick(float DeltaSeconds) override;
+
+	static void Beam(UWorld* World, const FVector& From, const FVector& To, const FLinearColor& Color, float Thickness = 3.f, float Life = 0.09f);
+	static void Ring(UWorld* World, const FVector& Center, float Radius, const FLinearColor& Color, float Life = 0.45f);
+	static void Burst(UWorld* World, const FVector& Center, float Size, const FLinearColor& Color, float Life = 0.25f);
+
+protected:
+	enum class EKind : uint8 { Beam, Ring, Burst };
+	static AValdoriaFx* SpawnFx(UWorld* World, const FVector& Where, EKind Kind, const FLinearColor& Color, float Life);
+
+	UPROPERTY(VisibleAnywhere) TObjectPtr<UStaticMeshComponent> Shape;
+	UPROPERTY() TObjectPtr<UMaterialInstanceDynamic> Material;
+	EKind Kind = EKind::Burst;
+	float Life = 0.3f;
+	float Age = 0.f;
+	float StartOpacity = 0.6f;
+	FVector StartScale = FVector::OneVector;
+	FVector EndScale = FVector::OneVector;
+};

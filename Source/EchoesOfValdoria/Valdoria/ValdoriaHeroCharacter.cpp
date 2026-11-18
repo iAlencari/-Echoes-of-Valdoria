@@ -33,6 +33,7 @@
 #include "ValdoriaEffects.h"
 #include "ValdoriaWorldActors.h"
 #include "ValdoriaPlayerController.h"
+#include "ValdoriaAnimInstance.h"
 #include "EngineUtils.h"
 #include "UObject/ConstructorHelpers.h"
 
@@ -193,11 +194,18 @@ void AValdoriaHeroCharacter::ApplyHeroDefinition()
 	{
 		GetMesh()->SetSkeletalMesh(NewMesh);
 	}
-	if (UClass* Anim = Def->AnimClass.LoadSynchronous())
+	if (Def->Animations.bUseValdoriaAnimator)
+	{
+		// Animador próprio em C++ (andar, correr, ataques da cintura para cima).
+		GetMesh()->SetAnimInstanceClass(UValdoriaAnimInstance::StaticClass());
+	}
+	else if (UClass* Anim = Def->AnimClass.LoadSynchronous())
 	{
 		GetMesh()->SetAnimInstanceClass(Anim);
 	}
-	GetMesh()->SetRelativeScale3D(FVector(Def->MeshScale));
+	// Malha: X = largura, Y = profundidade (o modelo olha para +Y), Z = altura.
+	GetMesh()->SetRelativeScale3D(FVector(Def->BodyWidth, Def->BodyDepth, Def->BodyHeight) * Def->MeshScale);
+	ComboIndex = 0;
 	// Arma na mão (modelo 3D do Data Asset).
 	UStaticMesh* Gun = Def->WeaponMesh.IsNull() ? nullptr : Def->WeaponMesh.LoadSynchronous();
 	WeaponComponent->SetStaticMesh(Gun);
@@ -319,6 +327,7 @@ void AValdoriaHeroCharacter::BuildDefaultInput()
 	SecondaryAction = MakeAction(TEXT("IA_Valdoria_Secondary"), EInputActionValueType::Boolean);
 	Ability1Action = MakeAction(TEXT("IA_Valdoria_Ability1"), EInputActionValueType::Boolean);
 	Ability2Action = MakeAction(TEXT("IA_Valdoria_Ability2"), EInputActionValueType::Boolean);
+	Ability3Action = MakeAction(TEXT("IA_Valdoria_Ability3"), EInputActionValueType::Boolean);
 	UltimateAction = MakeAction(TEXT("IA_Valdoria_Ultimate"), EInputActionValueType::Boolean);
 	ReloadAction = MakeAction(TEXT("IA_Valdoria_Reload"), EInputActionValueType::Boolean);
 	SprintAction = MakeAction(TEXT("IA_Valdoria_Shift"), EInputActionValueType::Boolean);
@@ -346,14 +355,45 @@ void AValdoriaHeroCharacter::BuildDefaultInput()
 	DefaultMapping->MapKey(LookAction, EKeys::Mouse2D);
 	DefaultMapping->MapKey(JumpAction, EKeys::SpaceBar);
 	DefaultMapping->MapKey(FireAction, EKeys::LeftMouseButton);
-	DefaultMapping->MapKey(SecondaryAction, EKeys::RightMouseButton);
-	DefaultMapping->MapKey(Ability1Action, EKeys::F);
+	MapAbilityKeys();
 	DefaultMapping->MapKey(SprintAction, EKeys::LeftShift);
 	DefaultMapping->MapKey(CrouchAction, EKeys::LeftControl);
-	DefaultMapping->MapKey(ProneAction, EKeys::X);
-	DefaultMapping->MapKey(Ability2Action, EKeys::E);
-	DefaultMapping->MapKey(UltimateAction, EKeys::Q);
 	DefaultMapping->MapKey(ReloadAction, EKeys::R);
+}
+
+void AValdoriaHeroCharacter::MapAbilityKeys()
+{
+	// Teclas das habilidades conforme o esquema escolhido em Configurações > Controles.
+	const FValdoriaOptions& Opt = FValdoriaOptions::Get();
+	DefaultMapping->MapKey(SecondaryAction, Opt.GetSlotKey(EValdoriaAbilitySlot::SecondaryFire));
+	DefaultMapping->MapKey(Ability1Action, Opt.GetSlotKey(EValdoriaAbilitySlot::Ability1));
+	DefaultMapping->MapKey(Ability2Action, Opt.GetSlotKey(EValdoriaAbilitySlot::Ability2));
+	DefaultMapping->MapKey(Ability3Action, Opt.GetSlotKey(EValdoriaAbilitySlot::Ability3));
+	DefaultMapping->MapKey(UltimateAction, Opt.GetSlotKey(EValdoriaAbilitySlot::Ultimate));
+	if (Opt.KeyScheme != 1)
+	{
+		DefaultMapping->MapKey(ProneAction, EKeys::X); // no estilo Valorant o X é a ultimate
+	}
+}
+
+void AValdoriaHeroCharacter::RefreshKeyScheme()
+{
+	if (!DefaultMapping)
+	{
+		return;
+	}
+	for (UInputAction* Action : { SecondaryAction.Get(), Ability1Action.Get(), Ability2Action.Get(), Ability3Action.Get(), UltimateAction.Get(), ProneAction.Get() })
+	{
+		DefaultMapping->UnmapAllKeysFromAction(Action);
+	}
+	MapAbilityKeys();
+	if (const APlayerController* PC = Cast<APlayerController>(Controller))
+	{
+		if (UEnhancedInputLocalPlayerSubsystem* Subsystem = ULocalPlayer::GetSubsystem<UEnhancedInputLocalPlayerSubsystem>(PC->GetLocalPlayer()))
+		{
+			Subsystem->RequestRebuildControlMappings();
+		}
+	}
 }
 
 void AValdoriaHeroCharacter::NotifyControllerChanged()
@@ -396,6 +436,7 @@ void AValdoriaHeroCharacter::SetupPlayerInputComponent(UInputComponent* PlayerIn
 	Input->BindAction(SecondaryAction, ETriggerEvent::Started, this, &AValdoriaHeroCharacter::Input_Secondary);
 	Input->BindAction(Ability1Action, ETriggerEvent::Started, this, &AValdoriaHeroCharacter::Input_Ability1);
 	Input->BindAction(Ability2Action, ETriggerEvent::Started, this, &AValdoriaHeroCharacter::Input_Ability2);
+	Input->BindAction(Ability3Action, ETriggerEvent::Started, this, &AValdoriaHeroCharacter::Input_Ability3);
 	Input->BindAction(UltimateAction, ETriggerEvent::Started, this, &AValdoriaHeroCharacter::Input_Ultimate);
 	Input->BindAction(ReloadAction, ETriggerEvent::Started, this, &AValdoriaHeroCharacter::Input_Reload);
 }
@@ -457,6 +498,7 @@ void AValdoriaHeroCharacter::Input_FireReleased() { bFireHeld = false; }
 void AValdoriaHeroCharacter::Input_Secondary() { TryActivateSlot(EValdoriaAbilitySlot::SecondaryFire); }
 void AValdoriaHeroCharacter::Input_Ability1() { TryActivateSlot(EValdoriaAbilitySlot::Ability1); }
 void AValdoriaHeroCharacter::Input_Ability2() { TryActivateSlot(EValdoriaAbilitySlot::Ability2); }
+void AValdoriaHeroCharacter::Input_Ability3() { TryActivateSlot(EValdoriaAbilitySlot::Ability3); }
 void AValdoriaHeroCharacter::Input_Ultimate() { TryActivateSlot(EValdoriaAbilitySlot::Ultimate); }
 void AValdoriaHeroCharacter::Input_Reload() { StartReload(); }
 
@@ -479,7 +521,10 @@ void AValdoriaHeroCharacter::TryActivateSlot(EValdoriaAbilitySlot Slot)
 	{
 		if (Spec.InputID == static_cast<int32>(Slot))
 		{
-			AbilitySystem->TryActivateAbility(Spec.Handle);
+			if (AbilitySystem->TryActivateAbility(Spec.Handle))
+			{
+				PlayActionForSlot(Slot);
+			}
 			return;
 		}
 	}
@@ -549,6 +594,7 @@ void AValdoriaHeroCharacter::StartReload()
 	{
 		return;
 	}
+	PlayReloadAnimation();
 	bReloading = true;
 	GetWorldTimerManager().SetTimer(ReloadTimer, this, &AValdoriaHeroCharacter::FinishReload, FMath::Max(0.05f, Weapon.ReloadTime), false);
 	if (!HasAuthority())
@@ -1098,6 +1144,7 @@ void AValdoriaHeroCharacter::Tick(float DeltaSeconds)
 	Super::Tick(DeltaSeconds);
 	TickMovementFeatures(DeltaSeconds);
 	TickStatusEffects(DeltaSeconds);
+	TickHover(DeltaSeconds);
 	if (!bIsDead)
 	{
 		UpdateMovementAnimation();
@@ -1255,16 +1302,19 @@ void AValdoriaHeroCharacter::MulticastShotEffects_Implementation(FVector_NetQuan
 
 void AValdoriaHeroCharacter::DrawShot(const FVector& Impact, bool bHit) const
 {
-#if ENABLE_DRAW_DEBUG
-	const FVector Muzzle = GetMesh()->DoesSocketExist(TEXT("hand_r"))
-		? GetMesh()->GetSocketLocation(TEXT("hand_r")) : GetActorLocation() + FVector(0, 0, 50.f);
-	const FColor Color = ActiveDefinition ? ActiveDefinition->ThemeColor.ToFColor(true) : FColor::Yellow;
-	DrawDebugLine(GetWorld(), Muzzle, Impact, Color, false, 0.06f, 0, 1.2f);
-	if (bHit)
+	// Raio brilhante da ponta da arma até o impacto, e um estouro no ponto atingido.
+	FVector Muzzle = GetActorLocation() + FVector(0, 0, 50.f);
+	if (WeaponComponent->GetStaticMesh() && WeaponComponent->IsVisible())
 	{
-		DrawDebugPoint(GetWorld(), Impact, 9.f, FColor::White, false, 0.12f);
+		Muzzle = WeaponComponent->Bounds.Origin + GetActorForwardVector() * WeaponComponent->Bounds.BoxExtent.Size() * 0.6f;
 	}
-#endif
+	else if (GetMesh()->DoesSocketExist(TEXT("hand_r")))
+	{
+		Muzzle = GetMesh()->GetSocketLocation(TEXT("hand_r"));
+	}
+	const FLinearColor Color = ActiveDefinition ? ActiveDefinition->ThemeColor : FLinearColor(1.f, 0.9f, 0.4f);
+	AValdoriaFx::Beam(GetWorld(), Muzzle, Impact, Color, bHit ? 4.f : 2.5f);
+	AValdoriaFx::Burst(GetWorld(), Impact, bHit ? 45.f : 25.f, bHit ? FLinearColor::White : Color, 0.15f);
 }
 
 void AValdoriaHeroCharacter::PlayAreaEffect(const FVector& Center, float Radius, FLinearColor Color)
@@ -1286,11 +1336,15 @@ void AValdoriaHeroCharacter::MulticastAreaEffect_Implementation(FVector_NetQuant
 
 void AValdoriaHeroCharacter::DrawArea(const FVector& Center, float Radius, FLinearColor Color) const
 {
-#if ENABLE_DRAW_DEBUG
-	DrawDebugCircle(GetWorld(), Center - FVector(0, 0, 80.f), Radius, 48, Color.ToFColor(true), false, 0.6f, 0, 6.f,
-		FVector(1, 0, 0), FVector(0, 1, 0), false);
-	DrawDebugSphere(GetWorld(), Center, Radius * 0.35f, 16, Color.ToFColor(true), false, 0.3f, 0, 2.f);
-#endif
+	// Anel no chão que se expande + bolha fraca.
+	FVector Ground = Center;
+	FHitResult Down;
+	FCollisionQueryParams Params(SCENE_QUERY_STAT(ValdoriaFxGround), false, this);
+	if (GetWorld()->LineTraceSingleByChannel(Down, Center, Center - FVector(0, 0, 400.f), ECC_WorldStatic, Params))
+	{
+		Ground = Down.ImpactPoint + FVector(0, 0, 3.f);
+	}
+	AValdoriaFx::Ring(GetWorld(), Ground, Radius, Color);
 }
 
 // ------------------------------------------------------------------ movimento avançado
@@ -1904,7 +1958,7 @@ UAnimSequenceBase* AValdoriaHeroCharacter::PickMovementAnimation(bool& bOutLoop)
 void AValdoriaHeroCharacter::UpdateMovementAnimation()
 {
 	UAnimInstance* AnimInstance = GetMesh() ? GetMesh()->GetAnimInstance() : nullptr;
-	if (!AnimInstance || !ActiveDefinition)
+	if (!AnimInstance || !ActiveDefinition || AnimInstance->IsA<UValdoriaAnimInstance>())
 	{
 		return;
 	}
@@ -1932,6 +1986,17 @@ void AValdoriaHeroCharacter::UpdateMovementAnimation()
 void AValdoriaHeroCharacter::PlayDashAnimation(const FVector& Direction)
 {
 	UAnimInstance* AnimInstance = GetMesh() ? GetMesh()->GetAnimInstance() : nullptr;
+	UValdoriaAnimInstance* Valdoria = Cast<UValdoriaAnimInstance>(AnimInstance);
+	if (Valdoria && ActiveDefinition && !bIsCrouched && !bIsProne)
+	{
+		const FValdoriaAnimationSet& DashSet = ActiveDefinition->Animations;
+		const float DFwd = FVector::DotProduct(Direction, GetActorForwardVector());
+		const float DRight = FVector::DotProduct(Direction, GetActorRightVector());
+		const TSoftObjectPtr<UAnimSequenceBase>& DashPtr = FMath::Abs(DFwd) >= FMath::Abs(DRight)
+			? (DFwd >= 0.f ? DashSet.DashForward : DashSet.DashBackward) : (DRight >= 0.f ? DashSet.DashRight : DashSet.DashLeft);
+		Valdoria->PlayAction(DashPtr.IsNull() ? nullptr : DashPtr.LoadSynchronous(), 1.2f, true);
+		return;
+	}
 	if (!AnimInstance || !ActiveDefinition || CurrentMovementAnim.IsValid())
 	{
 		return; // agachado/deitado já tem animação própria
@@ -2018,4 +2083,110 @@ void AValdoriaHeroCharacter::AddUltimateCharge(float Amount)
 		AbilitySystem->SetNumericAttributeBase(UValdoriaAttributeSet::GetUltimateChargeAttribute(),
 			FMath::Min(ActiveDefinition->UltimateCost, Attributes->GetUltimateCharge() + Amount));
 	}
+}
+
+// ------------------------------------------------------------------ animador próprio
+
+UAnimSequenceBase* AValdoriaHeroCharacter::PickBaseAnimation(bool& bOutLoop, float& OutRate) const
+{
+	OutRate = 1.f;
+	if (!ActiveDefinition)
+	{
+		bOutLoop = true;
+		return nullptr;
+	}
+	// Movimentos especiais (agachar, deslizar, subir, escalar, voar, flutuar) primeiro.
+	if (UAnimSequenceBase* Special = PickMovementAnimation(bOutLoop))
+	{
+		return Special;
+	}
+	bOutLoop = true;
+	const FValdoriaAnimationSet& Set = ActiveDefinition->Animations;
+	auto Load = [](const TSoftObjectPtr<UAnimSequenceBase>& Ptr) { return Ptr.IsNull() ? nullptr : Ptr.LoadSynchronous(); };
+	if (GetCharacterMovement()->IsFalling())
+	{
+		if (UAnimSequenceBase* Fall = Load(Set.FallLoop))
+		{
+			return Fall;
+		}
+	}
+	const FVector Velocity = GetVelocity();
+	const float Speed = Velocity.Size2D();
+	if (Speed < 25.f || GetCharacterMovement()->IsFalling())
+	{
+		return Load(Set.Idle);
+	}
+	const bool bJog = Speed >= Set.WalkRunSpeed;
+	const float Fwd = FVector::DotProduct(Velocity, GetActorForwardVector());
+	const float Right = FVector::DotProduct(Velocity, GetActorRightVector());
+	const TSoftObjectPtr<UAnimSequenceBase>* Pick;
+	if (FMath::Abs(Fwd) >= FMath::Abs(Right) * 0.8f)
+	{
+		Pick = Fwd >= 0.f ? (bJog ? &Set.JogForward : &Set.WalkForward) : (bJog ? &Set.JogBackward : &Set.WalkBackward);
+	}
+	else
+	{
+		Pick = Right >= 0.f ? (bJog ? &Set.JogRight : &Set.WalkRight) : (bJog ? &Set.JogLeft : &Set.WalkLeft);
+	}
+	// Ritmo dos passos acompanha a velocidade real.
+	OutRate = FMath::Clamp(Speed / FMath::Max(50.f, bJog ? Set.JogAnimSpeed : Set.WalkAnimSpeed), 0.6f, 1.8f);
+	UAnimSequenceBase* Clip = Load(*Pick);
+	return Clip ? Clip : Load(Set.Idle);
+}
+
+void AValdoriaHeroCharacter::PlayActionForSlot(EValdoriaAbilitySlot Slot)
+{
+	UValdoriaAnimInstance* Anim = GetMesh() ? Cast<UValdoriaAnimInstance>(GetMesh()->GetAnimInstance()) : nullptr;
+	if (!Anim || !ActiveDefinition)
+	{
+		return;
+	}
+	const FValdoriaAnimationSet& Set = ActiveDefinition->Animations;
+	auto Load = [](const TSoftObjectPtr<UAnimSequenceBase>& Ptr) { return Ptr.IsNull() ? nullptr : Ptr.LoadSynchronous(); };
+	if (Slot == EValdoriaAbilitySlot::PrimaryFire)
+	{
+		if (Set.FireActions.Num() > 0)
+		{
+			// Combo: cada golpe usa a próxima animação da lista.
+			const int32 Index = ComboIndex++ % Set.FireActions.Num();
+			Anim->PlayAction(Load(Set.FireActions[Index]), Set.FireActionRate);
+		}
+		return;
+	}
+	Anim->PlayAction(Load(Slot == EValdoriaAbilitySlot::Ultimate ? Set.UltimateAction : Set.AbilityAction), 1.3f);
+}
+
+void AValdoriaHeroCharacter::PlayReloadAnimation()
+{
+	UValdoriaAnimInstance* Anim = GetMesh() ? Cast<UValdoriaAnimInstance>(GetMesh()->GetAnimInstance()) : nullptr;
+	if (!Anim || !ActiveDefinition || ActiveDefinition->Animations.ReloadAction.IsNull())
+	{
+		return;
+	}
+	UAnimSequenceBase* Clip = ActiveDefinition->Animations.ReloadAction.LoadSynchronous();
+	if (Clip)
+	{
+		// A animação dura o mesmo que a recarga.
+		Anim->PlayAction(Clip, Clip->GetPlayLength() / FMath::Max(0.2f, GetWeaponStats().ReloadTime));
+	}
+}
+
+void AValdoriaHeroCharacter::TickHover(float DeltaSeconds)
+{
+	if (!ActiveDefinition || ActiveDefinition->Locomotion != EValdoriaLocomotion::Float || bIsDead)
+	{
+		return;
+	}
+	// Flutuar: sobe e desce devagar e inclina na direção do movimento (sem passos).
+	const float Time = GetWorld()->GetTimeSeconds();
+	const FVector Base(0.f, 0.f, -ActiveDefinition->CapsuleHalfHeight + ActiveDefinition->HoverHeight);
+	const float Bob = FMath::Sin(Time * 2.1f) * ActiveDefinition->HoverBob;
+	const FVector Velocity = GetVelocity();
+	const float MaxSpeed = FMath::Max(100.f, GetCharacterMovement()->GetMaxSpeed());
+	const float Fwd = FMath::Clamp(FVector::DotProduct(Velocity, GetActorForwardVector()) / MaxSpeed, -1.f, 1.f);
+	const float Right = FMath::Clamp(FVector::DotProduct(Velocity, GetActorRightVector()) / MaxSpeed, -1.f, 1.f);
+	const FRotator Lean(-Fwd * ActiveDefinition->HoverLean, 0.f, Right * ActiveDefinition->HoverLean * 0.7f);
+	const FQuat Target = Lean.Quaternion() * FRotator(0.f, -90.f, 0.f).Quaternion();
+	const FQuat Current = GetMesh()->GetRelativeRotation().Quaternion();
+	GetMesh()->SetRelativeLocationAndRotation(Base + FVector(0.f, 0.f, Bob), FQuat::Slerp(Current, Target, FMath::Min(1.f, DeltaSeconds * 6.f)));
 }

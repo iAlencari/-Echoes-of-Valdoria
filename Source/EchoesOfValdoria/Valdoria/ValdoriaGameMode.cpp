@@ -20,6 +20,7 @@
 #include "ValdoriaHeroDefinition.h"
 #include "ValdoriaPlayerController.h"
 #include "ValdoriaTrainingDummy.h"
+#include "ValdoriaSettings.h"
 #include "Framework/Application/SlateApplication.h"
 #include "Input/Events.h"
 
@@ -86,6 +87,53 @@ void AValdoriaGameMode::StartPlay()
 	if (FParse::Param(FCommandLine::Get(), TEXT("ValdoriaAutoTest")))
 	{
 		GetWorldTimerManager().SetTimer(AutoTestTimer, this, &AValdoriaGameMode::RunAutoTestStep, 0.15f, true, 4.f);
+	}
+	if (FParse::Param(FCommandLine::Get(), TEXT("ValdoriaLineup")))
+	{
+		// Os 5 heróis lado a lado para comparar corpo, tamanho e flutuação.
+		FTSTicker::GetCoreTicker().AddTicker(FTickerDelegate::CreateWeakLambda(this, [this](float)
+		{
+			static int32 Step = 0;
+			++Step;
+			AValdoriaPlayerController* PC = Cast<AValdoriaPlayerController>(GetWorld()->GetFirstPlayerController());
+			AValdoriaHeroCharacter* Hero = PC ? Cast<AValdoriaHeroCharacter>(PC->GetPawn()) : nullptr;
+			if (Step == 16 && Hero)
+			{
+				static const TCHAR* Ids[] = { TEXT("brasa"), TEXT("kael"), TEXT("iara"), TEXT("vex"), TEXT("lume") };
+				const FVector Fwd = Hero->GetActorForwardVector().GetSafeNormal2D();
+				const FVector Right = FVector::CrossProduct(FVector::UpVector, Fwd);
+				for (int32 i = 0; i < 5; ++i)
+				{
+					FActorSpawnParameters P;
+					P.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AdjustIfPossibleButAlwaysSpawn;
+					const FVector Where = Hero->GetActorLocation() + Fwd * 520.f + Right * (i - 2) * 150.f;
+					if (AValdoriaTrainingDummy* D = GetWorld()->SpawnActor<AValdoriaTrainingDummy>(AValdoriaTrainingDummy::StaticClass(), Where, (-Fwd).Rotation(), P))
+					{
+						D->TeamId = Hero->TeamId;
+						D->SetHeroDefinition(PC->FindHero(Ids[i]));
+					}
+				}
+				PC->SetControlRotation(FRotator(-8.f, Hero->GetActorRotation().Yaw, 0.f));
+			}
+			if (Step == 24)
+			{
+				FScreenshotRequest::RequestScreenshot(FPaths::ConvertRelativePathToFull(FPaths::ProjectSavedDir() / TEXT("Screenshots/Herois_Lado_a_Lado.png")), false, false);
+			}
+			if (Step == 27)
+			{
+				FPlatformMisc::RequestExit(false);
+				return false;
+			}
+			return true;
+		}), 0.25f);
+	}
+	if (FParse::Param(FCommandLine::Get(), TEXT("ValdoriaWeaponPose")))
+	{
+		FTSTicker::GetCoreTicker().AddTicker(FTickerDelegate::CreateWeakLambda(this, [this](float)
+		{
+			RunWeaponPoseStep();
+			return WeaponPoseStep < 100000;
+		}), 0.3f);
 	}
 	if (FParse::Param(FCommandLine::Get(), TEXT("ValdoriaHeroTest")))
 	{
@@ -599,8 +647,15 @@ void AValdoriaGameMode::RunHeroTestStep()
 		if (Ally) { Hero->DealDamageTo(Ally, 120.f); }
 		Report(TEXT("inicio"));
 		break;
+	case 4:
+		PressKey(EKeys::D, true); // anda de lado enquanto ataca (pernas andam, tronco ataca)
+		break;
 	case 3: case 5: case 7: case 9:
 		Use(EValdoriaAbilitySlot::PrimaryFire, TEXT("ataque"));
+		break;
+	case 10:
+		Shot(10);
+		PressKey(EKeys::D, false);
 		break;
 	case 11: Report(TEXT("depois do ataque")); Shot(1); break;
 	case 13: Use(EValdoriaAbilitySlot::SecondaryFire, TEXT("botao direito")); break;
@@ -617,7 +672,34 @@ void AValdoriaGameMode::RunHeroTestStep()
 		}
 		break;
 	case 16: Report(TEXT("depois do botao direito")); Shot(2); break;
-	case 18: Use(EValdoriaAbilitySlot::Ability1, TEXT("F")); break;
+	case 18:
+		if (Index == 0)
+		{
+			// Esquema estilo Valorant: a habilidade 1 vai para o Q (tecla de verdade).
+			FValdoriaOptions::Get().KeyScheme = 1;
+			Hero->RefreshKeyScheme();
+		}
+		else
+		{
+			Use(EValdoriaAbilitySlot::Ability1, TEXT("F"));
+		}
+		break;
+	case 19:
+		if (Index == 0)
+		{
+			AimAtEnemy();
+			PressKey(EKeys::Q, true);
+		}
+		break;
+	case 20:
+		if (Index == 0)
+		{
+			PressKey(EKeys::Q, false);
+			UE_LOG(LogValdoria, Display, TEXT("HEROTEST teclas Valorant: Q usou a habilidade 1 (recarga=%.1f)"), Hero->GetCooldownRemaining(EValdoriaAbilitySlot::Ability1));
+			FValdoriaOptions::Get().KeyScheme = 0;
+			Hero->RefreshKeyScheme();
+		}
+		break;
 	case 21: Report(TEXT("depois do F")); Shot(3); break;
 	case 23: Use(EValdoriaAbilitySlot::Ability2, TEXT("E")); break;
 	case 27: Report(TEXT("depois do E")); Shot(4); break;
@@ -679,5 +761,54 @@ void AValdoriaGameMode::RunHeroTestStep()
 		if (Index == 3) { Shot(7); }
 		break;
 	default: break;
+	}
+}
+
+void AValdoriaGameMode::RunWeaponPoseStep()
+{
+	++WeaponPoseStep;
+	AValdoriaPlayerController* PC = Cast<AValdoriaPlayerController>(GetWorld()->GetFirstPlayerController());
+	AValdoriaHeroCharacter* Hero = PC ? Cast<AValdoriaHeroCharacter>(PC->GetPawn()) : nullptr;
+	if (!Hero || WeaponPoseStep < 12)
+	{
+		return;
+	}
+	static const FRotator Candidates[] = {
+		FRotator(0, 0, 0), FRotator(0, 90, 0), FRotator(0, -90, 0), FRotator(0, 180, 0),
+		FRotator(90, 0, 0), FRotator(-90, 0, 0), FRotator(0, 0, 90), FRotator(0, 0, -90),
+		FRotator(0, 90, 90), FRotator(0, -90, 90), FRotator(0, 90, -90), FRotator(0, -90, -90),
+	};
+	const int32 N = UE_ARRAY_COUNT(Candidates);
+	const int32 S = WeaponPoseStep - 12;
+	if (S == 0)
+	{
+		const bool bOk = PC->SelectHero(TEXT("kael"));
+		Hero->bUseControllerRotationYaw = false;
+		UE_LOG(LogValdoria, Display, TEXT("WEAPONPOSE selecionou=%d heroi=%s"), bOk, Hero->GetHeroDefinition() ? *Hero->GetHeroDefinition()->HeroId.ToString() : TEXT("-"));
+		const UStaticMesh* Mesh = Hero->WeaponComponent->GetStaticMesh();
+		UE_LOG(LogValdoria, Display, TEXT("WEAPONPOSE malha=%s extensao=%s socket=%s"), Mesh ? *Mesh->GetName() : TEXT("-"),
+			Mesh ? *Mesh->GetBounds().BoxExtent.ToString() : TEXT("-"), *Hero->WeaponComponent->GetAttachSocketName().ToString());
+		return;
+	}
+	const int32 Index = (S - 1) / 2;
+	if (Index >= N)
+	{
+		UE_LOG(LogValdoria, Display, TEXT("WEAPONPOSE fim"));
+		WeaponPoseStep = 100000;
+		FPlatformMisc::RequestExit(false);
+		return;
+	}
+	if ((S - 1) % 2 == 0)
+	{
+		// Câmera vendo o herói de lado (o corpo não gira com a câmera neste teste).
+		PC->SetControlRotation(FRotator(-5.f, Hero->GetActorRotation().Yaw - 100.f, 0.f));
+		FTransform T = Hero->WeaponComponent->GetRelativeTransform();
+		T.SetRotation(Candidates[Index].Quaternion());
+		Hero->WeaponComponent->SetRelativeTransform(T);
+	}
+	else
+	{
+		FScreenshotRequest::RequestScreenshot(FPaths::ConvertRelativePathToFull(FPaths::ProjectSavedDir()
+			/ TEXT("Screenshots") / FString::Printf(TEXT("Pose_%02d.png"), Index)), false, false);
 	}
 }

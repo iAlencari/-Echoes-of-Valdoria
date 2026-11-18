@@ -49,11 +49,17 @@ TArray<FName> UValdoriaHeroDefinition::GetPresetIds()
 UValdoriaHeroDefinition* UValdoriaHeroDefinition::CreatePreset(UObject* Outer, FName PresetId)
 {
 	UValdoriaHeroDefinition* Def = NewObject<UValdoriaHeroDefinition>(Outer);
-	return Def->ApplyPreset(PresetId) ? Def : nullptr;
+	if (!Def->ApplyPreset(PresetId))
+	{
+		return nullptr;
+	}
+	Def->ApplyPresetLooks(PresetId);
+	return Def;
 }
 
 bool UValdoriaHeroDefinition::ApplyPreset(FName PresetId)
 {
+	Modify();
 	const FString Id = PresetId.ToString().ToLower();
 	Abilities.Reset();
 	Roles.Reset();
@@ -335,6 +341,90 @@ bool UValdoriaHeroDefinition::ApplyPreset(FName PresetId)
 		FValdoriaAbilityEntry& Ult = Add(this, EValdoriaAbilitySlot::Ultimate, UValdoriaGA_WeaponSurge::StaticClass(), LOCTEXT("LumeUlt", "Aurora"),
 			LOCTEXT("LumeUltDesc", "Por 6 s o feixe dobra de dano e de cura, não gasta energia e também acerta quem estiver a até 4 m do alvo."));
 		Ult.Duration = 6.f; Ult.Radius = 400.f; Ult.SecondaryMagnitude = 2.f;
+		return true;
+	}
+	return false;
+}
+
+
+// ------------------------------------------------------------------ aparência (animações e corpo)
+
+bool UValdoriaHeroDefinition::ApplyPresetLooks(FName PresetId)
+{
+	Modify(); // marca o arquivo como alterado (senão o script não salva)
+	const FString Id = PresetId.ToString().ToLower();
+	auto A = [](const TCHAR* Folder, const TCHAR* Name)
+	{
+		return TSoftObjectPtr<UAnimSequenceBase>(FSoftObjectPath(FString::Printf(TEXT("/Game/Characters/Mannequins/Anims/%s/%s.%s"), Folder, Name, Name)));
+	};
+	auto Attack = [&A](const TCHAR* Name) { return A(TEXT("Unarmed/Attack"), Name); };
+	FValdoriaAnimationSet& S = Animations;
+	S.bUseValdoriaAnimator = true;
+	S.FireActions.Reset();
+
+	if (Id == TEXT("brasa"))
+	{
+		// Mulher de corpo largo e forte (tanque), proporções naturais.
+		Mesh = TSoftObjectPtr<USkeletalMesh>(FSoftObjectPath(Quinn));
+		MeshScale = 1.1f;
+		BodyWidth = 1.2f; BodyDepth = 1.15f; BodyHeight = 1.03f;
+		S.FireActions = { Attack(TEXT("MM_Attack_01")), Attack(TEXT("MM_Attack_02")), Attack(TEXT("MM_Attack_03")) };
+		S.FireActionRate = 1.3f;
+		S.AbilityAction = Attack(TEXT("MM_Attack_02"));
+		S.UltimateAction = Attack(TEXT("MM_ChargedAttack"));
+		return true;
+	}
+	if (Id == TEXT("kael"))
+	{
+		// Rifle: andar, correr, cair, atirar e recarregar com a arma nas mãos.
+		BodyWidth = 1.02f; BodyDepth = 1.f; BodyHeight = 1.03f;
+		// As animações de rifle da Epic seguram a arma no soquete HandGrip_R do esqueleto.
+		WeaponSocket = TEXT("HandGrip_R");
+		WeaponOffset = FTransform(FRotator(0.f, 90.f, 0.f), FVector::ZeroVector, FVector(1.5f));
+		S.Idle = A(TEXT("Rifle"), TEXT("MF_Rifle_Idle_ADS"));
+		S.WalkForward = A(TEXT("Rifle/Walk"), TEXT("MF_Rifle_Walk_Fwd"));
+		S.WalkBackward = A(TEXT("Rifle/Walk"), TEXT("MF_Rifle_Walk_Bwd"));
+		S.WalkLeft = A(TEXT("Rifle/Walk"), TEXT("MF_Rifle_Walk_Left"));
+		S.WalkRight = A(TEXT("Rifle/Walk"), TEXT("MF_Rifle_Walk_Right"));
+		S.JogForward = A(TEXT("Rifle/Jog"), TEXT("MF_Rifle_Jog_Fwd"));
+		S.JogBackward = A(TEXT("Rifle/Jog"), TEXT("MF_Rifle_Jog_Bwd"));
+		S.JogLeft = A(TEXT("Rifle/Jog"), TEXT("MF_Rifle_Jog_Left"));
+		S.JogRight = A(TEXT("Rifle/Jog"), TEXT("MF_Rifle_Jog_Right"));
+		S.FallLoop = A(TEXT("Rifle/Jump"), TEXT("MM_Rifle_Jump_Fall_Loop"));
+		S.FireActions = { A(TEXT("Rifle"), TEXT("MM_Rifle_Fire")) };
+		S.FireActionRate = 1.f;
+		S.ReloadAction = A(TEXT("Rifle"), TEXT("MM_Rifle_Reload"));
+		S.AbilityAction = A(TEXT("Rifle"), TEXT("MM_Rifle_Equip"));
+		S.UltimateAction = A(TEXT("Rifle"), TEXT("MM_Rifle_Equip"));
+		return true;
+	}
+	if (Id == TEXT("iara"))
+	{
+		BodyWidth = 0.97f; BodyDepth = 1.04f; BodyHeight = 0.98f;
+		S.FireActions = { Attack(TEXT("MM_Attack_02")) };
+		S.FireActionRate = 1.6f;
+		S.AbilityAction = Attack(TEXT("MM_Attack_03"));
+		S.UltimateAction = Attack(TEXT("MM_ChargedAttack"));
+		return true;
+	}
+	if (Id == TEXT("vex"))
+	{
+		// Corpo esguio e reto.
+		BodyWidth = 0.9f; BodyDepth = 0.92f; BodyHeight = 1.f;
+		S.FireActions = { Attack(TEXT("MM_Attack_01")), Attack(TEXT("MM_Attack_02")) };
+		S.FireActionRate = 1.8f;
+		S.AbilityAction = Attack(TEXT("MM_Attack_03"));
+		S.UltimateAction = Attack(TEXT("MM_ChargedAttack"));
+		return true;
+	}
+	if (Id == TEXT("lume"))
+	{
+		BodyWidth = 1.f; BodyDepth = 1.f; BodyHeight = 1.04f;
+		HoverBob = 6.f;
+		HoverLean = 14.f;
+		// Feixe contínuo: sem golpe a cada pulso; habilidades com gesto.
+		S.AbilityAction = Attack(TEXT("MM_Attack_03"));
+		S.UltimateAction = Attack(TEXT("MM_ChargedAttack"));
 		return true;
 	}
 	return false;

@@ -185,6 +185,13 @@ public:
 
 	/** Bônus da loja (a loja do jogador chama isto ao comprar e ao renascer). */
 	void SetShopBonus(const FValdoriaShopBonus& Bonus);
+	/** Reaplica as teclas das habilidades (ao trocar o esquema nas Configurações). */
+	void RefreshKeyScheme();
+	/** Animação de base agora (o animador em C++ pergunta isto a cada quadro). */
+	UAnimSequenceBase* PickBaseAnimation(bool& bOutLoop, float& OutRate) const;
+	/** Toca o gesto do botão usado (tiro/golpe em combo, habilidade, ultimate). */
+	void PlayActionForSlot(EValdoriaAbilitySlot Slot);
+	void PlayReloadAnimation();
 	const FValdoriaShopBonus& GetShopBonus() const { return ShopBonus; }
 
 	int32 GetDashCharges() const { return DashChargesLeft; }
@@ -228,6 +235,7 @@ protected:
 	void Input_Secondary();
 	void Input_Ability1();
 	void Input_Ability2();
+	void Input_Ability3();
 	void Input_Ultimate();
 	void Input_Reload();
 	void Input_JumpPressed();
@@ -338,6 +346,8 @@ protected:
 	UPROPERTY(Transient) TObjectPtr<UInputAction> SecondaryAction;
 	UPROPERTY(Transient) TObjectPtr<UInputAction> Ability1Action;
 	UPROPERTY(Transient) TObjectPtr<UInputAction> Ability2Action;
+	UPROPERTY(Transient) TObjectPtr<UInputAction> Ability3Action;
+	void MapAbilityKeys();
 	UPROPERTY(Transient) TObjectPtr<UInputAction> UltimateAction;
 	UPROPERTY(Transient) TObjectPtr<UInputAction> ReloadAction;
 
@@ -363,6 +373,9 @@ protected:
 	void DoLeapSlamImpact();
 	TMap<EValdoriaStatus, float> StatusEndTimes;
 	FValdoriaShopBonus ShopBonus;
+	int32 ComboIndex = 0;
+	void TickHover(float DeltaSeconds);
+	FVector HoverMeshBase = FVector::ZeroVector;
 	float ReflectEndTime = 0.f;
 	float AbsorbEndTime = 0.f;
 	float AbsorbFraction = 0.f;

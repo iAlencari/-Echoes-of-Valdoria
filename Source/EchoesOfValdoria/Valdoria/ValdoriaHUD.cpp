@@ -352,15 +352,20 @@ void AValdoriaHUD::DrawAbilities(AValdoriaHeroCharacter* Hero, float W, float H)
 	const float Gap = 12.f * S;
 	const float Y = H - 112.f * S;
 
-	struct FSlotInfo { EValdoriaAbilitySlot Slot; const TCHAR* Key; };
-	const FSlotInfo Slots[] = {
-		{ EValdoriaAbilitySlot::SecondaryFire, TEXT("BD") },
-		{ EValdoriaAbilitySlot::Ability1, TEXT("F") },
-		{ EValdoriaAbilitySlot::Ability2, TEXT("E") },
-	};
+	struct FSlotInfo { EValdoriaAbilitySlot Slot; FString Key; };
+	// Teclas conforme o esquema das Configurações; a habilidade 3 (C) só aparece se o herói tiver.
+	const FValdoriaOptions& KeyOpt = FValdoriaOptions::Get();
+	TArray<FSlotInfo> Slots;
+	for (EValdoriaAbilitySlot S2 : { EValdoriaAbilitySlot::SecondaryFire, EValdoriaAbilitySlot::Ability1, EValdoriaAbilitySlot::Ability2, EValdoriaAbilitySlot::Ability3 })
+	{
+		if (S2 != EValdoriaAbilitySlot::Ability3 || Hero->FindAbilityEntry(S2))
+		{
+			Slots.Add({ S2, KeyOpt.GetSlotKeyLabel(S2) });
+		}
+	}
 	// Passiva (losango simples) + 3 habilidades + ultimate.
 	const float UltSize = 86.f * S;
-	const float TotalW = Size * 0.7f + Gap + (Size + Gap) * 3 + UltSize;
+	const float TotalW = Size * 0.7f + Gap + (Size + Gap) * Slots.Num() + UltSize;
 	float X = W * 0.5f - TotalW * 0.5f;
 
 	// Passiva.
@@ -415,7 +420,7 @@ void AValdoriaHUD::DrawAbilities(AValdoriaHeroCharacter* Hero, float W, float H)
 		DrawLabel(bReady ? TEXT("PRONTA") : FString::Printf(TEXT("%d%%"), FMath::FloorToInt(Pct * 100.f)),
 			X + UltSize * 0.5f, UY + UltSize * 0.3f, bReady ? Theme : FLinearColor::White, (bReady ? 1.2f : 1.6f) * S, true);
 		DrawRect(X + 3.f * S, UY + 3.f * S, 22.f * S, 18.f * S, FLinearColor(0.f, 0.f, 0.f, 0.6f));
-		DrawLabel(TEXT("Q"), X + 14.f * S, UY + 3.f * S, FLinearColor(1.f, 0.9f, 0.6f), 0.85f * S, true);
+		DrawLabel(KeyOpt.GetSlotKeyLabel(EValdoriaAbilitySlot::Ultimate), X + 14.f * S, UY + 3.f * S, FLinearColor(1.f, 0.9f, 0.6f), 0.85f * S, true);
 	}
 }
 
@@ -626,6 +631,6 @@ void AValdoriaHUD::DrawDamageFeedback(AValdoriaHeroCharacter* Hero, float W, flo
 	bWasUltReady = bReady;
 	if (Now - UltReadyFlashTime < 2.f && Hero->GetHeroDefinition())
 	{
-		DrawLabel(TEXT("ULTIMATE PRONTA  (Q)"), Cx, Cy - 220.f * S, Hero->GetHeroDefinition()->ThemeColor, 1.6f * S, true);
+		DrawLabel(TEXT("ULTIMATE PRONTA"), Cx, Cy - 220.f * S, Hero->GetHeroDefinition()->ThemeColor, 1.6f * S, true);
 	}
 }

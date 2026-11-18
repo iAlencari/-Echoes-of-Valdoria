@@ -151,6 +151,21 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Visual")
 	float MeshScale = 1.f;
 
+	/** Proporções do corpo (1 = normal): largura dos ombros/quadril, profundidade (peito/costas) e
+	 *  altura. Para corpos diferentes; ajuste a cápsula (hitbox) junto. */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Visual|Corpo", meta = (ClampMin = "0.5", ClampMax = "2"))
+	float BodyWidth = 1.f;
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Visual|Corpo", meta = (ClampMin = "0.5", ClampMax = "2"))
+	float BodyDepth = 1.f;
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Visual|Corpo", meta = (ClampMin = "0.5", ClampMax = "2"))
+	float BodyHeight = 1.f;
+
+	/** Flutuar: quanto o corpo sobe e desce (cm) e quanto inclina ao se mover (graus). */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Visual|Corpo", meta = (ClampMin = "0"))
+	float HoverBob = 5.f;
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Visual|Corpo", meta = (ClampMin = "0"))
+	float HoverLean = 12.f;
+
 	/** Flutua sempre esta altura (cm) acima do chão (não é voo). A malha, que é a hitbox dos
 	 *  tiros e da cabeça, sobe junto. Some esta altura em CapsuleHalfHeight/2 se quiser a cápsula maior. */
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Visual", meta = (ClampMin = "0"))
@@ -204,6 +219,10 @@ public:
 	bool ApplyPreset(FName PresetId);
 
 	/** Nomes dos heróis prontos. */
+	/** Só a aparência de um herói pronto (animações e corpo), sem mexer no balanceamento. */
+	UFUNCTION(BlueprintCallable, Category = "Herói")
+	bool ApplyPresetLooks(FName PresetId);
+
 	static TArray<FName> GetPresetIds();
 
 	/** Cria um herói pronto em memória (usado se o Data Asset ainda não existir). */
