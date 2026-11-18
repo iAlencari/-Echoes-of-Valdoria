@@ -6,6 +6,7 @@
 #include "Engine/SkeletalMesh.h"
 #include "Engine/StaticMesh.h"
 #include "Engine/Texture2D.h"
+#include "Sound/SoundBase.h"
 #include "ValdoriaHeroAbilities.h"
 
 #define LOCTEXT_NAMESPACE "ValdoriaHeroes"
@@ -347,12 +348,86 @@ bool UValdoriaHeroDefinition::ApplyPreset(FName PresetId)
 }
 
 
+
+// ------------------------------------------------------------------ sons dos heróis prontos
+
+static void ApplyPresetSounds(UValdoriaHeroDefinition* Def, const FString& Id)
+{
+	auto Snd = [](const TCHAR* Category, const TCHAR* Name)
+	{
+		return TSoftObjectPtr<USoundBase>(FSoftObjectPath(FString::Printf(TEXT("/Game/Valdoria/Audio/%s/%s.%s"), Category, Name, Name)));
+	};
+	auto SetSound = [Def](EValdoriaAbilitySlot Slot, const TSoftObjectPtr<USoundBase>& Sound)
+	{
+		for (FValdoriaAbilityEntry& E : Def->Abilities)
+		{
+			if (E.Slot == Slot)
+			{
+				E.Sound = Sound;
+			}
+		}
+	};
+	Def->FireSounds.Reset();
+	Def->FootstepVolume = 0.5f;
+	Def->ReloadSound = Snd(TEXT("UI"), TEXT("metalLatch"));
+	using S = EValdoriaAbilitySlot;
+	if (Id == TEXT("brasa"))
+	{
+		Def->FireSounds = { Snd(TEXT("Melee"), TEXT("melee_sound")), Snd(TEXT("Melee"), TEXT("sword_sound")) };
+		Def->FireVolume = 0.8f;
+		Def->FootstepVolume = 0.7f;
+		SetSound(S::SecondaryFire, Snd(TEXT("Magic"), TEXT("magicshield")));
+		SetSound(S::Ability1, Snd(TEXT("Magic"), TEXT("flamethrower")));
+		SetSound(S::Ability2, Snd(TEXT("Magic"), TEXT("explode")));
+		SetSound(S::Ultimate, Snd(TEXT("Magic"), TEXT("explode3")));
+	}
+	else if (Id == TEXT("kael"))
+	{
+		Def->FireSounds = { Snd(TEXT("Shots"), TEXT("rifle")) };
+		Def->FireVolume = 0.45f;
+		SetSound(S::SecondaryFire, Snd(TEXT("Magic"), TEXT("zap2")));
+		SetSound(S::Ability1, Snd(TEXT("Melee"), TEXT("swish_3")));
+		SetSound(S::Ability2, Snd(TEXT("Magic"), TEXT("heal")));
+		SetSound(S::Ultimate, Snd(TEXT("Shots"), TEXT("shotgun")));
+	}
+	else if (Id == TEXT("iara"))
+	{
+		Def->FireSounds = { Snd(TEXT("Magic"), TEXT("water")) };
+		Def->FireVolume = 0.5f;
+		SetSound(S::SecondaryFire, Snd(TEXT("Magic"), TEXT("wind2")));
+		SetSound(S::Ability1, Snd(TEXT("Magic"), TEXT("magicdrop")));
+		SetSound(S::Ability2, Snd(TEXT("Magic"), TEXT("spell")));
+		SetSound(S::Ultimate, Snd(TEXT("Magic"), TEXT("enchant")));
+	}
+	else if (Id == TEXT("vex"))
+	{
+		Def->FireSounds = { Snd(TEXT("Melee"), TEXT("swish_2")), Snd(TEXT("Melee"), TEXT("swish_4")) };
+		Def->FireVolume = 0.6f;
+		Def->FootstepVolume = 0.25f; // passos leves
+		SetSound(S::SecondaryFire, Snd(TEXT("Melee"), TEXT("sword_sound")));
+		SetSound(S::Ability1, Snd(TEXT("Magic"), TEXT("curse")));
+		SetSound(S::Ability2, Snd(TEXT("Melee"), TEXT("Bow")));
+		SetSound(S::Ultimate, Snd(TEXT("Magic"), TEXT("forcepulse")));
+	}
+	else if (Id == TEXT("lume"))
+	{
+		Def->FireSounds = { Snd(TEXT("Magic"), TEXT("zap")) };
+		Def->FireVolume = 0.25f;
+		Def->FootstepVolume = 0.f; // flutua: sem passos
+		SetSound(S::SecondaryFire, Snd(TEXT("Magic"), TEXT("magicshield")));
+		SetSound(S::Ability1, Snd(TEXT("Magic"), TEXT("blessing")));
+		SetSound(S::Ability2, Snd(TEXT("Magic"), TEXT("teleport")));
+		SetSound(S::Ultimate, Snd(TEXT("Magic"), TEXT("warp")));
+	}
+}
+
 // ------------------------------------------------------------------ aparência (animações e corpo)
 
 bool UValdoriaHeroDefinition::ApplyPresetLooks(FName PresetId)
 {
 	Modify(); // marca o arquivo como alterado (senão o script não salva)
 	const FString Id = PresetId.ToString().ToLower();
+	ApplyPresetSounds(this, Id);
 	auto A = [](const TCHAR* Folder, const TCHAR* Name)
 	{
 		return TSoftObjectPtr<UAnimSequenceBase>(FSoftObjectPath(FString::Printf(TEXT("/Game/Characters/Mannequins/Anims/%s/%s.%s"), Folder, Name, Name)));

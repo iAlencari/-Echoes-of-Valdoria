@@ -19,7 +19,7 @@ public class EchoesOfValdoria : ModuleRules
 			"GameplayStateTreeModule",
 			"UMG",
 			"Slate",
-			"SlateCore",
+			"SlateCore", "MoviePlayer",
 			"GameplayAbilities",
 			"GameplayTags",
 			"GameplayTasks",

@@ -15,6 +15,7 @@
 #include "UnrealClient.h"
 #include "GameFramework/PlayerStart.h"
 #include "TimerManager.h"
+#include "Kismet/GameplayStatics.h"
 #include "ValdoriaHUD.h"
 #include "ValdoriaHeroCharacter.h"
 #include "ValdoriaHeroDefinition.h"
@@ -87,6 +88,27 @@ void AValdoriaGameMode::StartPlay()
 	if (FParse::Param(FCommandLine::Get(), TEXT("ValdoriaAutoTest")))
 	{
 		GetWorldTimerManager().SetTimer(AutoTestTimer, this, &AValdoriaGameMode::RunAutoTestStep, 0.15f, true, 4.f);
+	}
+	if (FParse::Param(FCommandLine::Get(), TEXT("ValdoriaLoadingTest")))
+	{
+		// Print da tela de carregamento ao abrir; depois troca para a NP (carregamento entre mapas) e tira outro.
+		const bool bOnNP = GetWorld()->GetMapName().Contains(TEXT("NP_"));
+		FTimerHandle T1, T2;
+		GetWorldTimerManager().SetTimer(T1, FTimerDelegate::CreateWeakLambda(this, [bOnNP]()
+		{
+			FScreenshotRequest::RequestScreenshot(FPaths::ConvertRelativePathToFull(FPaths::ProjectSavedDir() / (bOnNP ? TEXT("Screenshots/Carregando_NP.png") : TEXT("Screenshots/Carregando_Treino.png"))), true, false);
+		}), 0.6f, false);
+		GetWorldTimerManager().SetTimer(T2, FTimerDelegate::CreateWeakLambda(this, [this, bOnNP]()
+		{
+			if (bOnNP)
+			{
+				FPlatformMisc::RequestExit(false);
+			}
+			else
+			{
+				UGameplayStatics::OpenLevel(this, TEXT("/Game/Maps/NP_NovaPauliceia"), true, TEXT("ValdoriaLoadingTest"));
+			}
+		}), 3.5f, false);
 	}
 	if (FParse::Param(FCommandLine::Get(), TEXT("ValdoriaLineup")))
 	{

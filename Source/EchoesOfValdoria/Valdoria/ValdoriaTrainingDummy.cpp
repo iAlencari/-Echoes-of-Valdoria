@@ -4,6 +4,7 @@
 #include "GameFramework/CharacterMovementComponent.h"
 #include "TimerManager.h"
 #include "ValdoriaHeroDefinition.h"
+#include "ValdoriaAudio.h"
 
 AValdoriaTrainingDummy::AValdoriaTrainingDummy()
 {
@@ -130,6 +131,7 @@ void AValdoriaTrainingDummy::TickBot(float DeltaSeconds)
 	const bool bHit = FMath::FRand() < Accuracy[D];
 	const FVector Impact = bHit ? Aim : Aim + FMath::VRand() * 120.f;
 	PlayShotEffects(Impact, bHit);
+	ValdoriaAudio::PlayAt(this, ValdoriaAudio::Load(TEXT("Shots"), TEXT("pistol")), GetActorLocation(), 0.35f, 0.1f);
 	if (bHit)
 	{
 		DealTypedDamage(Target, Damage[D], EValdoriaDamageType::Physical);

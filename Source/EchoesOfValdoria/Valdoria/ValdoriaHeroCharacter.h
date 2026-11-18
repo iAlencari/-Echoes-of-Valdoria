@@ -192,6 +192,7 @@ public:
 	/** Toca o gesto do botão usado (tiro/golpe em combo, habilidade, ultimate). */
 	void PlayActionForSlot(EValdoriaAbilitySlot Slot);
 	void PlayReloadAnimation();
+	void PlaySlotSound(EValdoriaAbilitySlot Slot);
 	const FValdoriaShopBonus& GetShopBonus() const { return ShopBonus; }
 
 	int32 GetDashCharges() const { return DashChargesLeft; }
@@ -374,6 +375,9 @@ protected:
 	TMap<EValdoriaStatus, float> StatusEndTimes;
 	FValdoriaShopBonus ShopBonus;
 	int32 ComboIndex = 0;
+	void TickFootsteps(float DeltaSeconds);
+	float StepDistance = 0.f;
+	float LastFireSoundTime = -10.f;
 	void TickHover(float DeltaSeconds);
 	FVector HoverMeshBase = FVector::ZeroVector;
 	float ReflectEndTime = 0.f;

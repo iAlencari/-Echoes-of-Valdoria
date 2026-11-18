@@ -8,6 +8,7 @@
 class UValdoriaGameplayAbility;
 class UAnimSequenceBase;
 class UTexture2D;
+class USoundBase;
 
 /**
  * Tipo de dano. Físico = armas e golpes; Mágico = cajados e magias; Híbrido = parte de cada
@@ -506,4 +507,8 @@ struct FValdoriaAbilityEntry
 	/** Ícone no HUD. */
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Habilidade")
 	TSoftObjectPtr<UTexture2D> Icon;
+
+	/** Som ao usar (o tom varia um pouco a cada vez). */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Habilidade")
+	TSoftObjectPtr<USoundBase> Sound;
 };

@@ -11,6 +11,7 @@ class USkeletalMesh;
 class UStaticMesh;
 class UAnimInstance;
 class UTexture2D;
+class USoundBase;
 
 /**
  * Tudo que diferencia um herói fica aqui: vida, escudo, armadura, velocidade,
@@ -193,6 +194,17 @@ public:
 	/** Posição, rotação e escala da arma em relação ao osso/soquete. */
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Visual|Arma")
 	FTransform WeaponOffset;
+
+	/** Sons do ataque principal (vários = sorteia um) e da recarga. */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Sons")
+	TArray<TSoftObjectPtr<USoundBase>> FireSounds;
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Sons")
+	float FireVolume = 0.6f;
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Sons")
+	TSoftObjectPtr<USoundBase> ReloadSound;
+	/** Passos: volume (0 = sem passos, por exemplo para quem flutua). */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Sons")
+	float FootstepVolume = 0.5f;
 
 	/** Animações de agachar, deslizar, deitar, escalar e impulso. */
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Visual")

@@ -7,6 +7,7 @@
 #include "TimerManager.h"
 #include "ValdoriaHeroCharacter.h"
 #include "ValdoriaPlayerController.h"
+#include "ValdoriaAudio.h"
 #include "Widgets/Input/SButton.h"
 #include "Widgets/Layout/SBorder.h"
 #include "Widgets/Layout/SBox.h"
@@ -184,6 +185,7 @@ bool AValdoriaPlayerController::BuyItem(FName ItemId)
 	}
 	Credits -= Cost;
 	ShopLevels.Add(ItemId, Level + 1);
+	ValdoriaAudio::Play2D(this, ValdoriaAudio::Load(TEXT("UI"), TEXT("handleCoins")), 0.8f);
 	ApplyShopToHero();
 	return true;
 }
@@ -202,6 +204,7 @@ void AValdoriaPlayerController::ToggleShop()
 		return;
 	}
 	GetShopCatalog();
+	ValdoriaAudio::Play2D(this, ValdoriaAudio::Load(TEXT("UI"), TEXT("bookFlip1")), 0.6f);
 	ShopWidget = BuildShopScreen();
 	GEngine->GameViewport->AddViewportWidgetContent(ShopWidget.ToSharedRef(), 110);
 	RefreshInputMode();

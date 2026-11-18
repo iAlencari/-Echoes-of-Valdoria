@@ -34,6 +34,8 @@
 #include "ValdoriaWorldActors.h"
 #include "ValdoriaPlayerController.h"
 #include "ValdoriaAnimInstance.h"
+#include "ValdoriaAudio.h"
+#include "Sound/SoundBase.h"
 #include "EngineUtils.h"
 #include "UObject/ConstructorHelpers.h"
 
@@ -524,6 +526,7 @@ void AValdoriaHeroCharacter::TryActivateSlot(EValdoriaAbilitySlot Slot)
 			if (AbilitySystem->TryActivateAbility(Spec.Handle))
 			{
 				PlayActionForSlot(Slot);
+				PlaySlotSound(Slot);
 			}
 			return;
 		}
@@ -595,6 +598,10 @@ void AValdoriaHeroCharacter::StartReload()
 		return;
 	}
 	PlayReloadAnimation();
+	if (ActiveDefinition && !ActiveDefinition->ReloadSound.IsNull())
+	{
+		ValdoriaAudio::PlayAt(this, ActiveDefinition->ReloadSound.LoadSynchronous(), GetActorLocation(), 0.6f);
+	}
 	bReloading = true;
 	GetWorldTimerManager().SetTimer(ReloadTimer, this, &AValdoriaHeroCharacter::FinishReload, FMath::Max(0.05f, Weapon.ReloadTime), false);
 	if (!HasAuthority())
@@ -1063,6 +1070,8 @@ void AValdoriaHeroCharacter::OnDamageDealt(AValdoriaHeroCharacter* Victim, float
 
 void AValdoriaHeroCharacter::ClientNotifyHit_Implementation(FVector_NetQuantize Location, float Damage, bool bHeadshot, bool bKill)
 {
+	// Confirmação sonora: clique curto (mais agudo na cabeça) e um som mais forte no abate.
+	ValdoriaAudio::Play2D(this, ValdoriaAudio::Load(TEXT("UI"), bKill ? TEXT("metalLatch") : TEXT("metalClick")), bKill ? 0.7f : 0.35f, 0.04f, bHeadshot ? 1.35f : 1.f);
 	if (const APlayerController* PC = Cast<APlayerController>(Controller))
 	{
 		if (AValdoriaHUD* HUD = Cast<AValdoriaHUD>(PC->GetHUD()))
@@ -1145,6 +1154,7 @@ void AValdoriaHeroCharacter::Tick(float DeltaSeconds)
 	TickMovementFeatures(DeltaSeconds);
 	TickStatusEffects(DeltaSeconds);
 	TickHover(DeltaSeconds);
+	TickFootsteps(DeltaSeconds);
 	if (!bIsDead)
 	{
 		UpdateMovementAnimation();
@@ -2189,4 +2199,65 @@ void AValdoriaHeroCharacter::TickHover(float DeltaSeconds)
 	const FQuat Target = Lean.Quaternion() * FRotator(0.f, -90.f, 0.f).Quaternion();
 	const FQuat Current = GetMesh()->GetRelativeRotation().Quaternion();
 	GetMesh()->SetRelativeLocationAndRotation(Base + FVector(0.f, 0.f, Bob), FQuat::Slerp(Current, Target, FMath::Min(1.f, DeltaSeconds * 6.f)));
+}
+
+// ------------------------------------------------------------------ sons
+
+void AValdoriaHeroCharacter::PlaySlotSound(EValdoriaAbilitySlot Slot)
+{
+	if (!ActiveDefinition)
+	{
+		return;
+	}
+	const float Now = GetWorld()->GetTimeSeconds();
+	USoundBase* Sound = nullptr;
+	float Volume = 0.7f;
+	if (Slot == EValdoriaAbilitySlot::PrimaryFire)
+	{
+		// Armas muito rápidas (feixe) tocam no máximo ~7 vezes por segundo.
+		if (ActiveDefinition->FireSounds.Num() == 0 || Now - LastFireSoundTime < 0.14f)
+		{
+			return;
+		}
+		LastFireSoundTime = Now;
+		const TSoftObjectPtr<USoundBase>& Pick = ActiveDefinition->FireSounds[FMath::RandRange(0, ActiveDefinition->FireSounds.Num() - 1)];
+		Sound = Pick.IsNull() ? nullptr : Pick.LoadSynchronous();
+		Volume = ActiveDefinition->FireVolume;
+	}
+	else if (const FValdoriaAbilityEntry* Entry = FindAbilityEntry(Slot))
+	{
+		Sound = Entry->Sound.IsNull() ? nullptr : Entry->Sound.LoadSynchronous();
+		Volume = Slot == EValdoriaAbilitySlot::Ultimate ? 1.f : 0.75f;
+	}
+	ValdoriaAudio::PlayAt(this, Sound, GetActorLocation(), Volume);
+}
+
+void AValdoriaHeroCharacter::TickFootsteps(float DeltaSeconds)
+{
+	if (!ActiveDefinition || bIsDead || ActiveDefinition->FootstepVolume <= 0.f
+		|| ActiveDefinition->Locomotion == EValdoriaLocomotion::Float || !GetCharacterMovement()->IsMovingOnGround())
+	{
+		return;
+	}
+	const float Speed = GetVelocity().Size2D();
+	if (Speed < 120.f)
+	{
+		StepDistance = 0.f;
+		return;
+	}
+	StepDistance += Speed * DeltaSeconds;
+	// Passada maior correndo; agachado é mais baixo.
+	const float Stride = bIsSprinting ? 210.f : (bIsCrouched ? 120.f : 165.f);
+	if (StepDistance < Stride)
+	{
+		return;
+	}
+	StepDistance = 0.f;
+	static const TCHAR* Steps[] = { TEXT("footstep00"), TEXT("footstep01"), TEXT("footstep02"), TEXT("footstep03"), TEXT("footstep04"),
+		TEXT("footstep05"), TEXT("footstep06"), TEXT("footstep07"), TEXT("footstep08"), TEXT("footstep09") };
+	const float Loud = ActiveDefinition->FootstepVolume * (bIsCrouched ? 0.4f : (bIsSprinting ? 1.2f : 1.f));
+	const FVector Feet = GetActorLocation() - FVector(0.f, 0.f, GetCapsuleComponent()->GetScaledCapsuleHalfHeight());
+	// Heróis grandes soam mais graves.
+	const float Pitch = FMath::Clamp(1.f / FMath::Max(0.6f, ActiveDefinition->BodyHeight * ActiveDefinition->MeshScale), 0.8f, 1.2f);
+	ValdoriaAudio::PlayAt(this, ValdoriaAudio::Load(TEXT("Footsteps"), Steps[FMath::RandRange(0, 9)]), Feet, Loud, 0.1f, Pitch);
 }
