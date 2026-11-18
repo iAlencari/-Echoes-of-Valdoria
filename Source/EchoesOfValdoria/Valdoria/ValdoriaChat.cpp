@@ -182,6 +182,7 @@ void AValdoriaPlayerController::RunChatCommand(const FString& Command)
 		ChatPrint(TEXT("/bots 0-3  bonecos atiram (0 parados, 3 difícil)"), Ok);
 		ChatPrint(TEXT("/dano N  tira N de vida de você  •  /vida  enche a vida  •  /ult  ultimate cheia"), Ok);
 		ChatPrint(TEXT("/creditos N  ganha créditos da loja (B)"), Ok);
+		ChatPrint(TEXT("/modo mm | treino  deathmatch vs bots or training"), Ok);
 		ChatPrint(TEXT("/mapa np | treino  troca de mapa  •  /tempo N  velocidade do jogo"), Ok);
 	}
 	else if (Cmd == TEXT("heroi") || Cmd == TEXT("herói") || Cmd == TEXT("hero"))
@@ -193,6 +194,23 @@ void AValdoriaPlayerController::RunChatCommand(const FString& Command)
 		else
 		{
 			ChatPrint(TEXT("Heróis: /heroi brasa | kael | iara | vex | lume | recruta"), Bad);
+		}
+	}
+	else if (Cmd == TEXT("modo") || Cmd == TEXT("mode"))
+	{
+		// Modes: deathmatch (free-for-all vs bots) or training. Map: current one.
+		const FString Map = UGameplayStatics::GetCurrentLevelName(this);
+		if (Arg == TEXT("mm") || Arg == TEXT("matamata") || Arg == TEXT("deathmatch"))
+		{
+			UGameplayStatics::OpenLevel(this, FName(*Map), true, TEXT("game=/Script/EchoesOfValdoria.ValdoriaDeathmatchMode"));
+		}
+		else if (Arg == TEXT("treino") || Arg == TEXT("training"))
+		{
+			UGameplayStatics::OpenLevel(this, FName(*Map), true, TEXT("game=/Script/EchoesOfValdoria.ValdoriaGameMode"));
+		}
+		else
+		{
+			ChatPrint(TEXT("Modes: /modo mm (deathmatch) | /modo treino"), Bad);
 		}
 	}
 	else if (!bAdminMode)

@@ -331,3 +331,19 @@ public:
 	virtual void ActivateAbility(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo,
 		const FGameplayAbilityActivationInfo ActivationInfo, const FGameplayEventData* TriggerEventData) override;
 };
+
+/** Portals: first use opens the entrance at the aimed spot, second use (within 10 s) opens the
+ *  exit and links them. Duration = how long the pair lasts. SecondaryMagnitude: 0 = only your
+ *  team can pass, 1 = everyone (enemies too). Radius = max distance to the aimed spot. */
+UCLASS()
+class ECHOESOFVALDORIA_API UValdoriaGA_Portal : public UValdoriaGameplayAbility
+{
+	GENERATED_BODY()
+public:
+	UValdoriaGA_Portal();
+	virtual void ActivateAbility(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo,
+		const FGameplayAbilityActivationInfo ActivationInfo, const FGameplayEventData* TriggerEventData) override;
+protected:
+	TWeakObjectPtr<class AValdoriaPortal> PendingEntrance;
+	float PendingUntil = 0.f;
+};

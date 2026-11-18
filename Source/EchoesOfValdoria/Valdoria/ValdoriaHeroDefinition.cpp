@@ -5,6 +5,7 @@
 #include "Engine/SkeletalMesh.h"
 #include "Engine/StaticMesh.h"
 #include "ValdoriaGameplayAbility.h"
+#include "ValdoriaHeroAbilities.h"
 
 UValdoriaHeroDefinition::UValdoriaHeroDefinition()
 {
@@ -110,6 +111,22 @@ UValdoriaHeroDefinition* UValdoriaHeroDefinition::CreateFallbackRecruit(UObject*
 	Ult.Description = NSLOCTEXT("Valdoria", "UltDesc", "Onda de choque ao seu redor: 150 de dano e empurra os inimigos num raio de 9 m. Carrega causando dano e com o tempo.");
 	Ult.AbilityClass = UValdoriaGA_Shockwave::StaticClass();
 	Def->Abilities.Add(Ult);
+
+	// Test bench for library abilities: portals on F, slide trail on C.
+	FValdoriaAbilityEntry Portal;
+	Portal.DisplayName = NSLOCTEXT("Valdoria", "Portal", "Portal");
+	Portal.Slot = EValdoriaAbilitySlot::Ability1;
+	Portal.Description = NSLOCTEXT("Valdoria", "PortalDesc", "First press opens the entrance where you aim, second press (within 10 s) opens the exit. Your team walks through to the other side for 12 s. Cooldown 14 s.");
+	Portal.AbilityClass = UValdoriaGA_Portal::StaticClass();
+	Portal.Cooldown = 14.f;
+	Def->Abilities.Add(Portal);
+	FValdoriaAbilityEntry Trail;
+	Trail.DisplayName = NSLOCTEXT("Valdoria", "Trail", "Light Trail");
+	Trail.Slot = EValdoriaAbilitySlot::Ability3;
+	Trail.Description = NSLOCTEXT("Valdoria", "TrailDesc", "For 4 s you skate 50% faster and leave a trail that speeds up allies who touch it. Cooldown 12 s.");
+	Trail.AbilityClass = UValdoriaGA_SlideTrail::StaticClass();
+	Trail.Cooldown = 12.f;
+	Def->Abilities.Add(Trail);
 
 	// Rifle (Kael) do pacote de armas do Meshy, separado por Scripts/split_weapons.py.
 	Def->WeaponMesh = TSoftObjectPtr<UStaticMesh>(FSoftObjectPath(TEXT("/Game/Valdoria/Weapons/Merged/SM_Arma_Rifle.SM_Arma_Rifle")));

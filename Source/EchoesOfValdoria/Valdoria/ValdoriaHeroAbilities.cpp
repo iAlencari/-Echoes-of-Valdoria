@@ -947,3 +947,71 @@ void UValdoriaGA_WeaponSurge::ActivateAbility(const FGameplayAbilitySpecHandle H
 	Hero->PlayAreaEffect(Hero->GetActorLocation(), GetRadius(), GetThemeColor());
 	VALDORIA_END();
 }
+
+// ================================================================ portals
+
+UValdoriaGA_Portal::UValdoriaGA_Portal()
+{
+	DefaultCooldown = 14.f;
+	DefaultRadius = 2500.f;
+	DefaultDuration = 12.f;
+	DefaultSecondary = 0.f;
+}
+
+void UValdoriaGA_Portal::ActivateAbility(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo,
+	const FGameplayAbilityActivationInfo ActivationInfo, const FGameplayEventData* TriggerEventData)
+{
+	AValdoriaHeroCharacter* Hero = GetHero();
+	if (!Hero || !CommitAbility(Handle, ActorInfo, ActivationInfo))
+	{
+		EndAbility(Handle, ActorInfo, ActivationInfo, true, true);
+		return;
+	}
+	// Place on the ground under the aimed point, facing the hero.
+	FHitResult Hit;
+	FVector Point = AimPoint(Hero, GetRadius(), &Hit, true);
+	FHitResult Down;
+	if (Hero->GetWorld()->LineTraceSingleByChannel(Down, Point + FVector(0, 0, 50.f), Point - FVector(0, 0, 1000.f), ECC_WorldStatic))
+	{
+		Point = Down.ImpactPoint;
+	}
+	Point.Z += 110.f;
+	const FRotator Facing(0.f, (Hero->GetActorLocation() - Point).GetSafeNormal2D().Rotation().Yaw, 0.f);
+	const float Now = Hero->GetWorld()->GetTimeSeconds();
+	const bool bSecond = PendingEntrance.IsValid() && Now < PendingUntil;
+	if (Hero->HasAuthority())
+	{
+		FActorSpawnParameters SpawnParams;
+		SpawnParams.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
+		AValdoriaPortal* Portal = Hero->GetWorld()->SpawnActor<AValdoriaPortal>(AValdoriaPortal::StaticClass(), Point,
+			Facing, SpawnParams);
+		if (Portal)
+		{
+			const EValdoriaPortalAccess Access = GetSecondary() >= 1.f ? EValdoriaPortalAccess::Everyone : EValdoriaPortalAccess::TeamOnly;
+			Portal->Setup(Hero, Access, GetDuration(), GetThemeColor());
+			if (bSecond)
+			{
+				Portal->Link(PendingEntrance.Get());
+				PendingEntrance->Link(Portal);
+			}
+			else
+			{
+				PendingEntrance = Portal;
+			}
+		}
+	}
+	Hero->PlayAreaEffect(Point, 120.f, GetThemeColor());
+	if (bSecond)
+	{
+		// Pair done: now the real cooldown.
+		PendingEntrance.Reset();
+		StartCooldownAndCost();
+	}
+	else
+	{
+		// Entrance placed: short delay before the exit can be placed.
+		PendingUntil = Now + 10.f;
+		Hero->StartCooldown(GetSlot(), 0.4f);
+	}
+	VALDORIA_END();
+}

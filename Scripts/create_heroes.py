@@ -106,3 +106,16 @@ else:
 
 with open(LOG, "w", encoding="utf-8") as fh:
     fh.write("\n".join(lines))
+
+# --- 5) Mode rules (deathmatch) - not overwritten if it exists
+MODE = "/Game/Valdoria/Modes/DA_Deathmatch"
+if not eal.does_asset_exist(MODE):
+    eal.make_directory("/Game/Valdoria/Modes")
+    mode_factory = unreal.DataAssetFactory()
+    mode_factory.set_editor_property("data_asset_class", unreal.ValdoriaModeRules)
+    mode = tools.create_asset("DA_Deathmatch", "/Game/Valdoria/Modes", unreal.ValdoriaModeRules, mode_factory)
+    eal.save_loaded_asset(mode)
+    lines.append("mode rules created: " + MODE)
+
+with open(LOG, "w", encoding="utf-8") as fh:
+    fh.write("\n".join(lines))

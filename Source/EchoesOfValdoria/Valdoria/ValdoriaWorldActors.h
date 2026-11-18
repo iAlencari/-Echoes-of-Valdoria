@@ -148,3 +148,39 @@ protected:
 	FVector StartScale = FVector::OneVector;
 	FVector EndScale = FVector::OneVector;
 };
+
+/** Who may walk through a portal. */
+UENUM(BlueprintType)
+enum class EValdoriaPortalAccess : uint8
+{
+	TeamOnly	UMETA(DisplayName = "Team only"),
+	Everyone	UMETA(DisplayName = "Everyone (enemies too)")
+};
+
+/** One end of a portal pair: whoever touches it (and is allowed) comes out at the linked end. */
+UCLASS()
+class ECHOESOFVALDORIA_API AValdoriaPortal : public AActor
+{
+	GENERATED_BODY()
+public:
+	AValdoriaPortal();
+	virtual void Tick(float DeltaSeconds) override;
+
+	void Setup(AValdoriaHeroCharacter* InOwner, EValdoriaPortalAccess InAccess, float InDuration, FLinearColor InColor);
+	void Link(AValdoriaPortal* Other) { Linked = Other; }
+	bool IsLinked() const { return Linked.IsValid(); }
+
+protected:
+	UFUNCTION() void OnOverlap(UPrimitiveComponent* OverlappedComp, AActor* OtherActor, UPrimitiveComponent* OtherComp,
+		int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepResult);
+
+	UPROPERTY(VisibleAnywhere) TObjectPtr<class UCapsuleComponent> Trigger;
+	UPROPERTY(VisibleAnywhere) TObjectPtr<UStaticMeshComponent> Ring;
+	TWeakObjectPtr<AValdoriaHeroCharacter> OwnerHero;
+	TWeakObjectPtr<AValdoriaPortal> Linked;
+	EValdoriaPortalAccess Access = EValdoriaPortalAccess::TeamOnly;
+	FLinearColor Color = FLinearColor::White;
+	float EndTime = 0.f;
+	/** Actors that just came out here (so they don't bounce straight back). */
+	TMap<TWeakObjectPtr<AActor>, float> Cooldowns;
+};

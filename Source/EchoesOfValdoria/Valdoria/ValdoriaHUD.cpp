@@ -35,6 +35,7 @@ static FString ToUpperPt(const FString& In)
 
 #include "ValdoriaSettings.h"
 #include "ValdoriaAudio.h"
+#include "ValdoriaDeathmatchMode.h"
 
 // ------------------------------------------------------------------ utilidades de desenho
 
@@ -147,6 +148,7 @@ void AValdoriaHUD::DrawHUD()
 		DrawDamageMeter(W, H);
 	}
 	DrawChat(W, H);
+	DrawModeScore(W, H);
 	if (!Hero || !Hero->GetHeroDefinition())
 	{
 		return;
@@ -634,5 +636,29 @@ void AValdoriaHUD::DrawDamageFeedback(AValdoriaHeroCharacter* Hero, float W, flo
 	if (Now - UltReadyFlashTime < 2.f && Hero->GetHeroDefinition())
 	{
 		DrawLabel(TEXT("ULTIMATE PRONTA"), Cx, Cy - 220.f * S, Hero->GetHeroDefinition()->ThemeColor, 1.6f * S, true);
+	}
+}
+
+void AValdoriaHUD::DrawModeScore(float W, float H)
+{
+	const AValdoriaDeathmatchMode* Mode = GetWorld()->GetAuthGameMode<AValdoriaDeathmatchMode>();
+	if (!Mode || !Mode->GetRules())
+	{
+		return;
+	}
+	const float S = Scale;
+	const float Left = Mode->GetTimeLeft();
+	const FString Time = Left < 0.f ? FString() : FString::Printf(TEXT("   %d:%02d"), FMath::FloorToInt(Left) / 60, FMath::FloorToInt(Left) % 60);
+	const FString Line = FString::Printf(TEXT("%s   YOU %d   BEST BOT %d   GOAL %d%s"), *Mode->GetRules()->DisplayName.ToString().ToUpper(),
+		Mode->GetPlayerScore(), Mode->GetBestBotScore(), Mode->GetRules()->ScoreToWin, *Time);
+	DrawRect(W * 0.5f - 300.f * S, 12.f * S, 600.f * S, 34.f * S, FLinearColor(0.f, 0.f, 0.02f, 0.6f));
+	DrawLabel(Line, W * 0.5f, 18.f * S, FLinearColor(0.97f, 0.83f, 0.48f), 1.f * S, true);
+	if (Mode->GetResult() != 0)
+	{
+		const bool bWon = Mode->GetResult() == 1;
+		DrawRect(0.f, H * 0.4f, W, 120.f * S, FLinearColor(0.f, 0.f, 0.f, 0.6f));
+		DrawLabel(bWon ? TEXT("VICTORY") : TEXT("DEFEAT"), W * 0.5f, H * 0.4f + 20.f * S,
+			bWon ? FLinearColor(0.5f, 1.f, 0.6f) : FLinearColor(1.f, 0.4f, 0.35f), 3.f * S, true, true);
+		DrawLabel(TEXT("New match in a few seconds"), W * 0.5f, H * 0.4f + 88.f * S, FLinearColor::White, 1.f * S, true);
 	}
 }

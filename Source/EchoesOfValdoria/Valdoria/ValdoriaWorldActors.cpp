@@ -2,6 +2,7 @@
 
 #include "ValdoriaWorldActors.h"
 #include "Components/SphereComponent.h"
+#include "Components/CapsuleComponent.h"
 #include "Components/StaticMeshComponent.h"
 #include "DrawDebugHelpers.h"
 #include "Engine/OverlapResult.h"
@@ -500,4 +501,81 @@ void AValdoriaFx::Tick(float DeltaSeconds)
 	{
 		Material->SetScalarParameterValue(TEXT("Opacidade"), StartOpacity * (1.f - T * T));
 	}
+}
+
+// ------------------------------------------------------------------ portal
+
+AValdoriaPortal::AValdoriaPortal()
+{
+	PrimaryActorTick.bCanEverTick = true;
+	bReplicates = true;
+	Trigger = CreateDefaultSubobject<UCapsuleComponent>(TEXT("Trigger"));
+	Trigger->InitCapsuleSize(70.f, 110.f);
+	Trigger->SetCollisionEnabled(ECollisionEnabled::QueryOnly);
+	Trigger->SetCollisionResponseToAllChannels(ECR_Ignore);
+	Trigger->SetCollisionResponseToChannel(ECC_Pawn, ECR_Overlap);
+	Trigger->SetGenerateOverlapEvents(true);
+	RootComponent = Trigger;
+	Ring = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("Ring"));
+	Ring->SetupAttachment(Trigger);
+	Ring->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+	Ring->SetCastShadow(false);
+	Ring->SetStaticMesh(LoadShape(TEXT("Cylinder")));
+	// Upright flat disc (a doorway of light) facing the actor's forward axis.
+	Ring->SetRelativeRotation(FRotator(90.f, 0.f, 0.f));
+	Ring->SetRelativeScale3D(FVector(2.2f, 1.4f, 0.03f));
+}
+
+void AValdoriaPortal::Setup(AValdoriaHeroCharacter* InOwner, EValdoriaPortalAccess InAccess, float InDuration, FLinearColor InColor)
+{
+	OwnerHero = InOwner;
+	Access = InAccess;
+	Color = InColor;
+	EndTime = GetWorld()->GetTimeSeconds() + FMath::Max(1.f, InDuration);
+	if (UMaterialInstanceDynamic* MID = ValdoriaMakeGlowMaterial(this, Color, 0.45f))
+	{
+		Ring->SetMaterial(0, MID);
+	}
+	Trigger->OnComponentBeginOverlap.AddDynamic(this, &AValdoriaPortal::OnOverlap);
+}
+
+void AValdoriaPortal::Tick(float DeltaSeconds)
+{
+	Super::Tick(DeltaSeconds);
+	if (GetWorld()->GetTimeSeconds() >= EndTime || !OwnerHero.IsValid())
+	{
+		Destroy();
+		return;
+	}
+	// Slow spin so it reads as "active"; dimmer while it has no partner yet.
+	Ring->AddLocalRotation(FRotator(0.f, 0.f, 90.f * DeltaSeconds));
+	Ring->SetVisibility(true);
+	Ring->SetScalarParameterValueOnMaterials(TEXT("Opacidade"), Linked.IsValid() ? 0.45f : 0.18f);
+}
+
+void AValdoriaPortal::OnOverlap(UPrimitiveComponent* OverlappedComp, AActor* OtherActor, UPrimitiveComponent* OtherComp,
+	int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepResult)
+{
+	AValdoriaPortal* Exit = Linked.Get();
+	AValdoriaHeroCharacter* Traveller = Cast<AValdoriaHeroCharacter>(OtherActor);
+	AValdoriaHeroCharacter* Src = OwnerHero.Get();
+	if (!HasAuthority() || !Exit || !Traveller || !Src || Traveller->IsDead())
+	{
+		return;
+	}
+	if (Access == EValdoriaPortalAccess::TeamOnly && Traveller->TeamId != Src->TeamId)
+	{
+		return;
+	}
+	const float Now = GetWorld()->GetTimeSeconds();
+	if (const float* Until = Cooldowns.Find(Traveller); Until && *Until > Now)
+	{
+		return;
+	}
+	// Come out a bit in front of the exit, keeping the speed.
+	const FVector Out = Exit->GetActorLocation() + Exit->GetActorForwardVector() * 120.f;
+	Exit->Cooldowns.Add(Traveller, Now + 1.f);
+	Traveller->TeleportTo(Out, Traveller->GetActorRotation());
+	Src->PlayAreaEffect(Out, 140.f, Color);
+	ValdoriaAudio::PlayAt(this, ValdoriaAudio::Load(TEXT("Magic"), TEXT("teleport")), Out, 0.7f);
 }
