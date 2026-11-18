@@ -190,6 +190,9 @@ public:
 	bool IsAutopilot() const { return bAutopilot; }
 	/** Autopilot stays within Radius of Center (MOBA spot guardians). Radius 0 = free. */
 	void SetLeash(const FVector& Center, float Radius) { LeashCenter = Center; LeashRadius = Radius; }
+	/** With nobody in sight, the autopilot walks these points in order (MOBA lanes). */
+	void SetAutopilotRoute(const TArray<FVector>& Points) { AutopilotRoute = Points; AutopilotRouteIndex = 0; }
+	void RestartAutopilotRoute() { AutopilotRouteIndex = 0; }
 	/** Team buff from a MOBA spot: 0 damage reduction, 1 damage bonus, 2 regeneration per second. Lasts Seconds. */
 	void ApplyTeamBuff(uint8 Type, float Value, float Seconds);
 	float GetTeamDamageReduction() const;
@@ -405,6 +408,8 @@ protected:
 	float AutopilotStrafe = 0.f;
 	FVector LeashCenter = FVector::ZeroVector;
 	float LeashRadius = 0.f;
+	TArray<FVector> AutopilotRoute;
+	int32 AutopilotRouteIndex = 0;
 	float TeamBuffValue[3] = { 0.f, 0.f, 0.f };
 	float TeamBuffEnd[3] = { 0.f, 0.f, 0.f };
 	float SkateEndTime = 0.f;

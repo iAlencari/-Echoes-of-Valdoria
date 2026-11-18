@@ -119,3 +119,14 @@ if not eal.does_asset_exist(MODE):
 
 with open(LOG, "w", encoding="utf-8") as fh:
     fh.write("\n".join(lines))
+# --- 6) MOBA rules (Guardian Spots) - not overwritten if it exists
+MOBA = "/Game/Valdoria/Modes/DA_Moba"
+if not eal.does_asset_exist(MOBA):
+    moba_factory = unreal.DataAssetFactory()
+    moba_factory.set_editor_property("data_asset_class", unreal.ValdoriaMobaRules)
+    moba = tools.create_asset("DA_Moba", "/Game/Valdoria/Modes", unreal.ValdoriaMobaRules, moba_factory)
+    eal.save_loaded_asset(moba)
+    lines.append("moba rules created: " + MOBA)
+
+with open(LOG, "w", encoding="utf-8") as fh:
+    fh.write("\n".join(lines))

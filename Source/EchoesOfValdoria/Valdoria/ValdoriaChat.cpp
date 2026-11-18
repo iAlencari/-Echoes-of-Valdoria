@@ -205,6 +205,12 @@ void AValdoriaPlayerController::RunChatCommand(const FString& Command)
 		{
 			UGameplayStatics::OpenLevel(this, FName(*Map), true, TEXT("game=/Script/EchoesOfValdoria.ValdoriaDeathmatchMode"));
 		}
+		else if (Arg == TEXT("moba") || Arg == TEXT("mobabots"))
+		{
+			// MOBA on Nova Paulicéia (the map with the 3 routes).
+			UGameplayStatics::OpenLevel(this, TEXT("/Game/Maps/NP_NovaPauliceia"), true,
+				Arg == TEXT("mobabots") ? TEXT("game=/Script/EchoesOfValdoria.ValdoriaMobaMode?bots=1") : TEXT("game=/Script/EchoesOfValdoria.ValdoriaMobaMode"));
+		}
 		else if (Arg == TEXT("bots"))
 		{
 			UGameplayStatics::OpenLevel(this, FName(*Map), true, TEXT("game=/Script/EchoesOfValdoria.ValdoriaDeathmatchMode?bots=1"));
@@ -215,7 +221,7 @@ void AValdoriaPlayerController::RunChatCommand(const FString& Command)
 		}
 		else
 		{
-			ChatPrint(TEXT("Modes: /modo mm (deathmatch) | /modo bots (bots vs bots, you on autopilot) | /modo treino"), Bad);
+			ChatPrint(TEXT("Modes: /modo mm (deathmatch) | /modo bots (bots vs bots, you on autopilot) | /modo moba | /modo mobabots | /modo treino"), Bad);
 		}
 	}
 	else if (!bAdminMode)

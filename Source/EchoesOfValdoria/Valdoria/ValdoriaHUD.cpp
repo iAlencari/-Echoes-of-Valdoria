@@ -36,6 +36,7 @@ static FString ToUpperPt(const FString& In)
 #include "ValdoriaSettings.h"
 #include "ValdoriaAudio.h"
 #include "ValdoriaDeathmatchMode.h"
+#include "ValdoriaMobaMode.h"
 
 // ------------------------------------------------------------------ utilidades de desenho
 
@@ -644,6 +645,23 @@ void AValdoriaHUD::DrawDamageFeedback(AValdoriaHeroCharacter* Hero, float W, flo
 
 void AValdoriaHUD::DrawModeScore(float W, float H)
 {
+	if (const AValdoriaMobaMode* Moba = GetWorld()->GetAuthGameMode<AValdoriaMobaMode>())
+	{
+		const float S2 = Scale;
+		const float Left = Moba->GetTimeLeft();
+		const FString Line = FString::Printf(TEXT("GUARDIAN SPOTS   YOUR GUARDIANS %d   ENEMY GUARDIANS %d   KILLS %d - %d   %d:%02d"),
+			Moba->GetGuardiansAlive(0), Moba->GetGuardiansAlive(1), Moba->GetKills(0), Moba->GetKills(1),
+			FMath::FloorToInt(FMath::Max(0.f, Left)) / 60, FMath::FloorToInt(FMath::Max(0.f, Left)) % 60);
+		DrawRect(W * 0.5f - 360.f * S2, 12.f * S2, 720.f * S2, 34.f * S2, FLinearColor(0.f, 0.f, 0.02f, 0.6f));
+		DrawLabel(Line, W * 0.5f, 18.f * S2, FLinearColor(0.97f, 0.83f, 0.48f), 1.f * S2, true);
+		if (Moba->GetResult() != 0)
+		{
+			const bool bWon = Moba->GetResult() == 1;
+			DrawRect(0.f, H * 0.4f, W, 120.f * S2, FLinearColor(0.f, 0.f, 0.f, 0.6f));
+			DrawLabel(bWon ? TEXT("VICTORY") : TEXT("DEFEAT"), W * 0.5f, H * 0.4f + 20.f * S2, bWon ? FLinearColor(0.5f, 1.f, 0.6f) : FLinearColor(1.f, 0.4f, 0.35f), 3.f * S2, true, true);
+		}
+		return;
+	}
 	const AValdoriaDeathmatchMode* Mode = GetWorld()->GetAuthGameMode<AValdoriaDeathmatchMode>();
 	if (!Mode || !Mode->GetRules())
 	{

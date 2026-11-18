@@ -46,7 +46,7 @@ void AValdoriaGuardian::ScheduleRevive()
 float AValdoriaGuardian::GetCurrentBuff() const
 {
 	const float T = GetWorld()->GetTimeSeconds();
-	if (T <= BuffHoldUntil)
+	if (BuffFadeEnd <= 0.f || T <= BuffHoldUntil)
 	{
 		return BuffValue;
 	}
@@ -81,4 +81,9 @@ void AValdoriaGuardian::SetupSpot(uint8 Team, float Radius)
 	AreaRadius = Radius;
 	StartLocation = GetActorLocation();
 	SetLeash(GetActorLocation(), AreaRadius);
+	if (HasAuthority())
+	{
+		AbilitySystem->SetNumericAttributeBase(UValdoriaAttributeSet::GetMaxHealthAttribute(), GuardianHealth);
+		AbilitySystem->SetNumericAttributeBase(UValdoriaAttributeSet::GetHealthAttribute(), GuardianHealth);
+	}
 }

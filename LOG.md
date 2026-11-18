@@ -390,3 +390,11 @@ Owner's brother is playing Deadlock, so this batch is **built but not run** (no 
 - Spot buff (`EValdoriaSpotBuff`: DamageReduction / DamageBonus / Regeneration) with `BuffValue`, `BuffHoldUntil` (60 s) and `BuffFadeEnd` (300 s): full value until minute 1, linear fade to 0 at minute 5. Applied to allies every 0.5 s for 1 s (`ApplyTeamBuff`), so it ends when the spot dies. Damage reduction and bonus are in `DealTypedDamage`; regeneration heals 4x per second. HUD shows "SPOT: -X% DAMAGE TAKEN" etc.
 - Chat (admin): `/spot` places an allied spot at the aim point, `/spot inimigo` an enemy one.
 - Built only. Spots 2 and 3 buffs: proposals sent to the owner, not implemented as balance.
+### Turn 36 — Claude Code — 2026-11-18 (6v6 MOBA "Guardian Spots") — code only
+- `AValdoriaMobaMode` + `UValdoriaMobaRules` (`Content/Valdoria/Modes/DA_Moba`): 6v6 (player + 5 allied bots vs 6 enemy bots, all on autopilot with their heroes' real kits), 3 lanes generated between the two team starts (untagged PlayerStart = team 0, tag `Time2` = team 1), `SideLaneOffset` 2500 cm.
+- **Guardian Spots** per lane per team (3 spots, the last one with two guardians), positions following the owner's layout: side lanes = spots far from the base and close together (0.62/0.50/0.38 of the way to the centre), middle lane = first spot closer to the base, wider spacing (0.62/0.40/0.18). Buffs: spot 1 = -50% damage taken, full for 1 min, 0 at min 5 (owner); spot 2 = +20% damage with the same fade (placeholder); spot 3 = regeneration 10/s + damage +10%, no fade (placeholder). All editable in `DA_Moba`.
+- Bots walk their lane towards the enemy base when nobody is in sight (`SetAutopilotRoute`), respawn at their base after `RespawnDelay` 6 s and walk the lane again.
+- Win: all enemy guardians down; at time-out (20 min) more guardians standing, then more kills. VICTORY/DEFEAT, restart after 8 s. HUD bar: guardians alive per team, kills, time.
+- Chat: `/modo moba` (opens Nova Paulicéia in MOBA mode), `/modo mobabots` (you on autopilot too).
+- Not yet: minions and jungle (Paragon: Minions pack when the owner adds it), real bases/core, lane geometry matched to the NP routes (the layout is generated, may need tuning on screen).
+- Built only (brother playing Deadlock).

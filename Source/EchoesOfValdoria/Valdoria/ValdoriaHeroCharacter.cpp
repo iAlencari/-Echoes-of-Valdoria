@@ -2461,6 +2461,27 @@ void AValdoriaHeroCharacter::TickAutopilot(float DeltaSeconds)
 	}
 	if (!Target || Target->IsDead())
 	{
+		// Follow the route (MOBA lane) if there is one.
+		if (AutopilotRoute.IsValidIndex(AutopilotRouteIndex))
+		{
+			const FVector ToPoint = AutopilotRoute[AutopilotRouteIndex] - GetActorLocation();
+			if (ToPoint.Size2D() < 500.f)
+			{
+				++AutopilotRouteIndex;
+			}
+			AutopilotAim = FRotator(0.f, ToPoint.Rotation().Yaw, 0.f);
+			SetActorRotation(AutopilotAim);
+			AddMovementInput(ToPoint.GetSafeNormal2D(), 1.f);
+			if (IsFacingWall(90.f))
+			{
+				Jump();
+			}
+			if (Controller)
+			{
+				Controller->SetControlRotation(AutopilotAim);
+			}
+			return;
+		}
 		// Roam: walk forward, turn slowly, jump at walls.
 		AutopilotAim.Yaw += 20.f * DeltaSeconds;
 		AutopilotAim.Pitch = 0.f;
