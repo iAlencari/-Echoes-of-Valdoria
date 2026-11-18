@@ -89,6 +89,14 @@ void AValdoriaGameMode::StartPlay()
 	{
 		GetWorldTimerManager().SetTimer(AutoTestTimer, this, &AValdoriaGameMode::RunAutoTestStep, 0.15f, true, 4.f);
 	}
+	if (FParse::Param(FCommandLine::Get(), TEXT("ValdoriaFlightTest")))
+	{
+		FTSTicker::GetCoreTicker().AddTicker(FTickerDelegate::CreateWeakLambda(this, [this](float)
+		{
+			RunFlightTestStep();
+			return FlightTestStep < 100000;
+		}), 0.25f);
+	}
 	if (FParse::Param(FCommandLine::Get(), TEXT("ValdoriaLoadingTest")))
 	{
 		// Print da tela de carregamento ao abrir; depois troca para a NP (carregamento entre mapas) e tira outro.
@@ -832,5 +840,78 @@ void AValdoriaGameMode::RunWeaponPoseStep()
 	{
 		FScreenshotRequest::RequestScreenshot(FPaths::ConvertRelativePathToFull(FPaths::ProjectSavedDir()
 			/ TEXT("Screenshots") / FString::Printf(TEXT("Pose_%02d.png"), Index)), false, false);
+	}
+}
+
+void AValdoriaGameMode::RunFlightTestStep()
+{
+	++FlightTestStep;
+	const int32 S = FlightTestStep - 16;
+	AValdoriaPlayerController* PC = Cast<AValdoriaPlayerController>(GetWorld()->GetFirstPlayerController());
+	AValdoriaHeroCharacter* Hero = PC ? Cast<AValdoriaHeroCharacter>(PC->GetPawn()) : nullptr;
+	if (S < 0 || !Hero)
+	{
+		return;
+	}
+	auto SideShot = [&](const TCHAR* Name)
+	{
+		// Camera from the side for the screenshot (the hero keeps flying forward).
+		USpringArmComponent* Boom = Hero->GetCameraBoom();
+		Boom->bUsePawnControlRotation = false;
+		Boom->SetWorldRotation(FRotator(-5.f, Hero->GetActorRotation().Yaw - 90.f, 0.f));
+		Boom->TargetArmLength = 420.f;
+		FScreenshotRequest::RequestScreenshot(FPaths::ConvertRelativePathToFull(FPaths::ProjectSavedDir() / TEXT("Screenshots") / Name), false, false);
+	};
+	auto RestoreCamera = [&]()
+	{
+		Hero->GetCameraBoom()->bUsePawnControlRotation = true;
+		Hero->GetCameraBoom()->TargetArmLength = Hero->GetHeroDefinition() ? Hero->GetHeroDefinition()->CameraDistance : 300.f;
+	};
+	UValdoriaHeroDefinition* Def = const_cast<UValdoriaHeroDefinition*>(Hero->GetHeroDefinition());
+	switch (S)
+	{
+	case 0:
+		if (Def) { Def->Movement.FlightFuelSeconds = 60.f; Def->Movement.FlightSpeed = 1200.f; }
+		Hero->FlightFuel = 60.f;
+		PC->SetControlRotation(FRotator(0.f, Hero->GetActorRotation().Yaw, 0.f));
+		PressKey(EKeys::SpaceBar, true);
+		break;
+	case 6: PressKey(EKeys::W, true); break;
+	case 14: SideShot(TEXT("Voo_SuperHeroi.png")); break;
+	case 15: RestoreCamera(); PressKey(EKeys::W, false); break;
+	case 21: SideShot(TEXT("Voo_Parado.png")); break;
+	case 22: RestoreCamera(); PressKey(EKeys::SpaceBar, false); break;
+	case 27: SideShot(TEXT("Voo_Pouso.png")); break;
+	case 28:
+		RestoreCamera();
+		if (Def)
+		{
+			Def->Animations.FlightStyle = EValdoriaFlightStyle::Levitate;
+		}
+		Hero->FlightFuel = 60.f;
+		PressKey(EKeys::SpaceBar, true);
+		break;
+	case 34: PressKey(EKeys::W, true); break;
+	case 42: SideShot(TEXT("Voo_Levitar.png")); break;
+	case 43:
+		RestoreCamera();
+		PressKey(EKeys::W, false);
+		PressKey(EKeys::SpaceBar, false);
+		UE_LOG(LogValdoria, Display, TEXT("FLIGHTTEST fim"));
+		FlightTestStep = 100000;
+		FPlatformMisc::RequestExit(false);
+		break;
+	default: break;
+	}
+	if (S % 3 == 0)
+	{
+		UE_LOG(LogValdoria, Display, TEXT("FLIGHTTEST dbg %d: heroi=%s pulo=%d modo=%d combustivel=%.2f z=%.0f vz=%.0f planando=%d"), S,
+			Def ? *Def->HeroId.ToString() : TEXT("-"), Hero->bJumpHeld, (int32)Hero->GetCharacterMovement()->MovementMode.GetValue(), Hero->FlightFuel,
+			Hero->GetActorLocation().Z, Hero->GetVelocity().Z, Hero->IsGliding());
+	}
+	if (S == 14 || S == 21 || S == 42)
+	{
+		UE_LOG(LogValdoria, Display, TEXT("FLIGHTTEST passo %d: voando=%d velocidade=%.0f inclinacao=%.1f"), S, Hero->IsFlying(),
+			Hero->GetVelocity().Size2D(), Hero->GetMesh()->GetRelativeRotation().Pitch);
 	}
 }

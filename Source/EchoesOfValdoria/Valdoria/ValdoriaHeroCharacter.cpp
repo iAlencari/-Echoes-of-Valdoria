@@ -1155,6 +1155,7 @@ void AValdoriaHeroCharacter::Tick(float DeltaSeconds)
 	TickStatusEffects(DeltaSeconds);
 	TickHover(DeltaSeconds);
 	TickFootsteps(DeltaSeconds);
+	TickFlightPose(DeltaSeconds);
 	if (!bIsDead)
 	{
 		UpdateMovementAnimation();
@@ -1831,7 +1832,7 @@ void AValdoriaHeroCharacter::TickMovementFeatures(float DeltaSeconds)
 		FlightFuel = FMath::Min(Rules.FlightFuelSeconds, FlightFuel + Rules.FlightFuelRegen * DeltaSeconds);
 	}
 	const bool bAbilityFlight = Rules.FlightMode == EValdoriaFlightMode::Ability && Now < AbilityFlightEnd;
-	const bool bFuelFlight = Rules.FlightMode == EValdoriaFlightMode::Fuel && bJumpHeld && Move->IsFalling() && FlightFuel > 0.f && !IsFacingWall(45.f);
+	const bool bFuelFlight = Rules.FlightMode == EValdoriaFlightMode::Fuel && bJumpHeld && (Move->IsFalling() || bFlying) && FlightFuel > 0.f && !IsFacingWall(45.f);
 	if (bAbilityFlight || bFuelFlight)
 	{
 		if (!bFlying)
@@ -1906,6 +1907,16 @@ void AValdoriaHeroCharacter::Landed(const FHitResult& Hit)
 	if (bPendingSlam)
 	{
 		DoLeapSlamImpact();
+	}
+	// Landing after a flight.
+	if (ActiveDefinition && bLandAfterFlight && ActiveDefinition->Animations.FlightStyle == EValdoriaFlightStyle::Superhero)
+	{
+		bLandAfterFlight = false;
+		if (UValdoriaAnimInstance* LandAnim = Cast<UValdoriaAnimInstance>(GetMesh()->GetAnimInstance()))
+		{
+			const TSoftObjectPtr<UAnimSequenceBase>& Land = ActiveDefinition->Animations.LandAction;
+			LandAnim->PlayAction(Land.IsNull() ? nullptr : Land.LoadSynchronous(), 1.2f, true);
+		}
 	}
 }
 
@@ -2266,4 +2277,66 @@ void AValdoriaHeroCharacter::TickFootsteps(float DeltaSeconds)
 	// Heróis grandes soam mais graves.
 	const float Pitch = FMath::Clamp(1.f / FMath::Max(0.6f, ActiveDefinition->BodyHeight * ActiveDefinition->MeshScale), 0.8f, 1.2f);
 	ValdoriaAudio::PlayAt(this, ValdoriaAudio::Load(TEXT("Footsteps"), Steps[FMath::RandRange(0, 4)]), Feet, Loud, 0.1f, Pitch);
+}
+
+// ------------------------------------------------------------------ flight pose
+// Reference (owner's video): crouch and push off, fly almost lying down with one arm forward,
+// stand upright when hovering, land. Done procedurally: tilt the mesh around the capsule centre
+// by horizontal speed and blend an "arm forward" upper-body frame.
+
+void AValdoriaHeroCharacter::TickFlightPose(float DeltaSeconds)
+{
+	if (!ActiveDefinition || bIsDead)
+	{
+		return;
+	}
+	const FValdoriaAnimationSet& Set = ActiveDefinition->Animations;
+	UValdoriaAnimInstance* Anim = GetMesh() ? Cast<UValdoriaAnimInstance>(GetMesh()->GetAnimInstance()) : nullptr;
+	auto Load = [](const TSoftObjectPtr<UAnimSequenceBase>& Ptr) { return Ptr.IsNull() ? nullptr : Ptr.LoadSynchronous(); };
+
+	const bool bSuperhero = Set.FlightStyle == EValdoriaFlightStyle::Superhero;
+	if (bFlying && !bWasFlyingPose && Anim && bSuperhero)
+	{
+		Anim->PlayAction(Load(Set.TakeoffAction), 1.4f, true); // push off
+	}
+	if (!bFlying && bWasFlyingPose)
+	{
+		bLandAfterFlight = true;
+		if (Anim)
+		{
+			Anim->SetUpperPose(nullptr, 0.f, 0.f);
+		}
+		// Back to the normal mesh placement (floating heroes are handled by TickHover).
+		if (ActiveDefinition->Locomotion != EValdoriaLocomotion::Float)
+		{
+			GetMesh()->SetRelativeLocationAndRotation(FVector(0.f, 0.f, -ActiveDefinition->CapsuleHalfHeight + ActiveDefinition->HoverHeight),
+				FRotator(0.f, -90.f, 0.f));
+		}
+		FlightLeanAlpha = 0.f;
+	}
+	bWasFlyingPose = bFlying;
+	if (!bFlying)
+	{
+		return;
+	}
+
+	// 0 = hovering (upright), 1 = full speed forward (almost lying down).
+	const FVector Velocity = GetVelocity();
+	const float MaxSpeed = FMath::Max(100.f, GetCharacterMovement()->GetMaxSpeed());
+	const float Fwd = FVector::DotProduct(Velocity, GetActorForwardVector()) / MaxSpeed;
+	const float Right = FMath::Clamp(FVector::DotProduct(Velocity, GetActorRightVector()) / MaxSpeed, -1.f, 1.f);
+	const float Target = FMath::Clamp(Fwd, 0.f, 1.f);
+	FlightLeanAlpha = FMath::FInterpTo(FlightLeanAlpha, Target, DeltaSeconds, 4.f);
+
+	// Levitate: stays upright and only leans a little (like floating).
+	const float MaxLean = bSuperhero ? Set.FlightLean : FMath::Min(Set.FlightLean, ActiveDefinition->HoverLean);
+	const FRotator Lean(-FlightLeanAlpha * MaxLean, 0.f, Right * MaxLean * 0.4f);
+	const FQuat Rot = Lean.Quaternion() * FRotator(0.f, -90.f, 0.f).Quaternion();
+	// Rotate around the capsule centre: the mesh origin sits at the feet.
+	const FVector FeetOffset(0.f, 0.f, -ActiveDefinition->CapsuleHalfHeight + ActiveDefinition->HoverHeight);
+	GetMesh()->SetRelativeLocationAndRotation(Lean.RotateVector(FeetOffset), Rot);
+	if (Anim)
+	{
+		Anim->SetUpperPose(bSuperhero ? Load(Set.FlyForwardPose) : nullptr, Set.FlyForwardPoseTime, bSuperhero ? FlightLeanAlpha : 0.f);
+	}
 }

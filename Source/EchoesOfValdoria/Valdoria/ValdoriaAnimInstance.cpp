@@ -142,17 +142,15 @@ bool FValdoriaAnimProxy::Evaluate(FPoseContext& Output)
 		ExtractPose(Frame.Base, Frame.BaseTime, Frame.bBaseLoop, Output);
 	}
 
-	// 2) Ação: corpo todo ou só da coluna (spine_01) para cima.
-	if (Frame.Action && Frame.ActionWeight > 0.f)
+	// Blends Source into Output on the upper body (spine_01 and children) or the whole body.
+	auto BlendUpper = [&Output](FPoseContext& Source, float Weight, bool bFullBody)
 	{
-		FPoseContext Action(Output);
-		ExtractPose(Frame.Action, Frame.ActionTime, false, Action);
 		const FBoneContainer& Bones = Output.Pose.GetBoneContainer();
 		const FReferenceSkeleton& Ref = Bones.GetReferenceSkeleton();
 		const int32 Spine = Ref.FindBoneIndex(TEXT("spine_01"));
 		for (FCompactPoseBoneIndex Index : Output.Pose.ForEachBoneIndex())
 		{
-			bool bUpper = Frame.bActionFullBody;
+			bool bUpper = bFullBody;
 			if (!bUpper && Spine != INDEX_NONE)
 			{
 				for (int32 Mesh = Bones.MakeMeshPoseIndex(Index).GetInt(); Mesh != INDEX_NONE; Mesh = Ref.GetParentIndex(Mesh))
@@ -166,10 +164,26 @@ bool FValdoriaAnimProxy::Evaluate(FPoseContext& Output)
 			}
 			if (bUpper)
 			{
-				Output.Pose[Index].BlendWith(Action.Pose[Index], Frame.ActionWeight);
+				Output.Pose[Index].BlendWith(Source.Pose[Index], Weight);
 			}
 		}
 		Output.Pose.NormalizeRotations();
+	};
+
+	// 2) Held pose (e.g. arm forward while flying fast).
+	if (Frame.Pose && Frame.PoseWeight > 0.f)
+	{
+		FPoseContext Pose(Output);
+		ExtractPose(Frame.Pose, Frame.PoseTime, false, Pose);
+		BlendUpper(Pose, Frame.PoseWeight, false);
+	}
+
+	// 3) Action: whole body or spine_01 and up.
+	if (Frame.Action && Frame.ActionWeight > 0.f)
+	{
+		FPoseContext Action(Output);
+		ExtractPose(Frame.Action, Frame.ActionTime, false, Action);
+		BlendUpper(Action, Frame.ActionWeight, Frame.bActionFullBody);
 	}
 	return true;
 }

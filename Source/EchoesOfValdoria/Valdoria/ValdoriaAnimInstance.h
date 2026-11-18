@@ -27,6 +27,10 @@ struct FValdoriaAnimFrame
 	float ActionTime = 0.f;
 	float ActionWeight = 0.f;
 	bool bActionFullBody = false;
+	/** Persistent upper-body pose (frozen frame), e.g. arm forward while flying. */
+	UAnimSequenceBase* Pose = nullptr;
+	float PoseTime = 0.f;
+	float PoseWeight = 0.f;
 };
 
 struct FValdoriaAnimProxy : public FAnimInstanceProxy
@@ -48,6 +52,8 @@ public:
 	/** Toca uma ação (tiro, golpe, habilidade, recarga). FullBody = corpo todo (impulso, deslize). */
 	void PlayAction(UAnimSequenceBase* Clip, float PlayRate = 1.f, bool bFullBody = false);
 	bool IsActionPlaying() const { return Frame.Action != nullptr; }
+	/** Holds a frozen upper-body frame with the given weight (0 = off). Call every frame. */
+	void SetUpperPose(UAnimSequenceBase* Clip, float Time, float Weight) { PoseRef = Clip; Frame.Pose = Weight > 0.01f ? Clip : nullptr; Frame.PoseTime = Time; Frame.PoseWeight = Weight; }
 
 	FValdoriaAnimFrame Frame;
 
@@ -60,6 +66,7 @@ protected:
 	UPROPERTY(Transient) TObjectPtr<UAnimSequenceBase> BaseRef;
 	UPROPERTY(Transient) TObjectPtr<UAnimSequenceBase> PrevRef;
 	UPROPERTY(Transient) TObjectPtr<UAnimSequenceBase> ActionRef;
+	UPROPERTY(Transient) TObjectPtr<UAnimSequenceBase> PoseRef;
 
 	float BaseRate = 1.f;
 	float ActionRate = 1.f;

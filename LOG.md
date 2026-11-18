@@ -341,3 +341,11 @@ Referências do dono (imagens, descritas em texto): barra de aliado ciano e de i
 - Interface: abrir menu, escolher herói, comprar (confirmação), compra recusada (erro) e "ultimate pronta". Os sons de interface tocam mesmo com o jogo pausado.
 - Conferido por script que todo som citado no código existe. `-ValdoriaHeroTest` passando.
 - Vídeo de referência do voo: o dono vai gerar um. Para ver vídeos é preciso extrair quadros (ffmpeg não está instalado) ou o dono salva prints.
+### Turn 27 — Claude Code — 2026-11-18 (flight pose from the owner's video; English from now on)
+The owner allowed new code, docs and game texts in English (existing Portuguese stays). Replies to the owner stay in Portuguese.
+- **Reference video** `Projeto Padrão\prompt de voo.mp4`: frames extracted without ffmpeg using the Windows media API (`Windows.Media.Editing.MediaComposition.GetThumbnailAsync` from PowerShell). The clip shows: crouch, push off, fly almost lying forward with one arm ahead, hover upright, land.
+- **Procedural flight pose** (`TickFlightPose`): the mesh tilts forward by horizontal speed (up to `Animations.FlightLean`, default 62°) around the capsule centre, rolls on strafe, and blends a frozen upper-body frame (`FlyForwardPose` = MM_Attack_01 at `FlyForwardPoseTime`) for the arm-forward look. Hovering = upright `Fly` loop. `TakeoffAction` (MM_Jump) when flight starts, `LandAction` (MM_Land) when landing after a flight.
+- **Flight style per hero** (`Animations.FlightStyle`): `Superhero` (above) or `Levitate` (stays upright, leans at most `HoverLean`, no arm pose, no takeoff crouch). The owner asked for this: not every hero should fly like a superhero.
+- Animator: new persistent upper-body pose layer (`UValdoriaAnimInstance::SetUpperPose`) between base and actions.
+- **Bug fixed**: fuel flight stopped every frame after starting (the check required `IsFalling()`, which is false while flying), so flight flickered between flying and falling. Now `IsFalling() || bFlying`.
+- Test `-ValdoriaFlightTest`: flies up, forward (side screenshot `Voo_SuperHeroi.png`), hovers (`Voo_Parado.png`), falls, then flies again as Levitate (`Voo_Levitar.png`). The owner will generate 3 more reference videos (levitate upright, hover near the ground while moving, ride a created path).

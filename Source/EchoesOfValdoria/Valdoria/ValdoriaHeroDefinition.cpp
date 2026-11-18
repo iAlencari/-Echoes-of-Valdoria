@@ -65,6 +65,9 @@ UValdoriaHeroDefinition::UValdoriaHeroDefinition()
 	Animations.AbilityAction = Un(TEXT("Attack/"), TEXT("MM_Attack_03"));
 	Animations.UltimateAction = Un(TEXT("Attack/"), TEXT("MM_ChargedAttack"));
 	Animations.Fly = Anim(TEXT("MM_Fly_Loop"));
+	Animations.FlyForwardPose = TSoftObjectPtr<UAnimSequenceBase>(FSoftObjectPath(TEXT("/Game/Characters/Mannequins/Anims/Unarmed/Attack/MM_Attack_01.MM_Attack_01")));
+	Animations.TakeoffAction = TSoftObjectPtr<UAnimSequenceBase>(FSoftObjectPath(TEXT("/Game/Characters/Mannequins/Anims/Unarmed/Jump/MM_Jump.MM_Jump")));
+	Animations.LandAction = TSoftObjectPtr<UAnimSequenceBase>(FSoftObjectPath(TEXT("/Game/Characters/Mannequins/Anims/Unarmed/Jump/MM_Land.MM_Land")));
 }
 
 FPrimaryAssetId UValdoriaHeroDefinition::GetPrimaryAssetId() const

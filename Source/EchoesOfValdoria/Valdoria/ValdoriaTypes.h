@@ -32,6 +32,14 @@ enum class EValdoriaLocomotion : uint8
 	RideEffect	UMETA(DisplayName = "Andar sobre um efeito (mágico ou tecnológico; veja RideEffect*; use HoverHeight)")
 };
 
+/** How a hero looks while flying. */
+UENUM(BlueprintType)
+enum class EValdoriaFlightStyle : uint8
+{
+	Superhero	UMETA(DisplayName = "Superhero (lies forward, one arm ahead)"),
+	Levitate	UMETA(DisplayName = "Levitate (stays upright, slight lean)")
+};
+
 /** Estados de controle (no alvo ou no próprio herói durante uma habilidade). */
 UENUM(BlueprintType)
 enum class EValdoriaStatus : uint8
@@ -457,6 +465,23 @@ struct FValdoriaAnimationSet
 	TSoftObjectPtr<UAnimSequenceBase> Hover;
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Animações|Voo")
 	TSoftObjectPtr<UAnimSequenceBase> Fly;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Animações|Voo")
+	EValdoriaFlightStyle FlightStyle = EValdoriaFlightStyle::Superhero;
+
+	/** Flying fast: frozen upper-body pose (one arm forward), blended in by speed. */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Animações|Voo")
+	TSoftObjectPtr<UAnimSequenceBase> FlyForwardPose;
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Animações|Voo")
+	float FlyForwardPoseTime = 0.25f;
+	/** Max body tilt (degrees) when flying at full speed; side roll is 40% of this. */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Animações|Voo")
+	float FlightLean = 62.f;
+	/** Played when leaving the ground to fly and when landing after a flight. */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Animações|Voo")
+	TSoftObjectPtr<UAnimSequenceBase> TakeoffAction;
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Animações|Voo")
+	TSoftObjectPtr<UAnimSequenceBase> LandAction;
 };
 
 /** Uma habilidade concedida ao personagem. */

@@ -376,6 +376,10 @@ protected:
 	FValdoriaShopBonus ShopBonus;
 	int32 ComboIndex = 0;
 	void TickFootsteps(float DeltaSeconds);
+	void TickFlightPose(float DeltaSeconds);
+	bool bWasFlyingPose = false;
+	bool bLandAfterFlight = false;
+	float FlightLeanAlpha = 0.f;
 	float StepDistance = 0.f;
 	float LastFireSoundTime = -10.f;
 	void TickHover(float DeltaSeconds);

@@ -54,6 +54,9 @@ protected:
 	void RunHeroTestStep();
 	/** Teste de pose da arma (-ValdoriaWeaponPose): gira a arma do Kael e tira um print de cada. */
 	void RunWeaponPoseStep();
+	/** Flight test (-ValdoriaFlightTest): superhero and levitate styles, side screenshots. */
+	void RunFlightTestStep();
+	int32 FlightTestStep = 0;
 	int32 WeaponPoseStep = 0;
 	int32 HeroTestStep = 0;
 	TWeakObjectPtr<class AValdoriaTrainingDummy> HeroTestEnemy;
