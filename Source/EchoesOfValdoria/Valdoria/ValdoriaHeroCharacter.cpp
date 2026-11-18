@@ -447,6 +447,11 @@ void AValdoriaHeroCharacter::SetupPlayerInputComponent(UInputComponent* PlayerIn
 void AValdoriaHeroCharacter::Input_Move(const FInputActionValue& Value)
 {
 	const FVector2D Axis = Value.Get<FVector2D>();
+	if (IsRiding())
+	{
+		RideForwardInput = Axis.Y; // on the Bifrost W only turns around (when looking back)
+		return;
+	}
 	if (!Controller || bIsDead || HasStatus(EValdoriaStatus::Rooted) || HasStatus(EValdoriaStatus::Stunned))
 	{
 		return;
@@ -2660,6 +2665,8 @@ bool AValdoriaHeroCharacter::TryMountRail()
 	}
 	RideRail = Best;
 	RideDistance = BestAlong;
+	// Start in the direction the camera looks along the trail.
+	RideSign = FVector::DotProduct(Dir.GetSafeNormal2D(), Best->GetTangentAt(BestAlong).GetSafeNormal2D()) >= 0.f ? 1.f : -1.f;
 	GetCharacterMovement()->SetMovementMode(MOVE_Flying);
 	GetCharacterMovement()->StopMovementImmediately();
 	ValdoriaAudio::PlayAt(this, ValdoriaAudio::Load(TEXT("SciFi"), TEXT("forceField_000")), GetActorLocation(), 0.6f);
@@ -2699,11 +2706,17 @@ void AValdoriaHeroCharacter::TickRiding(float DeltaSeconds)
 		StopRiding();
 		return;
 	}
-	// Direction from the camera: look along the rail to go forward, look back to go home.
+	// The camera is free while riding. To turn around: look back AND press forward (W).
 	FVector Start, Dir;
 	GetAimRay(Start, Dir);
 	const FVector Tangent = Rail->GetTangentAt(RideDistance);
-	const float Sign = FVector::DotProduct(Dir.GetSafeNormal2D(), Tangent.GetSafeNormal2D()) >= 0.f ? 1.f : -1.f;
+	const bool bLookingBack = FVector::DotProduct(Dir.GetSafeNormal2D(), (Tangent * RideSign).GetSafeNormal2D()) < -0.2f;
+	if (bLookingBack \&\& RideForwardInput > 0.5f)
+	{
+		RideSign = -RideSign;
+	}
+	RideForwardInput = 0.f;
+	const float Sign = RideSign;
 	RideDistance += Sign * RideSpeed * DeltaSeconds;
 	if (RideDistance <= 0.f || RideDistance >= Rail->GetLength())
 	{

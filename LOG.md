@@ -411,3 +411,4 @@ Owner's brother is playing Deadlock, so this batch is **built but not run** (no 
 - **Damage reduction cap 75%** (passive and team reductions stack multiplicatively). Team buffs keep the stronger value while active.
 - **Healing items** (shop): `Vital Balm` (healing received +10/20/30%, Healing) and `Bitter Edge` (anti-heal: your hits cut the target's healing by 25/40/55% for 3 s, Damage). `HealTarget` = amount x (1 + healer's healing power) x (1 + target's healing received) x (1 - active anti-heal). Note: the existing DA_Loja keeps its items until recreated (the new items are in the defaults).
 - `DA_Moba` recreated with the new defaults (it had not been edited yet). Built only (brother playing).
+- Turn 38b: Bifrost controls changed by the owner: free camera while riding; the direction is set at mount by the look, and only flips when looking back AND pressing W.

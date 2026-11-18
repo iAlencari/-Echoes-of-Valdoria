@@ -430,6 +430,10 @@ protected:
 	TWeakObjectPtr<class AValdoriaLaneRail> RideRail;
 	float RideDistance = 0.f;
 	float RideSpeed = 1800.f;
+	/** +1 = towards the end of the trail, -1 = back to the base. */
+	float RideSign = 1.f;
+	/** Forward input (W) while riding, used to turn around. */
+	float RideForwardInput = 0.f;
 	float JumpPressTime = -10.f;
 	bool bTriedMountThisPress = false;
 	int32 AutopilotRouteIndex = 0;
