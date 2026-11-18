@@ -258,6 +258,10 @@ struct FValdoriaAbilityEntry
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Habilidade")
 	FText DisplayName;
 
+	/** Explicação mostrada na tela de ajuda (tecla K). */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Habilidade", meta = (MultiLine = true))
+	FText Description;
+
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Habilidade")
 	EValdoriaAbilitySlot Slot = EValdoriaAbilitySlot::Ability1;
 

@@ -57,6 +57,7 @@ UValdoriaHeroDefinition* UValdoriaHeroDefinition::CreateFallbackRecruit(UObject*
 	FValdoriaAbilityEntry Fire;
 	Fire.DisplayName = NSLOCTEXT("Valdoria", "Fire", "Rifle");
 	Fire.Slot = EValdoriaAbilitySlot::PrimaryFire;
+	Fire.Description = NSLOCTEXT("Valdoria", "FireDesc", "Rifle automático de tiro instantâneo. 20 de dano por bala, dobro na cabeça; o dano cai com a distância. Pente de 30, recarrega no R.");
 	Fire.AbilityClass = UValdoriaGA_FireHitscan::StaticClass();
 	Def->Abilities.Add(Fire);
 
@@ -70,6 +71,7 @@ UValdoriaHeroDefinition* UValdoriaHeroDefinition::CreateFallbackRecruit(UObject*
 	FValdoriaAbilityEntry Heal;
 	Heal.DisplayName = NSLOCTEXT("Valdoria", "Heal", "Pulso de cura");
 	Heal.Slot = EValdoriaAbilitySlot::Ability2;
+	Heal.Description = NSLOCTEXT("Valdoria", "HealDesc", "Pulso que cura você e os aliados por perto (80 de vida, raio de 8 m). Recarga de 12 s.");
 	Heal.AbilityClass = UValdoriaGA_HealPulse::StaticClass();
 	Heal.Cooldown = 12.f;
 	Def->Abilities.Add(Heal);
@@ -77,8 +79,11 @@ UValdoriaHeroDefinition* UValdoriaHeroDefinition::CreateFallbackRecruit(UObject*
 	FValdoriaAbilityEntry Ult;
 	Ult.DisplayName = NSLOCTEXT("Valdoria", "Shockwave", "Onda de choque");
 	Ult.Slot = EValdoriaAbilitySlot::Ultimate;
+	Ult.Description = NSLOCTEXT("Valdoria", "UltDesc", "Onda de choque ao seu redor: 150 de dano e empurra os inimigos num raio de 9 m. Carrega causando dano e com o tempo.");
 	Ult.AbilityClass = UValdoriaGA_Shockwave::StaticClass();
 	Def->Abilities.Add(Ult);
 
+	Def->PassiveName = NSLOCTEXT("Valdoria", "RecruitPassive", "Treinamento básico");
+	Def->PassiveDescription = NSLOCTEXT("Valdoria", "RecruitPassiveDesc", "Shift: segurar corre, dois toques dão um impulso (2 cargas). Ctrl agacha (correndo, desliza), X deita, Espaço sobe em beiradas e escala paredes.");
 	return Def;
 }

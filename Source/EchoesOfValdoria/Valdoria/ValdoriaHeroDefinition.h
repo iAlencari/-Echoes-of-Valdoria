@@ -94,6 +94,13 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Habilidades")
 	TArray<FValdoriaAbilityEntry> Abilities;
 
+	/** Passiva: nome e explicação (tela de ajuda, tecla K). */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Habilidades")
+	FText PassiveName;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Habilidades", meta = (MultiLine = true))
+	FText PassiveDescription;
+
 	/** Carga necessária para a ultimate. */
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Habilidades", meta = (ClampMin = "1"))
 	float UltimateCost = 1500.f;

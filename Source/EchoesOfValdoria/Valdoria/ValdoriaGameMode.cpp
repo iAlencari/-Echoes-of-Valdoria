@@ -172,6 +172,38 @@ void AValdoriaGameMode::RunAutoTestStep()
 	}
 	else if (AutoTestStep == 38)
 	{
+		if (AValdoriaPlayerController* VPC = Cast<AValdoriaPlayerController>(PC))
+		{
+			VPC->ToggleAdminPanel();
+			UE_LOG(LogValdoria, Display, TEXT("AUTOTEST admin: painel aberto=%d"), VPC->IsAdminPanelOpen());
+		}
+	}
+	else if (AutoTestStep == 40)
+	{
+		FScreenshotRequest::RequestScreenshot(FPaths::ConvertRelativePathToFull(FPaths::ProjectSavedDir() / TEXT("Screenshots/AutoTest_Admin.png")), true, false);
+	}
+	else if (AutoTestStep == 41)
+	{
+		if (AValdoriaPlayerController* VPC = Cast<AValdoriaPlayerController>(PC))
+		{
+			VPC->ToggleAdminPanel();
+			VPC->HelpPressed();
+			UE_LOG(LogValdoria, Display, TEXT("AUTOTEST ajuda: tela aberta=%d"), VPC->IsHelpOpen());
+		}
+	}
+	else if (AutoTestStep == 43)
+	{
+		FScreenshotRequest::RequestScreenshot(FPaths::ConvertRelativePathToFull(FPaths::ProjectSavedDir() / TEXT("Screenshots/AutoTest_Ajuda.png")), true, false);
+	}
+	else if (AutoTestStep == 44)
+	{
+		if (AValdoriaPlayerController* VPC = Cast<AValdoriaPlayerController>(PC))
+		{
+			VPC->HelpReleased();
+		}
+	}
+	else if (AutoTestStep == 46)
+	{
 		const FString Path = FPaths::ConvertRelativePathToFull(FPaths::ProjectSavedDir() / TEXT("Screenshots/AutoTest.png"));
 		// Abre o menu de pausa (Esc) para conferir que ele aparece na captura.
 		if (AValdoriaPlayerController* VPC = Cast<AValdoriaPlayerController>(PC))
@@ -190,7 +222,7 @@ void AValdoriaGameMode::RunAutoTestStep()
 			return false;
 		}), 3.f);
 	}
-	else if (AutoTestStep >= 50)
+	else if (AutoTestStep >= 60)
 	{
 		UE_LOG(LogValdoria, Display, TEXT("AUTOTEST fim"));
 		GetWorldTimerManager().ClearTimer(AutoTestTimer);
@@ -230,6 +262,19 @@ void AValdoriaGameMode::SpawnTrainingDummies()
 			Dummy->FinishSpawning(FTransform(Facing, Location));
 		}
 	}
+}
+
+AActor* AValdoriaGameMode::SpawnDummyAt(const FVector& Location, const FRotator& Facing, uint8 Kind)
+{
+	AValdoriaTrainingDummy* Dummy = GetWorld()->SpawnActorDeferred<AValdoriaTrainingDummy>(
+		AValdoriaTrainingDummy::StaticClass(), FTransform(Facing, Location), nullptr, nullptr,
+		ESpawnActorCollisionHandlingMethod::AdjustIfPossibleButAlwaysSpawn);
+	if (Dummy)
+	{
+		Dummy->Kind = static_cast<EValdoriaDummyKind>(FMath::Clamp<int32>(Kind, 0, 3));
+		Dummy->FinishSpawning(FTransform(Facing, Location));
+	}
+	return Dummy;
 }
 
 void AValdoriaGameMode::OnHeroKilled(AValdoriaHeroCharacter* Victim, AValdoriaHeroCharacter* Killer)

@@ -32,6 +32,9 @@ public:
 
 	void OnHeroKilled(AValdoriaHeroCharacter* Victim, AValdoriaHeroCharacter* Killer);
 
+	/** Cria um boneco de treino (usado também pelo painel de administrador). Kind: 0 básico, 1 armadura, 2 escudo, 3 andando. */
+	AActor* SpawnDummyAt(const FVector& Location, const FRotator& Facing, uint8 Kind);
+
 protected:
 	virtual APawn* SpawnDefaultPawnFor_Implementation(AController* NewPlayer, AActor* StartSpot) override;
 	void SpawnTrainingDummies();

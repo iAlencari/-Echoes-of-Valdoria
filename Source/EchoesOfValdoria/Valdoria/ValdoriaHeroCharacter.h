@@ -96,6 +96,12 @@ public:
 	bool bNoCooldowns = false;
 	UPROPERTY(Replicated, BlueprintReadOnly, Category = "Admin")
 	bool bInfiniteAmmo = false;
+	UPROPERTY(Replicated, BlueprintReadOnly, Category = "Admin")
+	bool bInfiniteDashes = false;
+	UPROPERTY(Replicated, BlueprintReadOnly, Category = "Admin")
+	float AdminSpeedMultiplier = 1.f;
+	void AdminSetSpeedMultiplier(float Multiplier);
+	float GetDamageMultiplier() const;
 	void AdminSetDamageMultiplier(float Multiplier);
 	void AdminFillUltimate();
 	void AdminRestoreAll();

@@ -27,6 +27,7 @@ void AValdoriaPlayerController::BeginPlay()
 void AValdoriaPlayerController::EndPlay(const EEndPlayReason::Type EndPlayReason)
 {
 	ClosePauseMenu();
+	CloseAdminPanel();
 	Super::EndPlay(EndPlayReason);
 }
 
@@ -40,6 +41,23 @@ void AValdoriaPlayerController::SetupInputComponent()
 	AltDown.bExecuteWhenPaused = true;
 	FInputKeyBinding& AltUp = InputComponent->BindKey(EKeys::LeftAlt, IE_Released, this, &AValdoriaPlayerController::FreeCursorReleased);
 	AltUp.bExecuteWhenPaused = true;
+	FInputKeyBinding& Admin = InputComponent->BindKey(EKeys::F1, IE_Pressed, this, &AValdoriaPlayerController::ToggleAdminPanel);
+	Admin.bExecuteWhenPaused = true;
+	InputComponent->BindKey(EKeys::K, IE_Pressed, this, &AValdoriaPlayerController::HelpPressed);
+	InputComponent->BindKey(EKeys::K, IE_Released, this, &AValdoriaPlayerController::HelpReleased);
+}
+
+void AValdoriaPlayerController::RefreshInputMode()
+{
+	// Cursor solto enquanto houver menu aberto ou Alt segurado.
+	if (PauseWidget.IsValid() || AdminWidget.IsValid() || HelpWidget.IsValid() || bAltHeld)
+	{
+		ApplyCursorInput();
+	}
+	else
+	{
+		ApplyGameInput();
+	}
 }
 
 void AValdoriaPlayerController::ApplyGameInput()
@@ -60,6 +78,10 @@ void AValdoriaPlayerController::ApplyCursorInput()
 	{
 		Mode.SetWidgetToFocus(PauseWidget);
 	}
+	else if (AdminWidget.IsValid())
+	{
+		Mode.SetWidgetToFocus(AdminWidget);
+	}
 	SetInputMode(Mode);
 	bShowMouseCursor = true;
 }
@@ -73,10 +95,7 @@ void AValdoriaPlayerController::FreeCursorPressed()
 void AValdoriaPlayerController::FreeCursorReleased()
 {
 	bAltHeld = false;
-	if (!PauseWidget.IsValid())
-	{
-		ApplyGameInput();
-	}
+	RefreshInputMode();
 }
 
 void AValdoriaPlayerController::TogglePauseMenu()
@@ -167,10 +186,7 @@ void AValdoriaPlayerController::ClosePauseMenu()
 	}
 	PauseWidget.Reset();
 	SetPause(false);
-	if (!bAltHeld)
-	{
-		ApplyGameInput();
-	}
+	RefreshInputMode();
 }
 
 FReply AValdoriaPlayerController::OnResumeClicked()

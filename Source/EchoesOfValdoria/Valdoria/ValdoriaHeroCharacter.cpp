@@ -84,6 +84,8 @@ void AValdoriaHeroCharacter::GetLifetimeReplicatedProps(TArray<FLifetimeProperty
 	DOREPLIFETIME(AValdoriaHeroCharacter, bGodMode);
 	DOREPLIFETIME(AValdoriaHeroCharacter, bNoCooldowns);
 	DOREPLIFETIME(AValdoriaHeroCharacter, bInfiniteAmmo);
+	DOREPLIFETIME(AValdoriaHeroCharacter, bInfiniteDashes);
+	DOREPLIFETIME(AValdoriaHeroCharacter, AdminSpeedMultiplier);
 	DOREPLIFETIME_CONDITION(AValdoriaHeroCharacter, bIsSprinting, COND_SkipOwner);
 	DOREPLIFETIME_CONDITION(AValdoriaHeroCharacter, bIsProne, COND_SkipOwner);
 }
@@ -659,6 +661,17 @@ void AValdoriaHeroCharacter::AdminSetDamageMultiplier(float Multiplier)
 	}
 }
 
+void AValdoriaHeroCharacter::AdminSetSpeedMultiplier(float Multiplier)
+{
+	AdminSpeedMultiplier = FMath::Clamp(Multiplier, 0.1f, 5.f);
+	UpdateMovementSpeed();
+}
+
+float AValdoriaHeroCharacter::GetDamageMultiplier() const
+{
+	return Attributes->GetDamageMultiplier();
+}
+
 void AValdoriaHeroCharacter::AdminFillUltimate()
 {
 	if (HasAuthority() && ActiveDefinition)
@@ -755,7 +768,7 @@ void AValdoriaHeroCharacter::UpdateMovementSpeed()
 	}
 	const FValdoriaMovementRules& Rules = GetMovementRules();
 	UCharacterMovementComponent* Move = GetCharacterMovement();
-	float Speed = ActiveDefinition->MoveSpeed;
+	float Speed = ActiveDefinition->MoveSpeed * AdminSpeedMultiplier;
 	if (bIsSprinting)
 	{
 		Speed *= Rules.SprintMultiplier;
@@ -865,7 +878,10 @@ void AValdoriaHeroCharacter::PerformDash(const FVector& Direction)
 	{
 		SetProne(false);
 	}
-	--DashChargesLeft;
+	if (!bInfiniteDashes)
+	{
+		--DashChargesLeft;
+	}
 	PlayDashAnimation(Direction);
 	const bool bGrounded = GetCharacterMovement()->IsMovingOnGround();
 	LaunchCharacter(Direction * GetMovementRules().DashImpulse + FVector(0.f, 0.f, bGrounded ? 120.f : 0.f), true, true);

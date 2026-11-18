@@ -183,3 +183,22 @@ Referências do dono (imagens, descritas em texto): barra de aliado ciano e de i
 - Novo campo `ReserveAmmo` na arma (0 = infinita; por enquanto só visual).
 - Teste automático ganhou o print `Saved/Screenshots/AutoTest_HUD.png`.
 - Pendente: ícones de verdade (imagens) para passiva/habilidades/heróis quando houver arte; Data Assets dos heróis reais (Brasa, Kael, Iara, Vex) com as cores e vidas das referências, quando o dono aprovar os números.
+
+### Turno 14 — Claude Code — 18/11/2026 (painel de administrador e tela de ajuda)
+**Falas do dono:**
+> "se tiver como abrir todas as janelas no monitor 2 seria melhor pra mim, tem coisas sem arrumar desde o inicio como o painel de adm com todas as configurações de testes necessarias entre outros tá guardado lá no md, as armas tao na pasta do projeto"
+>
+> "tecla K pressionada aparece o mouse e abre uma tela semi transparente explicando o que cada habilidade e passiva faz"
+
+- **Painel de administrador (F1)**, em Slate/C++ (`ValdoriaAdminPanel.cpp`), com o jogo rodando e o cursor solto:
+  - Herói: trocar para o Recruta ou para qualquer Data Asset `UValdoriaHeroDefinition` do projeto (lista automática); imortal; sem recarga; munição infinita; impulso infinito; multiplicador de dano; multiplicador de velocidade; ultimate cheia; vida cheia; zerar recargas.
+  - Alvo na mira: pegar o alvo (raio pelo centro da tela ou o mais alinhado com a mira), ver nome/vida/armadura/escudo/distância, editar vida, vida máxima, armadura, armadura máxima, escudo e escudo máximo, matar, reviver/curar, imortal, congelar, ir até o alvo.
+  - Inimigos: matar todos, reviver todos, criar boneco (básico, armadura, escudo, andando) onde a mira aponta.
+  - Mapa: teleportar para a mira, voltar ao início, abrir qualquer mapa de `/Game` (lista automática).
+  - Jogo: velocidade do jogo (câmera lenta/rápida), mostrar FPS e ping.
+  - Hoje o jogo é local; com multiplayer essas ações viram RPCs para o servidor.
+- **Tela de ajuda (segurar K)**: fundo semitransparente com o cursor solto; mostra nome, descrição, passiva e cada habilidade (tecla, nome, recarga, explicação). Os textos vêm do Data Asset: novos campos `PassiveName`, `PassiveDescription` e `Description` em cada habilidade. O Recruta já tem os textos preenchidos.
+- Novos campos de admin no personagem: `bInfiniteDashes`, `AdminSpeedMultiplier`; `AValdoriaGameMode::SpawnDummyAt` público.
+- Armas: o dono salvou `Armas_Herois.fbx` em `Projeto Padrão`; copiado para `SourceArt\Armas` (import ainda pendente).
+- Monitor 2: o atalho Jogar já abre lá; o editor da Unreal e o Visual Studio lembram a última posição da janela, então basta arrastá-los uma vez para o monitor 2.
+- Teste automático passou com o painel aberto e com a tela de ajuda (prints `AutoTest_Admin.png` e `AutoTest_Ajuda.png`).
