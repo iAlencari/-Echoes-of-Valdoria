@@ -83,5 +83,9 @@ protected:
 	TWeakObjectPtr<AValdoriaHeroCharacter> AdminTarget;
 	TArray<TWeakObjectPtr<UValdoriaHeroDefinition>> AdminHeroList;
 	TArray<FString> AdminMapList;
+	FVector SavedPositions[3];
+	FRotator SavedRotations[3];
+	bool bSavedPosition[3] = { false, false, false };
+	int32 AdminBotDifficulty = 0;
 	bool bAltHeld = false;
 };

@@ -423,8 +423,142 @@ TSharedRef<SWidget> AValdoriaPlayerController::BuildAdminPanel()
 		Box->AddSlot().AutoHeight()[Row];
 	}
 
-	// --- Mapa
-	Box->AddSlot().AutoHeight()[Title(LOCTEXT("MapTitle", "MAPA"))];
+	// --- Movimento e física (herói)
+	Box->AddSlot().AutoHeight()[Title(LOCTEXT("MoveTitle", "MOVIMENTO E FÍSICA"))];
+	Box->AddSlot().AutoHeight()[Check(LOCTEXT("Noclip", "Voar e atravessar paredes (noclip)"), [Hero]() { return Hero() && Hero()->IsNoclip(); }, [Hero](bool b) { if (Hero()) Hero()->SetNoclip(b); })];
+	Box->AddSlot().AutoHeight()[Number(LOCTEXT("Gravity", "Gravidade (1 = normal)"), 0.f, 5.f, 0.05f,
+		[Hero]() { return Hero() ? Hero()->GetCharacterMovement()->GravityScale : 1.f; }, [Hero](float V) { if (Hero()) Hero()->GetCharacterMovement()->GravityScale = V; })];
+	Box->AddSlot().AutoHeight()[Number(LOCTEXT("Jump", "Força do pulo"), 0.f, 3000.f, 10.f,
+		[Hero]() { return Hero() ? Hero()->GetCharacterMovement()->JumpZVelocity : 520.f; }, [Hero](float V) { if (Hero()) Hero()->GetCharacterMovement()->JumpZVelocity = V; })];
+	Box->AddSlot().AutoHeight()[Number(LOCTEXT("AirCtrl", "Controle no ar (0 a 1)"), 0.f, 1.f, 0.05f,
+		[Hero]() { return Hero() ? Hero()->GetCharacterMovement()->AirControl : 0.4f; }, [Hero](float V) { if (Hero()) Hero()->GetCharacterMovement()->AirControl = V; })];
+	{
+		TSharedRef<SWrapBox> Row = SNew(SWrapBox).UseAllottedSize(true);
+		for (int32 Slot = 0; Slot < 3; ++Slot)
+		{
+			Row->AddSlot()[Button(FText::FromString(FString::Printf(TEXT("Salvar posição %d"), Slot + 1)), [WeakThis, Slot]()
+			{
+				if (WeakThis.IsValid() && WeakThis->GetPawn())
+				{
+					WeakThis->SavedPositions[Slot] = WeakThis->GetPawn()->GetActorLocation();
+					WeakThis->SavedRotations[Slot] = WeakThis->GetControlRotation();
+					WeakThis->bSavedPosition[Slot] = true;
+				}
+			})];
+			Row->AddSlot()[Button(FText::FromString(FString::Printf(TEXT("Ir para posição %d"), Slot + 1)), [WeakThis, Slot]()
+			{
+				if (WeakThis.IsValid() && WeakThis->GetPawn() && WeakThis->bSavedPosition[Slot])
+				{
+					WeakThis->GetPawn()->SetActorLocation(WeakThis->SavedPositions[Slot], false, nullptr, ETeleportType::TeleportPhysics);
+					WeakThis->SetControlRotation(WeakThis->SavedRotations[Slot]);
+				}
+			})];
+		}
+		Box->AddSlot().AutoHeight()[Row];
+	}
+
+	// --- Bots e treino de mira
+	Box->AddSlot().AutoHeight()[Title(LOCTEXT("BotsTitle", "BOTS E TREINO DE MIRA"))];
+	{
+		const TArray<FText> Levels = { LOCTEXT("B0", "Parados (só alvo)"), LOCTEXT("B1", "Fácil"), LOCTEXT("B2", "Médio"), LOCTEXT("B3", "Difícil") };
+		TSharedRef<SWrapBox> Row = SNew(SWrapBox).UseAllottedSize(true);
+		for (int32 L = 0; L < 4; ++L)
+		{
+			Row->AddSlot()[Button(FText::Format(LOCTEXT("BotLevel", "Bots atiram: {0}"), Levels[L]), [WeakThis, L]()
+			{
+				if (!WeakThis.IsValid()) return;
+				WeakThis->AdminBotDifficulty = L;
+				for (TActorIterator<AValdoriaTrainingDummy> It(WeakThis->GetWorld()); It; ++It)
+				{
+					It->BotDifficulty = L;
+				}
+			})];
+		}
+		Box->AddSlot().AutoHeight()[Row];
+	}
+	Box->AddSlot().AutoHeight()
+	[
+		SNew(STextBlock).Font(Font(11)).ColorAndOpacity(FLinearColor(0.8f, 0.82f, 0.88f))
+		.Text_Lambda([WeakThis]()
+		{
+			static const TCHAR* Names[] = { TEXT("parados"), TEXT("fácil (6 dano, 30% de acerto)"), TEXT("médio (10 dano, 50%)"), TEXT("difícil (16 dano, 75%)") };
+			return FText::FromString(FString(TEXT("Bots agora: ")) + Names[WeakThis.IsValid() ? FMath::Clamp(WeakThis->AdminBotDifficulty, 0, 3) : 0]);
+		})
+	];
+	{
+		TSharedRef<SWrapBox> Row = SNew(SWrapBox).UseAllottedSize(true);
+		Row->AddSlot()[Button(LOCTEXT("MoveAll", "Todos andando de lado"), [WeakThis]()
+		{
+			if (!WeakThis.IsValid()) return;
+			for (TActorIterator<AValdoriaTrainingDummy> It(WeakThis->GetWorld()); It; ++It) { It->bForceStrafe = !It->bForceStrafe; }
+		})];
+		Row->AddSlot()[Button(LOCTEXT("NoHeal", "Bonecos sem regenerar sim/não"), [WeakThis]()
+		{
+			if (!WeakThis.IsValid()) return;
+			for (TActorIterator<AValdoriaTrainingDummy> It(WeakThis->GetWorld()); It; ++It) { It->bNoAutoHeal = !It->bNoAutoHeal; }
+		})];
+		Row->AddSlot()[Button(LOCTEXT("BotsGod", "Bonecos imortais sim/não"), [WeakThis]()
+		{
+			if (!WeakThis.IsValid()) return;
+			for (TActorIterator<AValdoriaTrainingDummy> It(WeakThis->GetWorld()); It; ++It) { It->bGodMode = !It->bGodMode; }
+		})];
+		Row->AddSlot()[Button(LOCTEXT("AimTrainer", "Treino de mira: 6 alvos"), [WeakThis]()
+		{
+			if (!WeakThis.IsValid() || !WeakThis->GetPawn()) return;
+			AValdoriaGameMode* GM = WeakThis->GetWorld()->GetAuthGameMode<AValdoriaGameMode>();
+			if (!GM) return;
+			const APawn* P = WeakThis->GetPawn();
+			const FVector Fwd = FRotator(0.f, WeakThis->GetControlRotation().Yaw, 0.f).Vector();
+			const FVector Right = FVector::CrossProduct(FVector::UpVector, Fwd);
+			for (int32 i = 0; i < 6; ++i)
+			{
+				const FVector Where = P->GetActorLocation() + Fwd * (1200.f + (i % 2) * 600.f) + Right * ((i - 2.5f) * 350.f) + FVector(0, 0, 50.f);
+				if (AValdoriaTrainingDummy* D = Cast<AValdoriaTrainingDummy>(GM->SpawnDummyAt(Where, (-Fwd).Rotation(), 3)))
+				{
+					D->bForceStrafe = true;
+				}
+			}
+		})];
+		Row->AddSlot()[Button(LOCTEXT("ClearDummies", "Apagar bonecos criados"), [WeakThis]()
+		{
+			if (!WeakThis.IsValid()) return;
+			int32 Index = 0;
+			for (TActorIterator<AValdoriaTrainingDummy> It(WeakThis->GetWorld()); It; ++It)
+			{
+				if (Index++ >= 4) { It->Destroy(); } // mantém os 4 originais
+			}
+		})];
+		Box->AddSlot().AutoHeight()[Row];
+	}
+	{
+		TSharedRef<SWrapBox> Row = SNew(SWrapBox).UseAllottedSize(true);
+		Row->AddSlot()[Button(LOCTEXT("TeamSwap", "Alvo: trocar time (aliado/inimigo)"), [Target, Hero]()
+		{
+			if (AValdoriaHeroCharacter* T = Target())
+			{
+				const uint8 MyTeam = Hero() ? Hero()->TeamId : 0;
+				T->TeamId = (T->TeamId == MyTeam) ? 255 : MyTeam;
+			}
+		})];
+		Box->AddSlot().AutoHeight()[Row];
+	}
+
+	// --- Depuração
+	Box->AddSlot().AutoHeight()[Title(LOCTEXT("DebugTitle", "DEPURAÇÃO"))];
+	Box->AddSlot().AutoHeight()[Check(LOCTEXT("Meter", "Medidor de dano (DPS)"),
+		[WeakThis]() { const AValdoriaHUD* H = WeakThis.IsValid() ? Cast<AValdoriaHUD>(WeakThis->GetHUD()) : nullptr; return H && H->bShowDamageMeter; },
+		[WeakThis](bool b) { if (AValdoriaHUD* H = WeakThis.IsValid() ? Cast<AValdoriaHUD>(WeakThis->GetHUD()) : nullptr) { H->bShowDamageMeter = b; H->ResetDamageMeter(); } })];
+	{
+		TSharedRef<SWrapBox> Row = SNew(SWrapBox).UseAllottedSize(true);
+		Row->AddSlot()[Button(LOCTEXT("ResetMeter", "Zerar medidor"), [WeakThis]() { if (AValdoriaHUD* H = WeakThis.IsValid() ? Cast<AValdoriaHUD>(WeakThis->GetHUD()) : nullptr) H->ResetDamageMeter(); })];
+		Row->AddSlot()[Button(LOCTEXT("Collision", "Mostrar colisões (hitboxes)"), [WeakThis]() { if (WeakThis.IsValid()) WeakThis->ConsoleCommand(TEXT("show collision")); })];
+		Row->AddSlot()[Button(LOCTEXT("FreeCam", "Câmera livre (liga/desliga)"), [WeakThis]() { if (WeakThis.IsValid()) WeakThis->ConsoleCommand(TEXT("ToggleDebugCamera")); })];
+		Row->AddSlot()[Button(LOCTEXT("StatUnit", "Tempos de CPU/GPU"), [WeakThis]() { if (WeakThis.IsValid()) WeakThis->ConsoleCommand(TEXT("stat unit")); })];
+		Row->AddSlot()[Button(LOCTEXT("Shot", "Tirar print (Saved/Screenshots)"), [WeakThis]() { if (WeakThis.IsValid()) WeakThis->ConsoleCommand(TEXT("HighResShot 1")); })];
+		Box->AddSlot().AutoHeight()[Row];
+	}
+
+	// --- Mapa	Box->AddSlot().AutoHeight()[Title(LOCTEXT("MapTitle", "MAPA"))];
 	{
 		TSharedRef<SWrapBox> Row = SNew(SWrapBox).UseAllottedSize(true);
 		Row->AddSlot()[Button(LOCTEXT("TpAim", "Teleportar para a mira"), [WeakThis]() { if (WeakThis.IsValid()) WeakThis->AdminTeleport(WeakThis->GetAimPoint()); })];

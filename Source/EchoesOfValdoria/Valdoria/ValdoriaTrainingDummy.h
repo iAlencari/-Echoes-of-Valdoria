@@ -30,6 +30,18 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Treino")
 	float ResetDelay = 3.f;
 
+	/** Bot atirador: 0 parado (só alvo), 1 fácil, 2 médio, 3 difícil. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Treino")
+	int32 BotDifficulty = 0;
+
+	/** Faz o boneco andar de lado (alvo em movimento), qualquer que seja o tipo. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Treino")
+	bool bForceStrafe = false;
+
+	/** Não regenera a vida sozinho (para medir dano). */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Treino")
+	bool bNoAutoHeal = false;
+
 	virtual void Tick(float DeltaSeconds) override;
 	void ScheduleRevive();
 
@@ -39,5 +51,7 @@ protected:
 
 	FVector StartLocation;
 	float StrafeTime = 0.f;
+	float NextBotShotTime = 0.f;
+	void TickBot(float DeltaSeconds);
 	FTimerHandle ReviveTimer;
 };

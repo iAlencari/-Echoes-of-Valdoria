@@ -106,6 +106,13 @@ public:
 	void AdminFillUltimate();
 	void AdminRestoreAll();
 
+	/** Voar e atravessar paredes (painel de admin). */
+	void SetNoclip(bool bEnable);
+	bool IsNoclip() const { return bNoclip; }
+
+	/** Aplica dano em outro personagem pelo GAS, como se fosse um tiro deste (bots usam isto). */
+	void DealDamageTo(AActor* Target, float Damage, bool bHeadshot = false);
+
 	/** Volta ao estado inicial (vida cheia, munição, sem recargas). */
 	void ResetCombatState();
 
@@ -191,6 +198,7 @@ protected:
 	UPROPERTY(ReplicatedUsing = OnRep_IsProne, BlueprintReadOnly, Category = "Movimento")
 	bool bIsProne = false;
 
+	bool bNoclip = false;
 	bool bJumpHeld = false;
 	bool bCrouchHeld = false;
 	bool bPendingRecrouch = false;

@@ -19,6 +19,8 @@ void AValdoriaHUD::AddHitMarker(const FVector& WorldLocation, float Damage, bool
 	LastHitTime = GetWorld()->GetTimeSeconds();
 	bLastHitHeadshot = bHeadshot;
 	bLastHitKill = bKill;
+	TotalDamage += Damage;
+	RecentDamage.Add(TPair<float, float>(LastHitTime, Damage));
 	DamageNumbers.Add({ WorldLocation + FVector(FMath::FRandRange(-30.f, 30.f), FMath::FRandRange(-30.f, 30.f), 0.f), Damage, bHeadshot, LastHitTime });
 }
 
@@ -115,6 +117,10 @@ void AValdoriaHUD::DrawHUD()
 	if (bShowStats)
 	{
 		DrawStats();
+	}
+	if (bShowDamageMeter)
+	{
+		DrawDamageMeter(W, H);
 	}
 	if (!Hero || !Hero->GetHeroDefinition())
 	{
@@ -387,4 +393,23 @@ void AValdoriaHUD::DrawAmmo(AValdoriaHeroCharacter* Hero, float W, float H)
 		DrawRect(BX, Y + 86.f * S - 4.f * S, BulletW, 4.f * S, bFull ? Theme * 1.3f : FLinearColor(0.2f, 0.22f, 0.26f, 0.5f));
 	}
 	DrawLabel(Weapon.WeaponName.ToString().ToUpper(), X, Y + 110.f * S, FLinearColor(0.75f, 0.77f, 0.82f), 1.0f * S);
+}
+
+void AValdoriaHUD::DrawDamageMeter(float W, float H)
+{
+	const float S = Scale;
+	const float Now = GetWorld()->GetTimeSeconds();
+	RecentDamage.RemoveAll([Now](const TPair<float, float>& E) { return Now - E.Key > 5.f; });
+	float Last5 = 0.f;
+	for (const TPair<float, float>& E : RecentDamage)
+	{
+		Last5 += E.Value;
+	}
+	const float Elapsed = FMath::Max(1.f, Now - MeterStartTime);
+	const float X = W - 300.f * S;
+	const float Y = 120.f * S;
+	DrawRect(X - 10.f * S, Y - 8.f * S, 280.f * S, 100.f * S, FLinearColor(0.f, 0.f, 0.f, 0.55f));
+	DrawLabel(TEXT("MEDIDOR DE DANO"), X, Y, FLinearColor(1.f, 0.62f, 0.4f), 0.9f * S);
+	DrawLabel(FString::Printf(TEXT("DPS (últimos 5 s): %.0f"), Last5 / 5.f), X, Y + 24.f * S, FLinearColor::White, 1.f * S);
+	DrawLabel(FString::Printf(TEXT("Total: %.0f  •  média %.0f/s"), TotalDamage, TotalDamage / Elapsed), X, Y + 50.f * S, FLinearColor(0.8f, 0.82f, 0.88f), 0.9f * S);
 }

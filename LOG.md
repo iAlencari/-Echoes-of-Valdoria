@@ -215,3 +215,15 @@ Referências do dono (imagens, descritas em texto): barra de aliado ciano e de i
 - `FValdoriaOptions` (`ValdoriaSettings.h/.cpp`): opções salvas em `GameUserSettings.ini` seção `[Valdoria]`; resolução/janela/V-Sync/FPS/qualidade no `UGameUserSettings` da Unreal. Personagem usa sensibilidade/inversão/FOV; HUD usa cor/tamanho da mira e "mostrar FPS".
 - Teste automático abre as Configurações no fim (print `AutoTest.png`).
 - Armas: `Scripts/split_weapons.py` (Geometry Scripting, plugin ligado só no editor) junta as 158 peças do FBX em 7 malhas (`/Game/Valdoria/Weapons/Merged/SM_Arma_00..06`), mas duas ou mais armas ficaram grudadas na `SM_Arma_05` (109 peças). Pendente: separar melhor (ex.: exportar uma arma por arquivo no Meshy).
+
+### Turno 16 — Claude Code — 18/11/2026 (painel de admin ampliado; deitar e escalar sem animação)
+**Fala do dono:**
+> "tem que arrumar o x pra tirar a animação de nado e so deixar sem ação por enquanto, e a de escalar que estica o torço ao inves de ter animação"
+
+- **Painel de administrador** ganhou, a partir do que campos de treino de hero shooters costumam ter:
+  - Movimento e física: voar/atravessar paredes (noclip; anda para onde a câmera aponta), gravidade, força do pulo, controle no ar, salvar/ir para 3 posições.
+  - Bots e treino de mira: bonecos que **atiram em você** (parados, fácil 6 de dano/30% de acerto, médio 10/50%, difícil 16/75%, com linha de visão e alcance), todos andando de lado, sem regenerar, imortais, "Treino de mira: 6 alvos" andando na sua frente, apagar bonecos criados, trocar o time do alvo (aliado ciano / inimigo vermelho).
+  - Depuração: medidor de dano (DPS dos últimos 5 s, total e média) no HUD, zerar medidor, mostrar colisões (hitboxes), câmera livre, tempos de CPU/GPU, tirar print.
+- Personagem: `SetNoclip`, `DealDamageTo` (dano via GAS, usado pelos bots). Boneco: `BotDifficulty`, `bForceStrafe`, `bNoAutoHeal`.
+- **Deitar (X) sem ação** por enquanto (`bCanProne = false` no Recruta) e sem animação de natação; **escalar parede sem animação** (a anterior esticava o corpo). Os campos continuam no Data Asset para quando houver animações boas.
+- Teste automático passou com o painel novo (print `AutoTest_Admin.png`).

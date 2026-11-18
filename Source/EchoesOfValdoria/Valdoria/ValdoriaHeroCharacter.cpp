@@ -27,6 +27,8 @@
 #include "ValdoriaHUD.h"
 #include "ValdoriaHeroDefinition.h"
 #include "ValdoriaSettings.h"
+#include "AbilitySystemBlueprintLibrary.h"
+#include "ValdoriaEffects.h"
 
 DEFINE_LOG_CATEGORY(LogValdoria);
 
@@ -348,6 +350,14 @@ void AValdoriaHeroCharacter::Input_Move(const FInputActionValue& Value)
 	{
 		return;
 	}
+	if (bNoclip)
+	{
+		// Voando: anda para onde a câmera aponta (inclusive para cima e para baixo).
+		const FRotator View = Controller->GetControlRotation();
+		AddMovementInput(View.Vector(), Axis.Y);
+		AddMovementInput(FRotationMatrix(View).GetUnitAxis(EAxis::Y), Axis.X);
+		return;
+	}
 	const FRotator Yaw(0.f, Controller->GetControlRotation().Yaw, 0.f);
 	AddMovementInput(FRotationMatrix(Yaw).GetUnitAxis(EAxis::X), Axis.Y);
 	AddMovementInput(FRotationMatrix(Yaw).GetUnitAxis(EAxis::Y), Axis.X);
@@ -661,6 +671,44 @@ void AValdoriaHeroCharacter::AdminSetDamageMultiplier(float Multiplier)
 	if (HasAuthority())
 	{
 		AbilitySystem->SetNumericAttributeBase(UValdoriaAttributeSet::GetDamageMultiplierAttribute(), FMath::Max(0.f, Multiplier));
+	}
+}
+
+void AValdoriaHeroCharacter::SetNoclip(bool bEnable)
+{
+	bNoclip = bEnable;
+	SetActorEnableCollision(!bEnable);
+	UCharacterMovementComponent* Move = GetCharacterMovement();
+	if (bEnable)
+	{
+		Move->SetMovementMode(MOVE_Flying);
+		Move->MaxFlySpeed = 1500.f;
+		Move->BrakingDecelerationFlying = 4000.f;
+	}
+	else
+	{
+		Move->SetMovementMode(MOVE_Falling);
+	}
+}
+
+void AValdoriaHeroCharacter::DealDamageTo(AActor* Target, float Damage, bool bHeadshot)
+{
+	UAbilitySystemComponent* TargetASC = UAbilitySystemBlueprintLibrary::GetAbilitySystemComponent(Target);
+	if (!HasAuthority() || !TargetASC)
+	{
+		return;
+	}
+	FGameplayEffectContextHandle Context = AbilitySystem->MakeEffectContext();
+	Context.AddInstigator(this, this);
+	FGameplayEffectSpecHandle Spec = AbilitySystem->MakeOutgoingSpec(UValdoriaDamageEffect::StaticClass(), 1.f, Context);
+	if (Spec.IsValid())
+	{
+		Spec.Data->SetSetByCallerMagnitude(ValdoriaTags::Data_Damage, Damage * FMath::Max(0.f, GetDamageMultiplier()));
+		if (bHeadshot)
+		{
+			Spec.Data->AddDynamicAssetTag(ValdoriaTags::Hit_Headshot);
+		}
+		AbilitySystem->ApplyGameplayEffectSpecToTarget(*Spec.Data.Get(), TargetASC);
 	}
 }
 
@@ -1147,7 +1195,7 @@ void AValdoriaHeroCharacter::ServerStartMantle_Implementation(FVector_NetQuantiz
 
 void AValdoriaHeroCharacter::TickMovementFeatures(float DeltaSeconds)
 {
-	if (bIsDead || !ActiveDefinition)
+	if (bIsDead || !ActiveDefinition || bNoclip)
 	{
 		return;
 	}

@@ -36,9 +36,9 @@ UValdoriaHeroDefinition::UValdoriaHeroDefinition()
 	// subir e escalar usam animações da Epic. Deitar fica com a natação (pedido do dono).
 	Animations.Slide = Anim(TEXT("MM_Unarmed_Crouch_Entry"));
 	Animations.Mantle = Anim(TEXT("VaultOver"));
-	Animations.WallClimb = Anim(TEXT("MM_Zipline_Loop"));
-	Animations.ProneIdle = UAL(TEXT("UAL1Swim_Idle_Loop"));
-	Animations.ProneCrawl = UAL(TEXT("UAL1Swim_Fwd_Loop"));
+	// Escalar parede e deitar: sem animação por enquanto (pedido do dono; as que havia
+	// esticavam o corpo ou eram de natação). Preencha WallClimb/ProneIdle/ProneCrawl no
+	// Data Asset quando houver animações boas.
 	Animations.DashForward = Anim(TEXT("MM_Dash_Forward"));
 	Animations.DashBackward = Anim(TEXT("MM_Dash_Backward"));
 	Animations.DashLeft = Anim(TEXT("MM_Dash_Left"));
@@ -67,6 +67,7 @@ UValdoriaHeroDefinition* UValdoriaHeroDefinition::CreateFallbackRecruit(UObject*
 	Def->Movement.DashCharges = 2;
 	Def->Movement.bCanWallClimb = true; // o Recruta testa tudo
 	Def->Movement.MaxJumps = 1;
+	Def->Movement.bCanProne = false; // X sem ação por enquanto (pedido do dono)
 
 	FValdoriaAbilityEntry Heal;
 	Heal.DisplayName = NSLOCTEXT("Valdoria", "Heal", "Pulso de cura");

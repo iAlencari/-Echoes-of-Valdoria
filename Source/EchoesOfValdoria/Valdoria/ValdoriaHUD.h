@@ -29,6 +29,11 @@ public:
 	UPROPERTY(EditAnywhere, Category = "Valdoria")
 	float HealthPerSegment = 25.f;
 
+	/** Medidor de dano (DPS) do painel de admin. */
+	UPROPERTY(EditAnywhere, Category = "Valdoria")
+	bool bShowDamageMeter = false;
+	void ResetDamageMeter() { TotalDamage = 0.f; RecentDamage.Reset(); MeterStartTime = GetWorld() ? GetWorld()->GetTimeSeconds() : 0.f; }
+
 	UPROPERTY(EditAnywhere, Category = "Valdoria")
 	FLinearColor AllyColor = FLinearColor(0.2f, 0.85f, 1.f);
 
@@ -48,6 +53,10 @@ protected:
 	bool bLastHitHeadshot = false;
 	bool bLastHitKill = false;
 	float SmoothedFrameMs = 16.f;
+	float TotalDamage = 0.f;
+	float MeterStartTime = 0.f;
+	TArray<TPair<float, float>> RecentDamage; // (tempo, dano)
+	void DrawDamageMeter(float W, float H);
 	float Scale = 1.f;
 
 	void DrawRect(float X, float Y, float W, float H, const FLinearColor& Color);
