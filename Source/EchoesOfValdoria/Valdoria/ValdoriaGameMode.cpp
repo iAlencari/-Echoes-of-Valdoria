@@ -61,6 +61,26 @@ void AValdoriaGameMode::StartPlay()
 	{
 		SpawnTrainingDummies();
 	}
+	if (FParse::Param(FCommandLine::Get(), TEXT("ValdoriaOverview")))
+	{
+		// Print do mapa visto de cima (para conferir o layout) e fecha o jogo.
+		FTimerHandle T1, T2, T3;
+		GetWorldTimerManager().SetTimer(T1, FTimerDelegate::CreateLambda([this]()
+		{
+			APlayerController* PC = GetWorld()->GetFirstPlayerController();
+			if (AValdoriaHeroCharacter* Hero = PC ? Cast<AValdoriaHeroCharacter>(PC->GetPawn()) : nullptr)
+			{
+				Hero->SetNoclip(true);
+				Hero->SetActorLocation(FVector(-7500.f, -6500.f, 6500.f));
+				PC->SetControlRotation(FRotator(-38.f, 38.f, 0.f));
+			}
+		}), 3.f, false);
+		GetWorldTimerManager().SetTimer(T2, FTimerDelegate::CreateLambda([]()
+		{
+			FScreenshotRequest::RequestScreenshot(FPaths::ConvertRelativePathToFull(FPaths::ProjectSavedDir() / TEXT("Screenshots/Overview.png")), false, false);
+		}), 6.f, false);
+		GetWorldTimerManager().SetTimer(T3, FTimerDelegate::CreateLambda([]() { FPlatformMisc::RequestExit(false); }), 8.f, false);
+	}
 	if (FParse::Param(FCommandLine::Get(), TEXT("ValdoriaAutoTest")))
 	{
 		GetWorldTimerManager().SetTimer(AutoTestTimer, this, &AValdoriaGameMode::RunAutoTestStep, 0.15f, true, 4.f);
