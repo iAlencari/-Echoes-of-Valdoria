@@ -643,6 +643,7 @@ void AValdoriaGameMode::RunHeroTestStep()
 			Enemy->DealTypedDamage(Hero, 50.f, EValdoriaDamageType::Physical);
 			const float After = Hero->GetHealth() + Hero->GetArmor() + Hero->GetShield();
 			UE_LOG(LogValdoria, Display, TEXT("HEROTEST %s levou 50 fisico -> perdeu %.1f (aliados perto=%d)"), *Id, Before - After, Hero->GetAlliesNearby());
+			if (Index == 1) { Shot(9); }
 		}
 		break;
 	case 41:

@@ -308,3 +308,9 @@ Referências do dono (imagens, descritas em texto): barra de aliado ciano e de i
 - Nome, visual e kit originais; as referências do dono (feixe tipo Zarya/Moira/Deadlock) só como mecânica.
 - Escolha: botão **Lume** no Esc e `/heroi lume`.
 - Teste (`-ValdoriaHeroTest`, agora 5 heróis): refletindo → perdeu 0 e o inimigo perdeu 25; absorvendo → perdeu 20 de 50 e ultimate +5,6%; intangível → perdeu 0 de dano físico; feixe curou o aliado 5 por pulso (11 na ultimate); ultimate consumida.
+### Turno 23 — Claude Code — 18/11/2026 (pesquisa de referência e retorno visual)
+- Pesquisa na web (só inspiração, nada baixado ou copiado) sobre retorno visual, HUD de habilidades e mapas de hero shooter: `docs/PesquisaReferencia.md`, com as fontes.
+- **Seta de dano direcional** (`AValdoriaHUD::AddDamageIndicator` / `DrawDamageFeedback`): arco vermelho em volta da mira, apontando para quem acertou, maior para golpes fortes, some em 1,2 s.
+- **Bordas vermelhas** pulsando com menos de 30% de vida + armadura + escudo.
+- Aviso **"ULTIMATE PRONTA (Q)"** no centro por 2 s quando a ultimate enche.
+- Testado no `-ValdoriaHeroTest` (print `Heroi_kael_9.png`: arco no topo, inimigo à frente).

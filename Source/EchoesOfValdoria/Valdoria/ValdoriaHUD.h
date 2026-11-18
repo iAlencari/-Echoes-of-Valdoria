@@ -21,6 +21,8 @@ public:
 
 	/** Marcador de acerto + número de dano flutuante. */
 	void AddHitMarker(const FVector& WorldLocation, float Damage, bool bHeadshot, bool bKill);
+	/** Seta de dano recebido: mostra de onde veio o tiro (maior = mais dano). */
+	void AddDamageIndicator(const FVector& FromLocation, float Damage);
 
 	/** Mostra FPS, tempo de quadro e ping (canto superior esquerdo). */
 	UPROPERTY(EditAnywhere, Category = "Valdoria")
@@ -54,6 +56,11 @@ protected:
 		float SpawnTime = 0.f;
 	};
 	TArray<FDamageNumber> DamageNumbers;
+	struct FDamageIndicator { FVector From; float Damage; float Time; };
+	TArray<FDamageIndicator> DamageIndicators;
+	void DrawDamageFeedback(AValdoriaHeroCharacter* Hero, float W, float H);
+	bool bWasUltReady = false;
+	float UltReadyFlashTime = -10.f;
 	float LastHitTime = -10.f;
 	bool bLastHitHeadshot = false;
 	bool bLastHitKill = false;

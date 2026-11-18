@@ -154,6 +154,7 @@ void AValdoriaHUD::DrawHUD()
 	DrawAbilities(Hero, W, H);
 	DrawAmmo(Hero, W, H);
 	DrawStatusLine(Hero, W, H);
+	DrawDamageFeedback(Hero, W, H);
 
 	if (Hero->IsDead())
 	{
@@ -567,5 +568,64 @@ void AValdoriaHUD::DrawStatusLine(AValdoriaHeroCharacter* Hero, float W, float H
 		DrawRect(0.f, H - 18.f * S, W, 18.f * S, Edge);
 		DrawRect(0.f, 0.f, 18.f * S, H, Edge);
 		DrawRect(W - 18.f * S, 0.f, 18.f * S, H, Edge);
+	}
+}
+
+void AValdoriaHUD::AddDamageIndicator(const FVector& FromLocation, float Damage)
+{
+	DamageIndicators.Add({ FromLocation, Damage, static_cast<float>(GetWorld()->GetTimeSeconds()) });
+}
+
+void AValdoriaHUD::DrawDamageFeedback(AValdoriaHeroCharacter* Hero, float W, float H)
+{
+	// Referência de pesquisa (UX de indicadores de dano): seta na direção do atacante, maior
+	// quanto mais forte o golpe, sumindo em ~1 s; tela avermelhada com pouca vida; aviso de ultimate.
+	const float S = Scale;
+	const float Now = GetWorld()->GetTimeSeconds();
+	const float Cx = W * 0.5f;
+	const float Cy = H * 0.5f;
+	const APlayerController* PC = GetOwningPlayerController();
+	const float ViewYaw = PC ? PC->GetControlRotation().Yaw : Hero->GetActorRotation().Yaw;
+	DamageIndicators.RemoveAll([Now](const FDamageIndicator& D) { return Now - D.Time > 1.2f; });
+	for (const FDamageIndicator& D : DamageIndicators)
+	{
+		const FVector To = D.From - Hero->GetActorLocation();
+		// Ângulo relativo: 0 = na frente (topo da tela), 90 = direita.
+		const float Rel = FMath::DegreesToRadians(FRotator::NormalizeAxis(To.Rotation().Yaw - ViewYaw));
+		const float Alpha = 1.f - (Now - D.Time) / 1.2f;
+		const float Radius = 150.f * S;
+		const float Half = FMath::DegreesToRadians(FMath::Clamp(10.f + D.Damage * 0.4f, 12.f, 40.f));
+		const FLinearColor Color(1.f, 0.15f, 0.1f, 0.85f * Alpha);
+		const int32 Segments = 8;
+		for (int32 i = 0; i < Segments; ++i)
+		{
+			const float A0 = Rel - Half + 2.f * Half * i / Segments;
+			const float A1 = Rel - Half + 2.f * Half * (i + 1) / Segments;
+			DrawLine(Cx + FMath::Sin(A0) * Radius, Cy - FMath::Cos(A0) * Radius, Cx + FMath::Sin(A1) * Radius, Cy - FMath::Cos(A1) * Radius,
+				Color, 6.f * S);
+		}
+	}
+	// Pouca vida: bordas vermelhas pulsando.
+	const float MaxPool = Hero->GetMaxHealth() + Hero->GetMaxArmor() + Hero->GetMaxShield();
+	const float Pool = Hero->GetHealth() + Hero->GetArmor() + Hero->GetShield();
+	if (!Hero->IsDead() && MaxPool > 0.f && Pool / MaxPool < 0.3f)
+	{
+		const float Pulse = 0.12f + 0.08f * FMath::Sin(Now * 5.f);
+		const FLinearColor Edge(0.8f, 0.f, 0.f, Pulse);
+		DrawRect(0.f, 0.f, W, 30.f * S, Edge);
+		DrawRect(0.f, H - 30.f * S, W, 30.f * S, Edge);
+		DrawRect(0.f, 0.f, 30.f * S, H, Edge);
+		DrawRect(W - 30.f * S, 0.f, 30.f * S, H, Edge);
+	}
+	// Ultimate ficou pronta: aviso no centro por 2 s.
+	const bool bReady = Hero->IsUltimateReady();
+	if (bReady && !bWasUltReady)
+	{
+		UltReadyFlashTime = Now;
+	}
+	bWasUltReady = bReady;
+	if (Now - UltReadyFlashTime < 2.f && Hero->GetHeroDefinition())
+	{
+		DrawLabel(TEXT("ULTIMATE PRONTA  (Q)"), Cx, Cy - 220.f * S, Hero->GetHeroDefinition()->ThemeColor, 1.6f * S, true);
 	}
 }

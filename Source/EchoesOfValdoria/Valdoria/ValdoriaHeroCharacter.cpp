@@ -620,6 +620,16 @@ float AValdoriaHeroCharacter::GetMaxShield() const { return Attributes->GetMaxSh
 void AValdoriaHeroCharacter::OnDamageTaken(AValdoriaHeroCharacter* DamageInstigator, float Damage, bool bHeadshot)
 {
 	LastDamageTakenTime = GetWorld()->GetTimeSeconds();
+	if (DamageInstigator && DamageInstigator != this)
+	{
+		if (const APlayerController* PC = Cast<APlayerController>(Controller))
+		{
+			if (AValdoriaHUD* HUD = Cast<AValdoriaHUD>(PC->GetHUD()))
+			{
+				HUD->AddDamageIndicator(DamageInstigator->GetActorLocation(), Damage);
+			}
+		}
+	}
 }
 
 // ------------------------------------------------------------------ dano por tipo, cura e efeitos
