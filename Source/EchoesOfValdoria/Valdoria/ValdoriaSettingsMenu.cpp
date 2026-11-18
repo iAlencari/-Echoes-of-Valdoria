@@ -217,6 +217,14 @@ TSharedRef<SWidget> AValdoriaPlayerController::BuildSettingsScreen()
 	Gfx->AddSlot().AutoHeight()[Toggle(LOCTEXT("RT", "Ray tracing por hardware (RTX)"), [Opt]() { return Opt().bHardwareRayTracing; }, [Opt, ApplyNow](bool b) { Opt().bHardwareRayTracing = b; ApplyNow(); })];
 	Gfx->AddSlot().AutoHeight()[Toggle(LOCTEXT("Blur", "Desfoque de movimento"), [Opt]() { return Opt().bMotionBlur; }, [Opt, ApplyNow](bool b) { Opt().bMotionBlur = b; ApplyNow(); })];
 	Gfx->AddSlot().AutoHeight()[Toggle(LOCTEXT("Fps", "Mostrar FPS e ping"), [Opt]() { return Opt().bShowFps; }, [Opt, ApplyNow](bool b) { Opt().bShowFps = b; ApplyNow(); })];
+	const TArray<FText> FxLevels = { LOCTEXT("Fx0", "Low"), LOCTEXT("Fx1", "Medium"), LOCTEXT("Fx2", "High") };
+	Gfx->AddSlot().AutoHeight()[Choice(LOCTEXT("FxQuality", "Ability effects"),
+		[Opt, FxLevels]() { return FxLevels[FMath::Clamp(Opt().EffectsQuality, 0, 2)]; },
+		[Opt](int32 D) { Opt().EffectsQuality = (Opt().EffectsQuality + D + 3) % 3; })];
+	const TArray<int32> BgLimits = { 0, 10, 15, 30, 60 };
+	Gfx->AddSlot().AutoHeight()[Choice(LOCTEXT("BgFps", "FPS in background"),
+		[Opt]() { const int32 L = Opt().BackgroundFpsLimit; return L <= 0 ? LOCTEXT("BgOff", "No limit") : FText::FromString(FString::Printf(TEXT("%d FPS"), L)); },
+		[Opt, BgLimits](int32 D) { const int32 Cur = FMath::Max(0, BgLimits.IndexOfByKey(Opt().BackgroundFpsLimit)); Opt().BackgroundFpsLimit = BgLimits[(Cur + D + BgLimits.Num()) % BgLimits.Num()]; })];
 	Gfx->AddSlot().AutoHeight().Padding(4.f, 10.f)
 	[
 		SNew(STextBlock).AutoWrapText(true).Font(Font(10)).ColorAndOpacity(FLinearColor(0.6f, 0.62f, 0.68f))

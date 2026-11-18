@@ -13,6 +13,7 @@
 #include "Materials/MaterialInterface.h"
 #include "ValdoriaHeroCharacter.h"
 #include "ValdoriaAudio.h"
+#include "ValdoriaSettings.h"
 
 UMaterialInstanceDynamic* ValdoriaMakeGlowMaterial(UObject* Outer, const FLinearColor& Color, float Opacity)
 {
@@ -457,7 +458,8 @@ void AValdoriaFx::Ring(UWorld* World, const FVector& Center, float Radius, const
 		Fx->SetActorScale3D(Fx->StartScale);
 	}
 	// Uma "bolha" bem fraca junto, para a área ter volume sem tampar a visão.
-	if (AValdoriaFx* Dome = SpawnFx(World, Center, EKind::Burst, Color, InLife * 0.7f))
+	AValdoriaFx* Dome = FValdoriaOptions::Get().EffectsQuality >= 2 ? SpawnFx(World, Center, EKind::Burst, Color, InLife * 0.7f) : nullptr;
+	if (Dome)
 	{
 		Dome->StartScale = FVector(Radius / 50.f * 0.2f);
 		Dome->EndScale = FVector(Radius / 50.f * 0.9f, Radius / 50.f * 0.9f, Radius / 50.f * 0.35f);
@@ -468,6 +470,10 @@ void AValdoriaFx::Ring(UWorld* World, const FVector& Center, float Radius, const
 
 void AValdoriaFx::Burst(UWorld* World, const FVector& Center, float Size, const FLinearColor& Color, float InLife)
 {
+	if (FValdoriaOptions::Get().EffectsQuality < 1)
+	{
+		return; // low: no impact bursts
+	}
 	if (AValdoriaFx* Fx = SpawnFx(World, Center, EKind::Burst, Color, InLife))
 	{
 		Fx->StartScale = FVector(Size / 100.f * 0.3f);

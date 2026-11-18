@@ -36,6 +36,8 @@ void FValdoriaOptions::Load()
 	GConfig->GetFloat(Section, TEXT("MouseSensitivity"), MouseSensitivity, Ini);
 	GConfig->GetBool(Section, TEXT("InvertY"), bInvertY, Ini);
 	GConfig->GetInt(Section, TEXT("KeyScheme"), KeyScheme, Ini);
+	GConfig->GetInt(Section, TEXT("BackgroundFpsLimit"), BackgroundFpsLimit, Ini);
+	GConfig->GetInt(Section, TEXT("EffectsQuality"), EffectsQuality, Ini);
 	GConfig->GetFloat(Section, TEXT("CrosshairSize"), CrosshairSize, Ini);
 	GConfig->GetInt(Section, TEXT("CrosshairColor"), CrosshairColor, Ini);
 }
@@ -56,6 +58,8 @@ void FValdoriaOptions::Save() const
 	GConfig->SetFloat(Section, TEXT("MouseSensitivity"), MouseSensitivity, Ini);
 	GConfig->SetBool(Section, TEXT("InvertY"), bInvertY, Ini);
 	GConfig->SetInt(Section, TEXT("KeyScheme"), KeyScheme, Ini);
+	GConfig->SetInt(Section, TEXT("BackgroundFpsLimit"), BackgroundFpsLimit, Ini);
+	GConfig->SetInt(Section, TEXT("EffectsQuality"), EffectsQuality, Ini);
 	GConfig->SetFloat(Section, TEXT("CrosshairSize"), CrosshairSize, Ini);
 	GConfig->SetInt(Section, TEXT("CrosshairColor"), CrosshairColor, Ini);
 	GConfig->Flush(false, Ini);

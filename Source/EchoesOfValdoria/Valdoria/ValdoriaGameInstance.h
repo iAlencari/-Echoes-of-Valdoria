@@ -43,4 +43,8 @@ protected:
 	float IntroStart = 0.f;
 	FTSTicker::FDelegateHandle IntroTicker;
 	FString PendingMap;
+	/** Caps FPS while the window is not focused (BackgroundFpsLimit). */
+	FTSTicker::FDelegateHandle FocusTicker;
+	bool bThrottled = false;
+	float SavedMaxFps = 0.f;
 };

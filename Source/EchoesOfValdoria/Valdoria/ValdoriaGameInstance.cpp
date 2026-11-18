@@ -13,6 +13,8 @@
 #include "UObject/UObjectGlobals.h"
 #include "ValdoriaAudio.h"
 #include "ValdoriaSettings.h"
+#include "HAL/IConsoleManager.h"
+#include "Misc/App.h"
 #include "Widgets/Images/SImage.h"
 #include "Widgets/Images/SThrobber.h"
 #include "Widgets/Layout/SBorder.h"
@@ -48,10 +50,35 @@ void UValdoriaGameInstance::Init()
 	FCoreUObjectDelegates::PostLoadMapWithWorld.AddUObject(this, &UValdoriaGameInstance::OnPostLoadMap);
 	ImageNP = LoadObject<UTexture2D>(nullptr, TEXT("/Game/Valdoria/UI/Loading/T_Loading_NP.T_Loading_NP"), nullptr, LOAD_NoWarn | LOAD_Quiet);
 	ImageTraining = LoadObject<UTexture2D>(nullptr, TEXT("/Game/Valdoria/UI/Loading/T_Loading_NP2.T_Loading_NP2"), nullptr, LOAD_NoWarn | LOAD_Quiet);
+	// Lower FPS in the background (the owner plays other games on the other monitor).
+	FocusTicker = FTSTicker::GetCoreTicker().AddTicker(FTickerDelegate::CreateWeakLambda(this, [this](float)
+	{
+		IConsoleVariable* MaxFps = IConsoleManager::Get().FindConsoleVariable(TEXT("t.MaxFPS"));
+		const int32 Limit = FValdoriaOptions::Get().BackgroundFpsLimit;
+		const bool bBackground = !FApp::HasFocus() && Limit > 0;
+		if (MaxFps && bBackground != bThrottled)
+		{
+			if (bBackground)
+			{
+				SavedMaxFps = MaxFps->GetFloat();
+				MaxFps->Set(static_cast<float>(Limit), ECVF_SetByCode);
+			}
+			else
+			{
+				MaxFps->Set(SavedMaxFps, ECVF_SetByCode);
+			}
+			bThrottled = bBackground;
+		}
+		return true;
+	}), 0.5f);
 }
 
 void UValdoriaGameInstance::Shutdown()
 {
+	if (FocusTicker.IsValid())
+	{
+		FTSTicker::GetCoreTicker().RemoveTicker(FocusTicker);
+	}
 	HideIntroOverlay();
 	FCoreUObjectDelegates::PreLoadMap.RemoveAll(this);
 	FCoreUObjectDelegates::PostLoadMapWithWorld.RemoveAll(this);

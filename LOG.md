@@ -349,3 +349,8 @@ The owner allowed new code, docs and game texts in English (existing Portuguese 
 - Animator: new persistent upper-body pose layer (`UValdoriaAnimInstance::SetUpperPose`) between base and actions.
 - **Bug fixed**: fuel flight stopped every frame after starting (the check required `IsFalling()`, which is false while flying), so flight flickered between flying and falling. Now `IsFalling() || bFlying`.
 - Test `-ValdoriaFlightTest`: flies up, forward (side screenshot `Voo_SuperHeroi.png`), hovers (`Voo_Parado.png`), falls, then flies again as Levitate (`Voo_Levitar.png`). The owner will generate 3 more reference videos (levitate upright, hover near the ground while moving, ride a created path).
+### Turn 28 — Claude Code — 2026-11-18 (background FPS cap, effects quality)
+- **Background FPS cap** (`FValdoriaOptions::BackgroundFpsLimit`, default 15; Settings > Graphics > "FPS in background": no limit / 10 / 15 / 30 / 60). `UValdoriaGameInstance` checks focus twice a second and sets `t.MaxFPS`, restoring the previous value when the window gets focus back. The owner's brother plays other games on monitor 1.
+- **Ability effects quality** (`EffectsQuality`, Settings > Graphics > "Ability effects": Low / Medium / High). Low = beams and rings only, Medium = + impact bursts, High = + area domes. The owner asked for an option instead of removing effects.
+- Ray tracing and Lumen toggles already existed (Settings > Graphics).
+- Built only. Not run in-game this turn, to keep the GPU free while the owner's brother is playing.

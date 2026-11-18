@@ -18,6 +18,10 @@ struct ECHOESOFVALDORIA_API FValdoriaOptions
 	bool bHardwareRayTracing = true;
 	bool bMotionBlur = false;
 	bool bShowFps = true;
+	/** FPS cap while the game window is in the background (0 = no cap). Saves GPU for other programs. */
+	int32 BackgroundFpsLimit = 15;
+	/** Ability effects: 0 low (beams and rings only), 1 medium (+ impact bursts), 2 high (+ area domes). */
+	int32 EffectsQuality = 2;
 
 	// Áudio (0 a 1)
 	float MasterVolume = 1.f;
