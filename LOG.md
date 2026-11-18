@@ -354,3 +354,7 @@ The owner allowed new code, docs and game texts in English (existing Portuguese 
 - **Ability effects quality** (`EffectsQuality`, Settings > Graphics > "Ability effects": Low / Medium / High). Low = beams and rings only, Medium = + impact bursts, High = + area domes. The owner asked for an option instead of removing effects.
 - Ray tracing and Lumen toggles already existed (Settings > Graphics).
 - Built only. Not run in-game this turn, to keep the GPU free while the owner's brother is playing.
+### Turn 29 — Claude Code — 2026-11-18 (levitate reference video)
+- Second reference video (`prompt de voo1.mp4`, levitating upright): calm upright body, arms relaxed slightly away, feet hanging; leans back slightly when moving backwards.
+- Levitate flight now uses the calm `Hover` clip (MM_Idle) instead of the arms-out `Fly` loop, and leans both ways (forward and back). Superhero only leans forward, as before.
+- Built only (GPU kept free while the owner's brother plays). Pointed/hanging feet would need custom animation or bone edits later.

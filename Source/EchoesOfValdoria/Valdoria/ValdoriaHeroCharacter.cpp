@@ -1945,9 +1945,14 @@ UAnimSequenceBase* AValdoriaHeroCharacter::PickMovementAnimation(bool& bOutLoop)
 	{
 		return Load(Set.WallClimb);
 	}
-	if (bFlying && !Set.Fly.IsNull())
+	if (bFlying)
 	{
-		return Load(Set.Fly);
+		// Levitate: calm upright pose (owner reference video), superhero: flying loop.
+		const TSoftObjectPtr<UAnimSequenceBase>& FlyClip = Set.FlightStyle == EValdoriaFlightStyle::Levitate && !Set.Hover.IsNull() ? Set.Hover : Set.Fly;
+		if (!FlyClip.IsNull())
+		{
+			return Load(FlyClip);
+		}
 	}
 	// Flutuar: pairando sem passos (qualquer velocidade), a não ser agachado.
 	if (ActiveDefinition->Locomotion == EValdoriaLocomotion::Float && !bIsCrouched && !bSliding && !Set.Hover.IsNull())
@@ -2325,7 +2330,8 @@ void AValdoriaHeroCharacter::TickFlightPose(float DeltaSeconds)
 	const float MaxSpeed = FMath::Max(100.f, GetCharacterMovement()->GetMaxSpeed());
 	const float Fwd = FVector::DotProduct(Velocity, GetActorForwardVector()) / MaxSpeed;
 	const float Right = FMath::Clamp(FVector::DotProduct(Velocity, GetActorRightVector()) / MaxSpeed, -1.f, 1.f);
-	const float Target = FMath::Clamp(Fwd, 0.f, 1.f);
+	// Levitate also leans back when moving backwards (reference video); superhero only leans forward.
+	const float Target = bSuperhero ? FMath::Clamp(Fwd, 0.f, 1.f) : FMath::Clamp(Fwd, -1.f, 1.f);
 	FlightLeanAlpha = FMath::FInterpTo(FlightLeanAlpha, Target, DeltaSeconds, 4.f);
 
 	// Levitate: stays upright and only leans a little (like floating).
