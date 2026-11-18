@@ -772,6 +772,11 @@ float AValdoriaHeroCharacter::DealTypedDamage(AActor* Target, float BaseDamage, 
 	{
 		return 0.f;
 	}
+	if (Victim->IsInvulnerable() && !Victim->IsPlayerControlled())
+	{
+		ClientNotifyHit(Victim->GetActorLocation() + FVector(0, 0, 60.f), -1.f, false, false); // shows IMMUNE
+		return 0.f;
+	}
 
 	// Passivas de quem ataca.
 	const FValdoriaPassiveRules& Mine = GetPassive();
@@ -2461,7 +2466,7 @@ void AValdoriaHeroCharacter::TickAutopilot(float DeltaSeconds)
 		float Best = 5000.f;
 		for (TActorIterator<AValdoriaHeroCharacter> It(GetWorld()); It; ++It)
 		{
-			if (!IsEnemy(*It) || It->IsHiddenByStealth()
+			if (!IsEnemy(*It) || It->IsHiddenByStealth() || It->IsInvulnerable()
 				|| (LeashRadius > 0.f && FVector::Dist2D(It->GetActorLocation(), LeashCenter) > LeashRadius))
 			{
 				continue;
@@ -2506,6 +2511,26 @@ void AValdoriaHeroCharacter::TickAutopilot(float DeltaSeconds)
 	}
 	if (!Target || Target->IsDead())
 	{
+		// A semi-sealed guardian nearby: go and seal it (enemy) or free it (ally).
+		if (LeashRadius <= 0.f)
+		{
+			for (TActorIterator<AValdoriaGuardian> It(GetWorld()); It; ++It)
+			{
+				if (It->CanBeChanneledBy(this) && FVector::Dist2D(It->GetActorLocation(), GetActorLocation()) < 2500.f)
+				{
+					const FVector To = It->GetActorLocation() - GetActorLocation();
+					bInteractHeld = To.Size2D() < 400.f;
+					if (!bInteractHeld)
+					{
+						AutopilotAim = FRotator(0.f, To.Rotation().Yaw, 0.f);
+						SetActorRotation(AutopilotAim);
+						AddMovementInput(To.GetSafeNormal2D(), 1.f);
+					}
+					return;
+				}
+			}
+			bInteractHeld = bInteractHeld && IsPlayerControlled();
+		}
 		// Follow the route (MOBA lane) if there is one.
 		if (AutopilotRoute.IsValidIndex(AutopilotRouteIndex))
 		{
@@ -2799,16 +2824,16 @@ void AValdoriaHeroCharacter::TickChannel(float DeltaSeconds)
 	ChannelTarget = Target;
 	const bool bRevert = Target->GuardTeam == TeamId;
 	const float Needed = bRevert ? Target->RevertSeconds : Target->SealSeconds;
-	ChannelProgress += DeltaSeconds / FMath::Max(0.5f, Needed);
+	const bool bDone = Target->AddChannel(this, DeltaSeconds / FMath::Max(0.5f, Needed)); // shared: several heroes go faster
+	ChannelProgress = bDone ? 1.f : Target->GetChannelProgressFor(this);
 	// Pose: open hand towards the guardian (frozen "arm out" frame).
 	SetActorRotation(FRotator(0.f, (Target->GetActorLocation() - GetActorLocation()).Rotation().Yaw, 0.f));
 	if (Anim)
 	{
 		Anim->SetUpperPose(LoadObject<UAnimSequenceBase>(nullptr, TEXT("/Game/Characters/Mannequins/Anims/Unarmed/Attack/MM_Attack_01.MM_Attack_01")), 0.25f, 1.f);
 	}
-	if (ChannelProgress >= 1.f)
+	if (bDone)
 	{
-		bRevert ? Target->CompleteRevert(this) : Target->CompleteSeal(this);
 		ChannelTarget = nullptr;
 		ChannelProgress = 0.f;
 		bInteractHeld = false;

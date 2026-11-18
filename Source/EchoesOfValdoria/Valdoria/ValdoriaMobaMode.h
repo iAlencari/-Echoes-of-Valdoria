@@ -156,4 +156,6 @@ protected:
 	TMap<int32, float> FallTimes;
 	float ComebackTimer = 0.f;
 	void TickComeback();
+	void RunMobaTestStep();
+	int32 MobaTestStep = 0;
 };

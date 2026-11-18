@@ -5,6 +5,9 @@
 #include "GameFramework/PlayerStart.h"
 #include "Kismet/GameplayStatics.h"
 #include "TimerManager.h"
+#include "Containers/Ticker.h"
+#include "Misc/CommandLine.h"
+#include "UnrealClient.h"
 #include "ValdoriaHeroCharacter.h"
 #include "ValdoriaHeroDefinition.h"
 #include "ValdoriaPlayerController.h"
@@ -74,6 +77,14 @@ void AValdoriaMobaMode::StartPlay()
 	Super::StartPlay();
 	MatchStart = GetWorld()->GetTimeSeconds();
 	BuildLayout();
+	if (FParse::Param(FCommandLine::Get(), TEXT("ValdoriaMobaTest")))
+	{
+		FTSTicker::GetCoreTicker().AddTicker(FTickerDelegate::CreateWeakLambda(this, [this](float)
+		{
+			RunMobaTestStep();
+			return MobaTestStep < 100000;
+		}), 0.5f);
+	}
 }
 
 void AValdoriaMobaMode::BuildLayout()
@@ -156,6 +167,14 @@ void AValdoriaMobaMode::BuildLayout()
 			Final->SetupSpot(Team, Rules->FinalGuardianArea);
 			Final->ResetCombatState();
 			FinalGuardian[Team] = Final;
+		}
+	}
+
+	for (const TWeakObjectPtr<AValdoriaGuardian>& G : Guardians)
+	{
+		if (G.IsValid())
+		{
+			G->FinalLink = FinalGuardian[G->GuardTeam];
 		}
 	}
 
@@ -352,5 +371,89 @@ void AValdoriaMobaMode::TickComeback()
 		const int32 Key = G->GuardTeam * 100 + G->LaneIndex * 10;
 		const bool bBoost = FellEarly(Key + 0) && FellEarly(Key + 1) && T < Rules->LastSpotBoostUntil;
 		G->BuffMultiplier = bBoost ? Rules->LastSpotMultiplier : 1.f;
+	}
+}
+void AValdoriaMobaMode::RunMobaTestStep()
+{
+	++MobaTestStep; // every 0.5 s
+	APlayerController* PC = GetWorld()->GetFirstPlayerController();
+	AValdoriaHeroCharacter* Hero = PC ? Cast<AValdoriaHeroCharacter>(PC->GetPawn()) : nullptr;
+	if (!Hero)
+	{
+		return;
+	}
+	auto Shot = [](const TCHAR* Name)
+	{
+		FScreenshotRequest::RequestScreenshot(FPaths::ConvertRelativePathToFull(FPaths::ProjectSavedDir() / TEXT("Screenshots") / Name), true, false);
+	};
+	// Enemy spot 1 of the middle lane.
+	AValdoriaGuardian* Target = nullptr;
+	for (const TWeakObjectPtr<AValdoriaGuardian>& G : Guardians)
+	{
+		if (G.IsValid() && G->GuardTeam == 1 && G->LaneIndex == 1 && G->SpotIndex == 0)
+		{
+			Target = G.Get();
+		}
+	}
+	switch (MobaTestStep)
+	{
+	case 12:
+	{
+		int32 Rails = 0;
+		for (TActorIterator<AValdoriaLaneRail> It(GetWorld()); It; ++It) { ++Rails; }
+		UE_LOG(LogValdoria, Display, TEXT("MOBATEST inicio: guardioes=%d (vivos 0:%d 1:%d) finais=%d/%d trilhas=%d"), Guardians.Num(),
+			GetGuardiansAlive(0), GetGuardiansAlive(1), FinalGuardian[0].IsValid(), FinalGuardian[1].IsValid(), Rails);
+		Shot(TEXT("Moba_Inicio.png"));
+		break;
+	}
+	case 14:
+		if (Target)
+		{
+			Hero->bGodMode = true;
+			Hero->TeleportTo(Target->GetActorLocation() - Target->GetActorForwardVector() * -300.f + FVector(0, 0, 50.f), Hero->GetActorRotation());
+			Hero->DealDamageTo(Target, 99999.f);
+		}
+		break;
+	case 16:
+		if (Target)
+		{
+			PC->SetControlRotation((Target->GetActorLocation() - Hero->GetActorLocation()).Rotation() + FRotator(-15.f, 0.f, 0.f));
+			UE_LOG(LogValdoria, Display, TEXT("MOBATEST derrotado: estado=%d imune=%d vivos inimigos=%d"), (int32)Target->State, Target->IsInvulnerable(), GetGuardiansAlive(1));
+			Shot(TEXT("Moba_SemiSelado.png"));
+			Hero->DealTypedDamage(Target, 50.f, EValdoriaDamageType::Physical); // should show IMMUNE
+		}
+		break;
+	case 17: Hero->SetAutopilot(false); Hero->bInteractHeld = true; break;
+	case 20: if (Target) { UE_LOG(LogValdoria, Display, TEXT("MOBATEST selando: progresso=%.2f"), Hero->GetChannelProgress()); } Shot(TEXT("Moba_Selando.png")); break;
+	case 28:
+		Hero->bInteractHeld = false;
+		if (Target)
+		{
+			UE_LOG(LogValdoria, Display, TEXT("MOBATEST selado: estado=%d morto=%d vivos inimigos=%d"), (int32)Target->State, Target->IsDead(), GetGuardiansAlive(1));
+		}
+		Shot(TEXT("Moba_Selado.png"));
+		break;
+	case 30:
+	{
+		// Bifrost: go home and look at our middle trail, then hold Space.
+		Hero->TeleportTo(Ground(Base[0]) + FVector(0, 0, 50.f), Hero->GetActorRotation());
+		for (TActorIterator<AValdoriaLaneRail> It(GetWorld()); It; ++It)
+		{
+			if (It->Team == 0 && It->LaneName.Contains(TEXT("Paulista")))
+			{
+				PC->SetControlRotation((It->GetPointAt(900.f) - (Hero->GetActorLocation() + FVector(0, 0, 60.f))).Rotation());
+			}
+		}
+		break;
+	}
+	case 31: Hero->LastHarmedTime = -100.f; PressKey(EKeys::SpaceBar, true); break;
+	case 33: PressKey(EKeys::SpaceBar, false); UE_LOG(LogValdoria, Display, TEXT("MOBATEST bifrost: montado=%d trilha=%s"), Hero->IsRiding(), *Hero->GetRideLaneName()); break;
+	case 36: Shot(TEXT("Moba_Bifrost.png")); UE_LOG(LogValdoria, Display, TEXT("MOBATEST bifrost depois: montado=%d"), Hero->IsRiding()); break;
+	case 40:
+		UE_LOG(LogValdoria, Display, TEXT("MOBATEST fim"));
+		MobaTestStep = 100000;
+		FPlatformMisc::RequestExit(false);
+		break;
+	default: break;
 	}
 }

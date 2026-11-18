@@ -43,6 +43,12 @@ static FString ToUpperPt(const FString& In)
 void AValdoriaHUD::AddHitMarker(const FVector& WorldLocation, float Damage, bool bHeadshot, bool bKill)
 {
 	LastHitTime = GetWorld()->GetTimeSeconds();
+	if (Damage < 0.f)
+	{
+		// Hit an immune target (semi-sealed guardian): show IMMUNE instead of damage.
+		DamageNumbers.Add({ WorldLocation, -1.f, false, LastHitTime });
+		return;
+	}
 	bLastHitHeadshot = bHeadshot;
 	bLastHitKill = bKill;
 	TotalDamage += Damage;
@@ -205,7 +211,7 @@ void AValdoriaHUD::DrawCrosshairAndHits(float W, float H)
 		if (Screen.Z > 0.f)
 		{
 			const FLinearColor C = N.bHeadshot ? FLinearColor(1.f, 0.3f, 0.2f, 1.f - Age) : FLinearColor(1.f, 0.95f, 0.8f, 1.f - Age);
-			DrawLabel(FString::Printf(TEXT("%d"), FMath::RoundToInt(N.Damage)), Screen.X, Screen.Y, C, (N.bHeadshot ? 1.6f : 1.2f) * S, true);
+			DrawLabel(N.Damage < 0.f ? FString(TEXT("IMMUNE")) : FString::Printf(TEXT("%d"), FMath::RoundToInt(N.Damage)), Screen.X, Screen.Y, N.Damage < 0.f ? FLinearColor(0.7f, 0.85f, 1.f) : C, (N.bHeadshot ? 1.6f : 1.2f) * S, true);
 		}
 	}
 }

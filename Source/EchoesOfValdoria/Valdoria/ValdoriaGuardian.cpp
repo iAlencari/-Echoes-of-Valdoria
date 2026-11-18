@@ -8,9 +8,31 @@
 #include "ValdoriaHeroDefinition.h"
 #include "ValdoriaWorldActors.h"
 #include "ValdoriaAudio.h"
+#include "Materials/MaterialInstanceDynamic.h"
+#include "UObject/ConstructorHelpers.h"
+#include "Engine/StaticMesh.h"
 
 AValdoriaGuardian::AValdoriaGuardian()
 {
+	// Protection sphere and the energy link to the final guardian (shown while semi-sealed).
+	ShieldSphere = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("ShieldSphere"));
+	ShieldSphere->SetupAttachment(RootComponent);
+	ShieldSphere->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+	ShieldSphere->SetCastShadow(false);
+	ShieldSphere->SetRelativeScale3D(FVector(3.2f));
+	ShieldSphere->SetVisibility(false);
+	LinkLine = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("LinkLine"));
+	LinkLine->SetupAttachment(RootComponent);
+	LinkLine->SetUsingAbsoluteLocation(true);
+	LinkLine->SetUsingAbsoluteRotation(true);
+	LinkLine->SetUsingAbsoluteScale(true);
+	LinkLine->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+	LinkLine->SetCastShadow(false);
+	LinkLine->SetVisibility(false);
+	static ConstructorHelpers::FObjectFinder<UStaticMesh> SphereMesh(TEXT("/Engine/BasicShapes/Sphere.Sphere"));
+	static ConstructorHelpers::FObjectFinder<UStaticMesh> CylMesh(TEXT("/Engine/BasicShapes/Cylinder.Cylinder"));
+	ShieldSphere->SetStaticMesh(SphereMesh.Object);
+	LinkLine->SetStaticMesh(CylMesh.Object);
 	bHunter = true;
 	BotDifficulty = 0; // fights with the autopilot, not fake shots
 }
@@ -60,6 +82,7 @@ void AValdoriaGuardian::Tick(float DeltaSeconds)
 {
 	Super::Tick(DeltaSeconds);
 	TickSpotState(DeltaSeconds);
+	TickSemiSeal(DeltaSeconds);
 	if (HasAuthority() && !IsDead() && State == EValdoriaSpotState::Normal)
 	{
 		StrikeRiders();
@@ -282,7 +305,7 @@ void AValdoriaGuardian::TickSpotState(float DeltaSeconds)
 {
 	const float Now = GetWorld()->GetTimeSeconds();
 	// Brought back: regenerates up to RevivedRegenCap of its health while out of passive combat.
-	if (State == EValdoriaSpotState::Normal && bRevived && !IsInPassiveCombat(3.f) && GetHealth() < GetMaxHealth() * RevivedRegenCap)
+	if (State == EValdoriaSpotState::Normal && bRevived && !bNoRegen && !IsInPassiveCombat(3.f) && GetHealth() < GetMaxHealth() * RevivedRegenCap)
 	{
 		AbilitySystem->SetNumericAttributeBase(UValdoriaAttributeSet::GetHealthAttribute(),
 			FMath::Min(GetMaxHealth() * RevivedRegenCap, GetHealth() + GetMaxHealth() * 0.01f * DeltaSeconds));
@@ -290,7 +313,7 @@ void AValdoriaGuardian::TickSpotState(float DeltaSeconds)
 	// Optional (my suggestion, off by default): a semi-sealed guardian frees itself after a while.
 	if (State == EValdoriaSpotState::SemiSealed && SemiSealTimeout > 0.f && Now - SemiSealedSince > SemiSealTimeout)
 	{
-		CompleteRevert(nullptr);
+		SelfRevert();
 	}
 	// Final guardian: stronger for every spot guardian of its team still linked to it.
 	if (bFinalGuardian && HasAuthority() && !IsDead())
@@ -310,4 +333,131 @@ void AValdoriaGuardian::TickSpotState(float DeltaSeconds)
 			AdminSetDamageMultiplier(FinalBaseDamage * (1.f + PerSpotDamage * Linked));
 		}
 	}
+}
+
+// ------------------------------------------------------------------ semi-seal: shared progress, timeout, visuals
+
+bool AValdoriaGuardian::AddChannel(AValdoriaHeroCharacter* By, float Amount)
+{
+	if (State != EValdoriaSpotState::SemiSealed || !By)
+	{
+		return false;
+	}
+	// Several heroes of the same side channelling together add up (faster ritual).
+	const bool bRevert = By->TeamId == GuardTeam;
+	float& Progress = bRevert ? RevertProgress : SealProgress;
+	Progress += Amount;
+	LastChannelTime = GetWorld()->GetTimeSeconds();
+	if (Progress >= 1.f)
+	{
+		SealProgress = RevertProgress = 0.f;
+		bRevert ? CompleteRevert(By) : CompleteSeal(By);
+		return true;
+	}
+	return false;
+}
+
+void AValdoriaGuardian::TickSemiSeal(float DeltaSeconds)
+{
+	const float Now = GetWorld()->GetTimeSeconds();
+	if (Now - LastChannelTime > 0.5f)
+	{
+		SealProgress = RevertProgress = 0.f; // nobody channelling: the ritual starts over
+	}
+	// Recovering after a self-revert: immune for a short moment.
+	if (State == EValdoriaSpotState::Normal && Now < RecoverUntil)
+	{
+		bGodMode = true;
+	}
+	else if (State == EValdoriaSpotState::Normal && bGodMode && Now >= RecoverUntil && RecoverUntil > 0.f)
+	{
+		bGodMode = false;
+		RecoverUntil = 0.f;
+		ApplyStatus(EValdoriaStatus::Stunned, 0.01f);
+		StatusEndTimes.Reset();
+		SetAutopilot(true, 0.6f);
+	}
+
+	// Protection sphere (~30% opaque). Viewer's enemies: amber -> bright red; allies: blue -> bright green.
+	const bool bShow = State == EValdoriaSpotState::SemiSealed || (State == EValdoriaSpotState::Normal && Now < RecoverUntil);
+	ShieldSphere->SetVisibility(bShow);
+	LinkLine->SetVisibility(bShow && FinalLink.IsValid());
+	if (!bShow)
+	{
+		return;
+	}
+	const APlayerController* PC = GetWorld()->GetFirstPlayerController();
+	const AValdoriaHeroCharacter* Viewer = PC ? Cast<AValdoriaHeroCharacter>(PC->GetPawn()) : nullptr;
+	const bool bAllyView = Viewer && Viewer->TeamId == GuardTeam;
+	const float T = SemiSealTimeout > 0.f ? FMath::Clamp((Now - SemiSealedSince) / SemiSealTimeout, 0.f, 1.f) : 0.f;
+	const FLinearColor Color = bAllyView
+		? FMath::Lerp(FLinearColor(0.15f, 0.4f, 1.f), FLinearColor(0.2f, 1.f, 0.3f) * 2.f, T)
+		: FMath::Lerp(FLinearColor(1.f, 0.65f, 0.1f), FLinearColor(1.f, 0.05f, 0.05f) * 2.f, T);
+	if (!ShieldMaterial)
+	{
+		ShieldMaterial = ValdoriaMakeGlowMaterial(this, Color, 0.3f);
+		ShieldSphere->SetMaterial(0, ShieldMaterial);
+		LinkLine->SetMaterial(0, ValdoriaMakeGlowMaterial(this, FLinearColor(0.6f, 0.8f, 1.f), 0.35f));
+	}
+	if (ShieldMaterial)
+	{
+		ShieldMaterial->SetVectorParameterValue(TEXT("Cor"), Color * 0.35f);
+	}
+	// Line on the ground from the final guardian through every spot of this lane (base side first)
+	// up to this semi-sealed one, with energy pulses travelling along it (cosmetic only).
+	LinkLine->SetVisibility(false);
+	if (AValdoriaGuardian* Final = FinalLink.Get())
+	{
+		TArray<AValdoriaGuardian*> Chain;
+		for (TActorIterator<AValdoriaGuardian> It(GetWorld()); It; ++It)
+		{
+			if (*It != this && !It->bFinalGuardian && It->GuardTeam == GuardTeam && It->LaneIndex == LaneIndex && It->SpotIndex > SpotIndex)
+			{
+				Chain.Add(*It);
+			}
+		}
+		Chain.Sort([](const AValdoriaGuardian& A, const AValdoriaGuardian& B) { return A.SpotIndex > B.SpotIndex; });
+		TArray<FVector> Path = { Final->StartLocation - FVector(0, 0, 100.f) };
+		for (AValdoriaGuardian* G : Chain)
+		{
+			Path.Add(G->StartLocation - FVector(0, 0, 100.f));
+		}
+		Path.Add(StartLocation - FVector(0, 0, 100.f));
+		PulseTimer += DeltaSeconds;
+		if (PulseTimer > 0.3f)
+		{
+			PulseTimer = 0.f;
+			float Total = 0.f;
+			for (int32 i = 1; i < Path.Num(); ++i)
+			{
+				AValdoriaFx::Beam(GetWorld(), Path[i - 1], Path[i], FLinearColor(0.6f, 0.8f, 1.f), 5.f, 0.35f);
+				Total += FVector::Dist(Path[i - 1], Path[i]);
+			}
+			// Pulse: a small burst moving from the final guardian towards this one.
+			PulsePhase = FMath::Fmod(PulsePhase + 0.06f, 1.f);
+			float Want = PulsePhase * Total;
+			for (int32 i = 1; i < Path.Num(); ++i)
+			{
+				const float Seg = FVector::Dist(Path[i - 1], Path[i]);
+				if (Want <= Seg)
+				{
+					AValdoriaFx::Burst(GetWorld(), FMath::Lerp(Path[i - 1], Path[i], Want / FMath::Max(1.f, Seg)) + FVector(0, 0, 20.f), 70.f, Color, 0.35f);
+					break;
+				}
+				Want -= Seg;
+			}
+		}
+	}
+}
+
+void AValdoriaGuardian::SelfRevert()
+{
+	// Nobody sealed it in time: it comes back by itself with half its health (no further regen),
+	// immune for a short recovery.
+	State = EValdoriaSpotState::Normal;
+	bRevived = true;
+	bNoRegen = true;
+	AbilitySystem->SetNumericAttributeBase(UValdoriaAttributeSet::GetHealthAttribute(), GetMaxHealth() * 0.5f);
+	RecoverUntil = GetWorld()->GetTimeSeconds() + 2.5f;
+	PlayAreaEffect(GetActorLocation(), 400.f, FLinearColor(0.5f, 1.f, 0.7f));
 }

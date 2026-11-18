@@ -56,7 +56,12 @@ public:
 	float RevivedRegenCap = 0.5f;
 	/** Seconds until a semi-sealed guardian frees itself (0 = never; suggestion, off). */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Spot|Seal")
-	float SemiSealTimeout = 0.f;
+	float SemiSealTimeout = 30.f;
+	/** Adds ritual progress from a hero (several heroes stack). Returns true when it completes. */
+	bool AddChannel(AValdoriaHeroCharacter* By, float Amount);
+	float GetChannelProgressFor(const AValdoriaHeroCharacter* Hero) const { return Hero && Hero->TeamId == GuardTeam ? RevertProgress : SealProgress; }
+	/** Final guardian this spot sends its power to (for the energy link visual). */
+	TWeakObjectPtr<AValdoriaGuardian> FinalLink;
 	bool CanBeChanneledBy(const AValdoriaHeroCharacter* Hero) const;
 	void CompleteSeal(AValdoriaHeroCharacter* By);
 	void CompleteRevert(AValdoriaHeroCharacter* By);
@@ -139,6 +144,18 @@ protected:
 	int32 LinkedSpots = -1;
 	void Roar(bool bRage);
 	void TickSpotState(float DeltaSeconds);
+	void TickSemiSeal(float DeltaSeconds);
+	void SelfRevert();
+	float SealProgress = 0.f;
+	float RevertProgress = 0.f;
+	float LastChannelTime = -10.f;
+	float RecoverUntil = 0.f;
+	bool bNoRegen = false;
+	float PulseTimer = 0.f;
+	float PulsePhase = 0.f;
+	UPROPERTY(VisibleAnywhere) TObjectPtr<UStaticMeshComponent> ShieldSphere;
+	UPROPERTY(VisibleAnywhere) TObjectPtr<UStaticMeshComponent> LinkLine;
+	UPROPERTY(Transient) TObjectPtr<UMaterialInstanceDynamic> ShieldMaterial;
 	void TickMage();
 	void StrikeRiders();
 };
