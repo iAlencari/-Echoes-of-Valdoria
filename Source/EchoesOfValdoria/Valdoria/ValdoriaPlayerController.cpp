@@ -21,6 +21,7 @@ void AValdoriaPlayerController::BeginPlay()
 	if (IsLocalController())
 	{
 		ApplyGameInput();
+		ApplyOptionsToGame();
 	}
 }
 
@@ -50,7 +51,7 @@ void AValdoriaPlayerController::SetupInputComponent()
 void AValdoriaPlayerController::RefreshInputMode()
 {
 	// Cursor solto enquanto houver menu aberto ou Alt segurado.
-	if (PauseWidget.IsValid() || AdminWidget.IsValid() || HelpWidget.IsValid() || bAltHeld)
+	if (PauseWidget.IsValid() || AdminWidget.IsValid() || HelpWidget.IsValid() || SettingsWidget.IsValid() || bAltHeld)
 	{
 		ApplyCursorInput();
 	}
@@ -100,6 +101,11 @@ void AValdoriaPlayerController::FreeCursorReleased()
 
 void AValdoriaPlayerController::TogglePauseMenu()
 {
+	if (SettingsWidget.IsValid())
+	{
+		CloseSettings();
+		return;
+	}
 	if (PauseWidget.IsValid())
 	{
 		ClosePauseMenu();
@@ -152,6 +158,35 @@ void AValdoriaPlayerController::OpenPauseMenu()
 			+ SVerticalBox::Slot().AutoHeight().Padding(0.f, 6.f)
 			[
 				MakeMenuButton(LOCTEXT("Resume", "Continuar"), FOnClicked::CreateUObject(this, &AValdoriaPlayerController::OnResumeClicked))
+			]
+			+ SVerticalBox::Slot().AutoHeight().Padding(0.f, 6.f)
+			[
+				MakeMenuButton(LOCTEXT("Settings", "Configurações"), FOnClicked::CreateLambda([this]() { OpenSettings(); return FReply::Handled(); }))
+			]
+			+ SVerticalBox::Slot().AutoHeight().Padding(0.f, 6.f)
+			[
+				SNew(SBox).WidthOverride(320.f).HeightOverride(52.f)
+				[
+					SNew(SButton).HAlign(HAlign_Center).VAlign(VAlign_Center)
+					.OnClicked_Lambda([this]()
+					{
+						bAdminMode = !bAdminMode;
+						if (bAdminMode)
+						{
+							ClosePauseMenu();
+							OpenAdminPanel();
+						}
+						else
+						{
+							CloseAdminPanel();
+						}
+						return FReply::Handled();
+					})
+					[
+						SNew(STextBlock).Font(FCoreStyle::GetDefaultFontStyle("Bold", 16))
+						.Text_Lambda([this]() { return bAdminMode ? LOCTEXT("AdminOn", "Modo administrador: LIGADO (F1)") : LOCTEXT("AdminOff", "Modo administrador: desligado"); })
+					]
+				]
 			]
 			+ SVerticalBox::Slot().AutoHeight().Padding(0.f, 6.f)
 			[

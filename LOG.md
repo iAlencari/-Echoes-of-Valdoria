@@ -202,3 +202,16 @@ Referências do dono (imagens, descritas em texto): barra de aliado ciano e de i
 - Armas: o dono salvou `Armas_Herois.fbx` em `Projeto Padrão`; copiado para `SourceArt\Armas` (import ainda pendente).
 - Monitor 2: o atalho Jogar já abre lá; o editor da Unreal e o Visual Studio lembram a última posição da janela, então basta arrastá-los uma vez para o monitor 2.
 - Teste automático passou com o painel aberto e com a tela de ajuda (prints `AutoTest_Admin.png` e `AutoTest_Ajuda.png`).
+
+### Turno 15 — Claude Code — 18/11/2026 (configurações e modo administrador no menu)
+**Fala do dono:**
+> "Podia ter deixado o painel no menu pra ativar, faltam as configurações de grafico, audio e tudo mais, e essas funções são poucas tá faltando mais da uma pesquisada se não souber quais mais adicionar"
+
+- **Menu de pausa (Esc)**: novos botões **Configurações** e **Modo administrador: ligado/desligado**. O F1 só abre o painel com o modo administrador ligado; ligar o modo pelo menu já abre o painel.
+- **Configurações** (`ValdoriaSettingsMenu.cpp`, abas Gráficos / Áudio / Controles, "Salvar e voltar"):
+  - Gráficos: qualidade geral (Baixa → Cinemática), modo de tela, resolução (lista do monitor), V-Sync, limite de FPS (sem limite, 30–240), escala de resolução (50–100%), antisserrilhado/upscaling (desligado, FXAA, TAA, TSR), FOV (70–120), Lumen, ray tracing por hardware, desfoque de movimento, mostrar FPS e ping. Nota sobre DLSS (precisa do plugin da NVIDIA).
+  - Áudio: volume geral (aplicado), música e efeitos (salvos para quando houver sons).
+  - Controles: sensibilidade do mouse, inverter Y, tamanho e cor da mira, lista de teclas.
+- `FValdoriaOptions` (`ValdoriaSettings.h/.cpp`): opções salvas em `GameUserSettings.ini` seção `[Valdoria]`; resolução/janela/V-Sync/FPS/qualidade no `UGameUserSettings` da Unreal. Personagem usa sensibilidade/inversão/FOV; HUD usa cor/tamanho da mira e "mostrar FPS".
+- Teste automático abre as Configurações no fim (print `AutoTest.png`).
+- Armas: `Scripts/split_weapons.py` (Geometry Scripting, plugin ligado só no editor) junta as 158 peças do FBX em 7 malhas (`/Game/Valdoria/Weapons/Merged/SM_Arma_00..06`), mas duas ou mais armas ficaram grudadas na `SM_Arma_05` (109 peças). Pendente: separar melhor (ex.: exportar uma arma por arquivo no Meshy).

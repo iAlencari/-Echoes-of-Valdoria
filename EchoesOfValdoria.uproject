@@ -38,6 +38,13 @@
                     {
                         "Name":  "MoverExamples",
                         "Enabled":  true
+                    },
+                    {
+                        "Name":  "GeometryScripting",
+                        "Enabled":  true,
+                        "TargetAllowList":  [
+                                                "Editor"
+                                            ]
                     }
                 ]
 }

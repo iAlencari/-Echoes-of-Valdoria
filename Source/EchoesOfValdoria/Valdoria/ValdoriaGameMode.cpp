@@ -174,6 +174,7 @@ void AValdoriaGameMode::RunAutoTestStep()
 	{
 		if (AValdoriaPlayerController* VPC = Cast<AValdoriaPlayerController>(PC))
 		{
+			VPC->DebugSetAdminMode(true);
 			VPC->ToggleAdminPanel();
 			UE_LOG(LogValdoria, Display, TEXT("AUTOTEST admin: painel aberto=%d"), VPC->IsAdminPanelOpen());
 		}
@@ -210,6 +211,7 @@ void AValdoriaGameMode::RunAutoTestStep()
 		{
 			VPC->TogglePauseMenu();
 			UE_LOG(LogValdoria, Display, TEXT("AUTOTEST pausa: menu aberto=%d jogo pausado=%d"), VPC->IsPauseMenuOpen(), VPC->IsPaused());
+			VPC->DebugOpenSettings();
 		}
 		FScreenshotRequest::RequestScreenshot(Path, true, false);
 		UE_LOG(LogValdoria, Display, TEXT("AUTOTEST captura: %s"), *Path);

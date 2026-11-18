@@ -10,6 +10,7 @@
 #include "GameFramework/PlayerState.h"
 #include "ValdoriaHeroCharacter.h"
 #include "ValdoriaHeroDefinition.h"
+#include "ValdoriaSettings.h"
 
 // ------------------------------------------------------------------ utilidades de desenho
 
@@ -136,9 +137,11 @@ void AValdoriaHUD::DrawCrosshairAndHits(float W, float H)
 	const float Cx = W * 0.5f;
 	const float Cy = H * 0.5f;
 	const bool bHitRecent = Now - LastHitTime < 0.18f;
-	const FLinearColor CrossColor = bHitRecent ? (bLastHitHeadshot ? EnemyColor : FLinearColor::White) : FLinearColor(1.f, 1.f, 1.f, 0.85f);
-	const float Gap = 6.f * S;
-	const float Len = 8.f * S;
+	const FValdoriaOptions& Options = FValdoriaOptions::Get();
+	const FLinearColor BaseColor = Options.GetCrosshairColor();
+	const FLinearColor CrossColor = bHitRecent ? (bLastHitHeadshot ? EnemyColor : FLinearColor::White) : BaseColor;
+	const float Gap = 6.f * S * Options.CrosshairSize;
+	const float Len = 8.f * S * Options.CrosshairSize;
 	DrawLine(Cx - Gap - Len, Cy, Cx - Gap, Cy, CrossColor, 2.f);
 	DrawLine(Cx + Gap, Cy, Cx + Gap + Len, Cy, CrossColor, 2.f);
 	DrawLine(Cx, Cy - Gap - Len, Cx, Cy - Gap, CrossColor, 2.f);

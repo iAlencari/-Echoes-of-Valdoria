@@ -26,6 +26,7 @@
 #include "ValdoriaGameplayTags.h"
 #include "ValdoriaHUD.h"
 #include "ValdoriaHeroDefinition.h"
+#include "ValdoriaSettings.h"
 
 DEFINE_LOG_CATEGORY(LogValdoria);
 
@@ -94,6 +95,7 @@ void AValdoriaHeroCharacter::BeginPlay()
 {
 	Super::BeginPlay();
 	DefaultMeshRelativeTransform = GetMesh()->GetRelativeTransform();
+	FollowCamera->SetFieldOfView(FValdoriaOptions::Get().FieldOfView);
 	AbilitySystem->InitAbilityActorInfo(this, this);
 	ApplyHeroDefinition();
 }
@@ -358,8 +360,9 @@ void AValdoriaHeroCharacter::Input_Look(const FInputActionValue& Value)
 		return;
 	}
 	const FVector2D Axis = Value.Get<FVector2D>();
-	AddControllerYawInput(Axis.X);
-	AddControllerPitchInput(-Axis.Y);
+	const FValdoriaOptions& Options = FValdoriaOptions::Get();
+	AddControllerYawInput(Axis.X * Options.MouseSensitivity);
+	AddControllerPitchInput((Options.bInvertY ? Axis.Y : -Axis.Y) * Options.MouseSensitivity);
 }
 
 bool AValdoriaHeroCharacter::IsCursorFree() const

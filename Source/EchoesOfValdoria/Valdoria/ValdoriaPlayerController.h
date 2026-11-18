@@ -19,6 +19,8 @@ class ECHOESOFVALDORIA_API AValdoriaPlayerController : public APlayerController
 public:
 	bool IsPauseMenuOpen() const { return PauseWidget.IsValid(); }
 	bool IsAdminPanelOpen() const { return AdminWidget.IsValid(); }
+	void DebugSetAdminMode(bool bOn) { bAdminMode = bOn; }
+	void DebugOpenSettings() { OpenSettings(); }
 
 	/** Esc: abre/fecha o menu de pausa. */
 	void TogglePauseMenu();
@@ -65,6 +67,16 @@ protected:
 
 	TSharedRef<SWidget> BuildHelpScreen();
 	TSharedPtr<SWidget> HelpWidget;
+
+	// --- Configurações (ValdoriaSettingsMenu.cpp)
+	void OpenSettings();
+	void CloseSettings();
+	TSharedRef<SWidget> BuildSettingsScreen();
+	void ApplyOptionsToGame();
+	TSharedPtr<SWidget> SettingsWidget;
+
+	/** Modo administrador: ligado pelo menu de pausa; só com ele o F1 abre o painel. */
+	bool bAdminMode = false;
 
 	TSharedPtr<SWidget> PauseWidget;
 	TSharedPtr<SWidget> AdminWidget;

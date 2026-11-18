@@ -190,6 +190,10 @@ void AValdoriaPlayerController::AdminSetTargetAttribute(int32 Which, float Value
 
 void AValdoriaPlayerController::ToggleAdminPanel()
 {
+	if (!bAdminMode && !AdminWidget.IsValid())
+	{
+		return; // ligue o "Modo administrador" no menu de pausa (Esc)
+	}
 	if (AdminWidget.IsValid())
 	{
 		CloseAdminPanel();
