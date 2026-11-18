@@ -30,6 +30,15 @@ enum class EValdoriaAbilitySlot : uint8
 	Ultimate	UMETA(DisplayName = "Ultimate (Q)")
 };
 
+/** Como o herói voa. */
+UENUM(BlueprintType)
+enum class EValdoriaFlightMode : uint8
+{
+	None = 0		UMETA(DisplayName = "Não voa"),
+	Fuel = 1		UMETA(DisplayName = "Combustível (segurar Espaço no ar)"),
+	Ability = 2		UMETA(DisplayName = "Habilidade (voa por um tempo ao usar)")
+};
+
 /** O que o Shift faz para este personagem. */
 UENUM(BlueprintType)
 enum class EValdoriaShiftMode : uint8
@@ -184,6 +193,38 @@ struct FValdoriaMovementRules
 	/** Duração da subida (s). */
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Escalar", meta = (EditCondition = "bCanMantle"))
 	float MantleDuration = 0.35f;
+
+	// --- Planar (segurar Espaço caindo)
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Planar")
+	bool bCanGlide = false;
+
+	/** Velocidade máxima de queda planando (cm/s). */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Planar", meta = (EditCondition = "bCanGlide", ClampMin = "0"))
+	float GlideFallSpeed = 180.f;
+
+	/** Controle no ar planando (0 a 1). */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Planar", meta = (EditCondition = "bCanGlide", ClampMin = "0", ClampMax = "1"))
+	float GlideAirControl = 0.8f;
+
+	// --- Voar
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Voar")
+	EValdoriaFlightMode FlightMode = EValdoriaFlightMode::None;
+
+	/** Velocidade voando (cm/s). */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Voar", meta = (ClampMin = "100"))
+	float FlightSpeed = 900.f;
+
+	/** Combustível: segundos de voo com o tanque cheio. */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Voar", meta = (ClampMin = "0.1"))
+	float FlightFuelSeconds = 3.f;
+
+	/** Combustível recuperado por segundo no chão. */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Voar", meta = (ClampMin = "0"))
+	float FlightFuelRegen = 1.f;
+
+	/** Modo habilidade: quanto tempo voa ao usar (s). */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Voar", meta = (ClampMin = "0.1"))
+	float FlightAbilityDuration = 6.f;
 
 	// --- Escalar parede (segurar Espaço de frente para uma parede alta)
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Escalar")

@@ -69,6 +69,8 @@ UValdoriaHeroDefinition* UValdoriaHeroDefinition::CreateFallbackRecruit(UObject*
 	Def->Movement.bCanWallClimb = true; // o Recruta testa tudo
 	Def->Movement.MaxJumps = 1;
 	Def->Movement.bCanProne = false; // X sem ação por enquanto (pedido do dono)
+	Def->Movement.bCanGlide = true;  // o Recruta testa planar e voar com combustível
+	Def->Movement.FlightMode = EValdoriaFlightMode::Fuel;
 
 	FValdoriaAbilityEntry Heal;
 	Heal.DisplayName = NSLOCTEXT("Valdoria", "Heal", "Pulso de cura");

@@ -1304,6 +1304,60 @@ void AValdoriaHeroCharacter::TickMovementFeatures(float DeltaSeconds)
 		return;
 	}
 
+	// --- Voar e planar (regras do Data Asset)
+	const float Now = GetWorld()->GetTimeSeconds();
+	if (FlightFuel < 0.f)
+	{
+		FlightFuel = Rules.FlightFuelSeconds;
+	}
+	if (Move->IsMovingOnGround())
+	{
+		FlightFuel = FMath::Min(Rules.FlightFuelSeconds, FlightFuel + Rules.FlightFuelRegen * DeltaSeconds);
+	}
+	const bool bAbilityFlight = Rules.FlightMode == EValdoriaFlightMode::Ability && Now < AbilityFlightEnd;
+	const bool bFuelFlight = Rules.FlightMode == EValdoriaFlightMode::Fuel && bJumpHeld && Move->IsFalling() && FlightFuel > 0.f && !IsFacingWall(45.f);
+	if (bAbilityFlight || bFuelFlight)
+	{
+		if (!bFlying)
+		{
+			bFlying = true;
+			Move->SetMovementMode(MOVE_Flying);
+			Move->MaxFlySpeed = Rules.FlightSpeed;
+			Move->BrakingDecelerationFlying = 1500.f;
+		}
+		if (bFuelFlight)
+		{
+			FlightFuel = FMath::Max(0.f, FlightFuel - DeltaSeconds);
+			AddMovementInput(FVector::UpVector, 1.f); // segurar Espaço sobe
+		}
+		else if (bJumpHeld)
+		{
+			AddMovementInput(FVector::UpVector, 1.f);
+		}
+		else if (bCrouchHeld)
+		{
+			AddMovementInput(FVector::UpVector, -1.f);
+		}
+		bGliding = false;
+		return;
+	}
+	if (bFlying)
+	{
+		StopFlight();
+	}
+	// Planar: caindo com Espaço segurado, a queda fica lenta.
+	bGliding = false;
+	if (Rules.bCanGlide && bJumpHeld && Move->IsFalling() && Move->Velocity.Z < -Rules.GlideFallSpeed && !IsFacingWall(45.f))
+	{
+		bGliding = true;
+		Move->Velocity.Z = -Rules.GlideFallSpeed;
+		Move->AirControl = Rules.GlideAirControl;
+	}
+	else if (ActiveDefinition)
+	{
+		Move->AirControl = ActiveDefinition->AirControl;
+	}
+
 	// Escalar parede: segurar Espaço no ar, de frente para uma parede.
 	bWallClimbing = false;
 	if (Rules.bCanWallClimb && bJumpHeld && Move->IsFalling() && WallClimbTimeUsed < Rules.MaxWallClimbTime && IsFacingWall(45.f))
@@ -1432,5 +1486,32 @@ void AValdoriaHeroCharacter::PlayDashAnimation(const FVector& Direction)
 	{
 		AnimInstance->SetRootMotionMode(ERootMotionMode::IgnoreRootMotion);
 		AnimInstance->PlaySlotAnimationAsDynamicMontage(Anim, Set.SlotName, 0.05f, 0.25f, 1.2f, 1);
+	}
+}
+
+float AValdoriaHeroCharacter::GetFlightFuelPercent() const
+{
+	const FValdoriaMovementRules& Rules = GetMovementRules();
+	if (Rules.FlightMode == EValdoriaFlightMode::Ability)
+	{
+		const float Left = AbilityFlightEnd - GetWorld()->GetTimeSeconds();
+		return FMath::Clamp(Left / FMath::Max(0.1f, Rules.FlightAbilityDuration), 0.f, 1.f);
+	}
+	return FlightFuel < 0.f ? 1.f : FMath::Clamp(FlightFuel / FMath::Max(0.1f, Rules.FlightFuelSeconds), 0.f, 1.f);
+}
+
+void AValdoriaHeroCharacter::StartAbilityFlight(float Seconds)
+{
+	const FValdoriaMovementRules& Rules = GetMovementRules();
+	AbilityFlightEnd = GetWorld()->GetTimeSeconds() + (Seconds > 0.f ? Seconds : Rules.FlightAbilityDuration);
+	LaunchCharacter(FVector(0.f, 0.f, 500.f), false, true);
+}
+
+void AValdoriaHeroCharacter::StopFlight()
+{
+	bFlying = false;
+	if (!bNoclip && GetCharacterMovement()->MovementMode == MOVE_Flying)
+	{
+		GetCharacterMovement()->SetMovementMode(MOVE_Falling);
 	}
 }

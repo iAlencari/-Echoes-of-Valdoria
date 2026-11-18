@@ -295,7 +295,18 @@ void AValdoriaHUD::DrawPlayerPanel(AValdoriaHeroCharacter* Hero, float W, float 
 				bFull ? FLinearColor(0.6f, 0.9f, 1.f, 0.95f) : FLinearColor(0.2f, 0.25f, 0.3f, 0.7f));
 		}
 	}
-	if (Hero->IsSliding()) MoveText = TEXT("DESLIZANDO");
+	if (Rules.FlightMode != EValdoriaFlightMode::None)
+	{
+		const float Fuel = Hero->GetFlightFuelPercent();
+		const float FX = X;
+		const float FY = Y + BarH + 46.f * S;
+		DrawLabel(Rules.FlightMode == EValdoriaFlightMode::Fuel ? TEXT("COMBUSTÍVEL") : TEXT("VOO"), FX, FY - 2.f * S, FLinearColor(0.6f, 0.9f, 1.f), 0.75f * S);
+		DrawRect(FX + 120.f * S, FY + 4.f * S, 200.f * S, 10.f * S, FLinearColor(0.f, 0.f, 0.f, 0.6f));
+		DrawRect(FX + 120.f * S, FY + 4.f * S, 200.f * S * Fuel, 10.f * S, FLinearColor(0.45f, 0.85f, 1.f, 0.95f));
+	}
+	if (Hero->IsFlying()) MoveText = TEXT("VOANDO");
+	else if (Hero->IsGliding()) MoveText = TEXT("PLANANDO");
+	else if (Hero->IsSliding()) MoveText = TEXT("DESLIZANDO");
 	else if (Hero->IsMantling()) MoveText = TEXT("SUBINDO");
 	else if (Hero->IsWallClimbing()) MoveText = TEXT("ESCALANDO");
 	else if (Hero->IsProne()) MoveText = TEXT("DEITADO");

@@ -261,3 +261,16 @@ Referências do dono (imagens, descritas em texto): barra de aliado ciano e de i
 - **Barra de vida "no cilindro verde":** era o boneco "andando de lado", que nascia em cima do cilindro (1800 cm à frente). Agora cada boneco procura chão na mesma altura do spawn, aproximando-se até achar.
 - **Painel de admin passou do F1 para o F10** (no editor, F1 é o atalho da Unreal que muda o modo de visualização).
 - Prints: `Saved/Screenshots/Input_Chat.png`, `Input_Adm.png`, `Input_Renasceu1.png`, `Input_Renasceu2.png`.
+
+### Turno 19 — Claude Code — 18/11/2026 (armas, primeira pessoa, planar e voar)
+**Falas do dono:**
+> "e tentar arrumar a arma se conseguir e coloca nos bots também, deixa disponivel todas as que estiverem prontas"
+>
+> "consegue adicionar camera em primeira pessoa ou é muito complicado?"
+>
+> "precisamos da função planar e voar(limitado por tempo/combustivel ou no uso de habilidade)"
+
+- **Armas**: o FBX do Meshy não traz texturas (por isso ficavam brancas). `Scripts/color_weapons.py` cria um material colorido por arma (`/Game/Valdoria/Weapons/Materials/MI_Arma_*`: rifle verde-azulado, lâminas roxas, martelo/escudo laranja, cajados turquesa). Rifle do Recruta menor (escala 1,6). Bonecos/bots também seguram o rifle. Painel de admin ganhou a seção **ARMA** para trocar por qualquer arma pronta (`SetWeaponMesh`).
+- **Câmera em primeira pessoa**: tecla **V** alterna (`SetFirstPerson`: câmera nos olhos, o próprio corpo e a arma ficam invisíveis só para você). Ainda sem braços/arma em primeira pessoa.
+- **Planar e voar** em `FValdoriaMovementRules`: `bCanGlide`, `GlideFallSpeed`, `GlideAirControl`; `FlightMode` (Não voa / Combustível / Habilidade), `FlightSpeed`, `FlightFuelSeconds`, `FlightFuelRegen` (recarrega no chão), `FlightAbilityDuration` (para habilidades chamarem `StartAbilityFlight`). Segurar Espaço no ar: voa (combustível) ou plana; no voo por habilidade, Espaço sobe e Ctrl desce. HUD mostra **COMBUSTÍVEL/VOO** e o estado "VOANDO"/"PLANANDO". O Recruta testa planar + voo por combustível.
+- Teste de teclas reais (`-ValdoriaInputTest`) ampliado: V (primeira pessoa = 1), segurar Espaço no ar (subiu ~17 m, combustível caindo). Prints `Input_Arma.png`, `Input_PrimeiraPessoa.png`, `Input_Voando.png`.

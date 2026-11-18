@@ -475,7 +475,23 @@ void AValdoriaGameMode::RunInputTestStep()
 		UE_LOG(LogValdoria, Display, TEXT("INPUTTEST andou depois de renascer: %.0f cm"), Moved);
 		Shot(S == 50 ? TEXT("Input_Renasceu1.png") : TEXT("Input_Renasceu2.png"));
 	}
-	if (S >= 95)
+	// Voar: segurar Espaço no ar gasta combustível e sobe.
+	if (S == 92 && Hero)
+	{
+		InputTestStartLoc = Hero->GetActorLocation();
+		PressKey(EKeys::SpaceBar, true);
+	}
+	if (S == 100 && Hero)
+	{
+		UE_LOG(LogValdoria, Display, TEXT("INPUTTEST voar: voando=%d subiu=%.0f cm combustivel=%.0f%%"), Hero->IsFlying(),
+			Hero->GetActorLocation().Z - InputTestStartLoc.Z, Hero->GetFlightFuelPercent() * 100.f);
+		Shot(TEXT("Input_Voando.png"));
+	}
+	if (S == 101)
+	{
+		PressKey(EKeys::SpaceBar, false);
+	}
+	if (S >= 112)
 	{
 		UE_LOG(LogValdoria, Display, TEXT("INPUTTEST fim"));
 		InputTestStep = 100000;

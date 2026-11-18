@@ -129,6 +129,11 @@ public:
 	bool IsSliding() const { return bSliding; }
 	bool IsWallClimbing() const { return bWallClimbing; }
 	bool IsMantling() const { return bMantling; }
+	bool IsGliding() const { return bGliding; }
+	bool IsFlying() const { return bFlying; }
+	float GetFlightFuelPercent() const;
+	/** Voo por habilidade: voa por Seconds (0 = usa o tempo do Data Asset). */
+	void StartAbilityFlight(float Seconds = 0.f);
 
 	FORCEINLINE USpringArmComponent* GetCameraBoom() const { return CameraBoom; }
 	FORCEINLINE UCameraComponent* GetFollowCamera() const { return FollowCamera; }
@@ -206,6 +211,11 @@ protected:
 	bool bIsProne = false;
 
 	bool bNoclip = false;
+	bool bGliding = false;
+	bool bFlying = false;
+	float FlightFuel = -1.f;
+	float AbilityFlightEnd = 0.f;
+	void StopFlight();
 	bool bFirstPerson = false;
 	bool bJumpHeld = false;
 	bool bCrouchHeld = false;
