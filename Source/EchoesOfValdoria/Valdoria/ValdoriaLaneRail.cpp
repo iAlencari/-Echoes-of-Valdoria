@@ -92,9 +92,8 @@ void AValdoriaLaneRail::RebuildVisual()
 	}
 	Segments.Reset();
 	UStaticMesh* Cylinder = LoadObject<UStaticMesh>(nullptr, TEXT("/Engine/BasicShapes/Cylinder.Cylinder"));
-	// Simple, calm colours: a thin glowing ribbon. Enemy rails are tinted red.
-	const FLinearColor Tint = Team == 0 ? Color : FMath::Lerp(Color, FLinearColor(1.f, 0.1f, 0.1f), 0.7f);
-	UMaterialInstanceDynamic* MID = ValdoriaMakeGlowMaterial(this, Tint, 0.55f);
+	// Soft rainbow bridge (the mythological Bifrost): the hue drifts along the trail, mixed with the
+	// lane colour so each lane stays recognisable. Enemy trails get a strong red accent.
 	const float Usable = GetLength();
 	const float Step = 250.f;
 	for (float D = 0.f; D < Usable; D += Step)
@@ -113,8 +112,14 @@ void AValdoriaLaneRail::RebuildVisual()
 		Seg->SetupAttachment(RootComponent);
 		Seg->RegisterComponent();
 		Seg->SetWorldLocationAndRotation((A + B) * 0.5f, FRotationMatrix::MakeFromZ(Delta.GetSafeNormal()).Rotator());
-		Seg->SetWorldScale3D(FVector(0.12f, 0.12f, Delta.Size() / 100.f));
-		if (MID)
+		Seg->SetWorldScale3D(FVector(0.16f, 0.16f, Delta.Size() / 100.f));
+		const FLinearColor Rainbow = FLinearColor::MakeFromHSV8(static_cast<uint8>(FMath::Fmod(D / 40.f, 255.f)), 140, 255);
+		FLinearColor Tint = FMath::Lerp(Color, Rainbow, 0.45f);
+		if (Team != 0)
+		{
+			Tint = FMath::Lerp(Tint, FLinearColor(1.f, 0.08f, 0.08f), 0.6f);
+		}
+		if (UMaterialInstanceDynamic* MID = ValdoriaMakeGlowMaterial(Seg, Tint, 0.5f))
 		{
 			Seg->SetMaterial(0, MID);
 		}

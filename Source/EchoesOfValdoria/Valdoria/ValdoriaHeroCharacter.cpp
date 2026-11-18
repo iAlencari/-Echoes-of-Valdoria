@@ -2711,7 +2711,7 @@ void AValdoriaHeroCharacter::TickRiding(float DeltaSeconds)
 	GetAimRay(Start, Dir);
 	const FVector Tangent = Rail->GetTangentAt(RideDistance);
 	const bool bLookingBack = FVector::DotProduct(Dir.GetSafeNormal2D(), (Tangent * RideSign).GetSafeNormal2D()) < -0.2f;
-	if (bLookingBack \&\& RideForwardInput > 0.5f)
+	if (bLookingBack && RideForwardInput > 0.5f)
 	{
 		RideSign = -RideSign;
 	}
