@@ -1,6 +1,7 @@
 // Echoes of Valdoria - controle do jogador.
 
 #include "ValdoriaPlayerController.h"
+#include "ValdoriaHeroCharacter.h"
 #include "Components/InputComponent.h"
 #include "Engine/Engine.h"
 #include "Engine/GameViewportClient.h"
@@ -49,6 +50,7 @@ void AValdoriaPlayerController::SetupInputComponent()
 	FInputKeyBinding& Admin = InputComponent->BindKey(EKeys::F10, IE_Pressed, this, &AValdoriaPlayerController::ToggleAdminPanel);
 	Admin.bExecuteWhenPaused = true;
 	InputComponent->BindKey(EKeys::Enter, IE_Pressed, this, &AValdoriaPlayerController::OpenChat);
+	InputComponent->BindKey(EKeys::V, IE_Pressed, this, &AValdoriaPlayerController::ToggleCameraMode);
 	InputComponent->BindKey(EKeys::K, IE_Pressed, this, &AValdoriaPlayerController::HelpPressed);
 	InputComponent->BindKey(EKeys::K, IE_Released, this, &AValdoriaPlayerController::HelpReleased);
 }
@@ -260,3 +262,11 @@ FReply AValdoriaPlayerController::OnQuitClicked()
 }
 
 #undef LOCTEXT_NAMESPACE
+
+void AValdoriaPlayerController::ToggleCameraMode()
+{
+	if (AValdoriaHeroCharacter* Hero = Cast<AValdoriaHeroCharacter>(GetPawn()))
+	{
+		Hero->SetFirstPerson(!Hero->IsFirstPerson());
+	}
+}

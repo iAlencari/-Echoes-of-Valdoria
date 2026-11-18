@@ -15,6 +15,7 @@
 #include "GameFramework/CharacterMovementComponent.h"
 #include "GameFramework/PlayerStart.h"
 #include "Kismet/GameplayStatics.h"
+#include "Engine/StaticMesh.h"
 #include "Styling/CoreStyle.h"
 #include "ValdoriaAttributeSet.h"
 #include "ValdoriaGameMode.h"
@@ -307,6 +308,30 @@ TSharedRef<SWidget> AValdoriaPlayerController::BuildAdminPanel()
 		Row->AddSlot()[Button(LOCTEXT("Restore", "Vida cheia"), [Hero]() { if (Hero()) Hero()->AdminRestoreAll(); })];
 		Row->AddSlot()[Button(LOCTEXT("ResetCd", "Zerar recargas"), [Hero]() { if (Hero()) Hero()->ResetCombatState(); })];
 		Row->AddSlot()[Button(LOCTEXT("HurtMe", "Tirar 50 de vida de mim"), [Hero]() { if (AValdoriaHeroCharacter* H = Hero()) { const bool bGod = H->bGodMode; H->bGodMode = false; H->DealDamageTo(H, 50.f); H->bGodMode = bGod; } })];
+		Box->AddSlot().AutoHeight()[Row];
+	}
+
+	// --- Arma
+	Box->AddSlot().AutoHeight()[Title(LOCTEXT("WeaponTitle", "ARMA (modelos 3D prontos)"))];
+	{
+		TSharedRef<SWrapBox> Row = SNew(SWrapBox).UseAllottedSize(true);
+		IAssetRegistry& Reg = FModuleManager::LoadModuleChecked<FAssetRegistryModule>("AssetRegistry").Get();
+		TArray<FAssetData> Weapons;
+		Reg.GetAssetsByPath(FName(TEXT("/Game/Valdoria/Weapons/Merged")), Weapons, false);
+		Row->AddSlot()[Button(LOCTEXT("NoWeapon", "Sem arma"), [Hero]() { if (Hero()) Hero()->SetWeaponMesh(nullptr); })];
+		for (const FAssetData& W : Weapons)
+		{
+			const FString Name = W.AssetName.ToString().Replace(TEXT("SM_Arma_"), TEXT(""));
+			if (Name == TEXT("Extras"))
+			{
+				continue;
+			}
+			const FSoftObjectPath Path = W.GetSoftObjectPath();
+			Row->AddSlot()[Button(FText::FromString(Name), [Hero, Path]()
+			{
+				if (Hero()) Hero()->SetWeaponMesh(Cast<UStaticMesh>(Path.TryLoad()));
+			})];
+		}
 		Box->AddSlot().AutoHeight()[Row];
 	}
 

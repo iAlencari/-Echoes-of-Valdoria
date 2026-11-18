@@ -106,6 +106,13 @@ public:
 	void AdminFillUltimate();
 	void AdminRestoreAll();
 
+	/** Troca a arma visível (painel de admin). */
+	void SetWeaponMesh(UStaticMesh* NewWeapon);
+
+	/** Câmera em primeira pessoa (tecla V alterna). */
+	void SetFirstPerson(bool bEnable);
+	bool IsFirstPerson() const { return bFirstPerson; }
+
 	/** Voar e atravessar paredes (painel de admin). */
 	void SetNoclip(bool bEnable);
 	bool IsNoclip() const { return bNoclip; }
@@ -199,6 +206,7 @@ protected:
 	bool bIsProne = false;
 
 	bool bNoclip = false;
+	bool bFirstPerson = false;
 	bool bJumpHeld = false;
 	bool bCrouchHeld = false;
 	bool bPendingRecrouch = false;

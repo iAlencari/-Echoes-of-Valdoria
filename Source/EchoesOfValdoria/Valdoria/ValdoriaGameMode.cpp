@@ -446,7 +446,9 @@ void AValdoriaGameMode::RunInputTestStep()
 	case 14: UE_LOG(LogValdoria, Display, TEXT("INPUTTEST esc de novo: pausa=%d"), PC && PC->IsPauseMenuOpen()); break;
 	case 15: PressKey(EKeys::K, true); break;
 	case 16: UE_LOG(LogValdoria, Display, TEXT("INPUTTEST K segurado: ajuda=%d"), PC && PC->IsHelpOpen()); PressKey(EKeys::K, false); break;
-	case 17: UE_LOG(LogValdoria, Display, TEXT("INPUTTEST K solto: ajuda=%d"), PC && PC->IsHelpOpen()); break;
+	case 17: UE_LOG(LogValdoria, Display, TEXT("INPUTTEST K solto: ajuda=%d"), PC && PC->IsHelpOpen()); Shot(TEXT("Input_Arma.png")); break;
+	case 18: PressKey(EKeys::V, true); PressKey(EKeys::V, false); break;
+	case 19: UE_LOG(LogValdoria, Display, TEXT("INPUTTEST V: primeira pessoa=%d"), Hero && Hero->IsFirstPerson()); Shot(TEXT("Input_PrimeiraPessoa.png")); break;
 	default: break;
 	}
 	// Morrer duas vezes e conferir se dá para andar depois de cada renascimento.

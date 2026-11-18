@@ -693,6 +693,35 @@ void AValdoriaHeroCharacter::AdminSetDamageMultiplier(float Multiplier)
 	}
 }
 
+void AValdoriaHeroCharacter::SetWeaponMesh(UStaticMesh* NewWeapon)
+{
+	WeaponComponent->SetStaticMesh(NewWeapon);
+	WeaponComponent->SetVisibility(NewWeapon != nullptr && !bFirstPerson);
+	if (NewWeapon && ActiveDefinition)
+	{
+		WeaponComponent->AttachToComponent(GetMesh(), FAttachmentTransformRules::SnapToTargetNotIncludingScale, ActiveDefinition->WeaponSocket);
+		WeaponComponent->SetRelativeTransform(ActiveDefinition->WeaponOffset);
+	}
+}
+
+void AValdoriaHeroCharacter::SetFirstPerson(bool bEnable)
+{
+	bFirstPerson = bEnable;
+	if (bEnable)
+	{
+		// Câmera nos olhos; o próprio corpo fica invisível para você (os outros continuam vendo).
+		CameraBoom->TargetArmLength = 0.f;
+		CameraBoom->SocketOffset = FVector(10.f, 0.f, BaseEyeHeight);
+	}
+	else if (ActiveDefinition)
+	{
+		CameraBoom->TargetArmLength = ActiveDefinition->CameraDistance;
+		CameraBoom->SocketOffset = ActiveDefinition->CameraOffset;
+	}
+	GetMesh()->SetOwnerNoSee(bEnable);
+	WeaponComponent->SetOwnerNoSee(bEnable);
+}
+
 void AValdoriaHeroCharacter::SetNoclip(bool bEnable)
 {
 	bNoclip = bEnable;

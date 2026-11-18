@@ -19,7 +19,6 @@ void AValdoriaTrainingDummy::BeginPlay()
 	// Cada tipo de boneco ganha uma definição própria (criada em código).
 	UValdoriaHeroDefinition* Def = UValdoriaHeroDefinition::CreateFallbackRecruit(this);
 	Def->Abilities.Reset();
-	Def->WeaponMesh.Reset();
 	Def->UltimateChargePerSecond = 0.f;
 	Def->Mesh = TSoftObjectPtr<USkeletalMesh>(FSoftObjectPath(TEXT("/Game/Characters/Mannequins/Meshes/SKM_Quinn_Simple.SKM_Quinn_Simple")));
 	switch (Kind)

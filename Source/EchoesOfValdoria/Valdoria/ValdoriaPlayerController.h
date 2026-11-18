@@ -30,6 +30,9 @@ public:
 	/** F1: abre/fecha o painel de administrador (o jogo continua rodando). */
 	void ToggleAdminPanel();
 
+	/** V: alterna câmera em primeira / terceira pessoa. */
+	void ToggleCameraMode();
+
 	/** Tela de ajuda das habilidades (segurar K). */
 	void HelpPressed();
 	void HelpReleased();
