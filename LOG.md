@@ -89,3 +89,9 @@ F habilidade 1 · E habilidade 2 · Q ultimate
 - **Pendente / atenção:** o `LICENSE` do GitHub é **GPL-3.0**. Código GPL não combina bem com a
   licença da Unreal na hora de distribuir o jogo; vale o dono decidir a licença (ex.: MIT para o
   código próprio). Nada foi enviado ao GitHub ainda.
+
+### Turno 8 — Claude Code — 18/11/2026
+**Fala do dono:** > "sim pode trocar ja aceitei o uac coloca um atalho pra eu testar o projeto na area de trabalho"
+- Licença trocada de GPL-3.0 para **MIT** (código original do projeto), com nota de que a Unreal e o conteúdo da Epic seguem o EULA da Epic.
+- Atalhos na Área de Trabalho: **Echoes of Valdoria - Jogar** (abre direto no jogo, janela 1600x900) e **Echoes of Valdoria - Editor** (abre o projeto no editor). Testado: o jogo abre com o ValdoriaGameMode.
+- Ainda não enviado ao GitHub: aguardando confirmação do dono.
