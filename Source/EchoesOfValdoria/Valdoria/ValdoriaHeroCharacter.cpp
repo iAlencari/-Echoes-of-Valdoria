@@ -350,13 +350,28 @@ void AValdoriaHeroCharacter::Input_Move(const FInputActionValue& Value)
 
 void AValdoriaHeroCharacter::Input_Look(const FInputActionValue& Value)
 {
+	if (IsCursorFree())
+	{
+		return;
+	}
 	const FVector2D Axis = Value.Get<FVector2D>();
 	AddControllerYawInput(Axis.X);
 	AddControllerPitchInput(-Axis.Y);
 }
 
+bool AValdoriaHeroCharacter::IsCursorFree() const
+{
+	// Cursor solto (Alt ou menu de pausa): cliques e mouse não mexem no jogo.
+	const APlayerController* PC = Cast<APlayerController>(Controller);
+	return PC && PC->bShowMouseCursor;
+}
+
 void AValdoriaHeroCharacter::Input_FirePressed()
 {
+	if (IsCursorFree())
+	{
+		return;
+	}
 	bFireHeld = true;
 	if (bIsSprinting && !GetMovementRules().bCanFireWhileSprinting)
 	{

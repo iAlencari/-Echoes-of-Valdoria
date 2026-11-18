@@ -8,6 +8,7 @@
 #include "GameFramework/CharacterMovementComponent.h"
 #include "Misc/CommandLine.h"
 #include "Misc/Paths.h"
+#include "Containers/Ticker.h"
 #include "UnrealClient.h"
 #include "GameFramework/PlayerStart.h"
 #include "TimerManager.h"
@@ -121,8 +122,22 @@ void AValdoriaGameMode::RunAutoTestStep()
 	else if (AutoTestStep == 26)
 	{
 		const FString Path = FPaths::ConvertRelativePathToFull(FPaths::ProjectSavedDir() / TEXT("Screenshots/AutoTest.png"));
+		// Abre o menu de pausa (Esc) para conferir que ele aparece na captura.
+		if (AValdoriaPlayerController* VPC = Cast<AValdoriaPlayerController>(PC))
+		{
+			VPC->TogglePauseMenu();
+			UE_LOG(LogValdoria, Display, TEXT("AUTOTEST pausa: menu aberto=%d jogo pausado=%d"), VPC->IsPauseMenuOpen(), VPC->IsPaused());
+		}
 		FScreenshotRequest::RequestScreenshot(Path, true, false);
 		UE_LOG(LogValdoria, Display, TEXT("AUTOTEST captura: %s"), *Path);
+		// Com o jogo pausado o timer para; quem fecha o jogo é o ticker do motor.
+		GetWorldTimerManager().ClearTimer(AutoTestTimer);
+		FTSTicker::GetCoreTicker().AddTicker(FTickerDelegate::CreateLambda([](float)
+		{
+			UE_LOG(LogValdoria, Display, TEXT("AUTOTEST fim"));
+			FPlatformMisc::RequestExit(false);
+			return false;
+		}), 3.f);
 	}
 	else if (AutoTestStep >= 34)
 	{

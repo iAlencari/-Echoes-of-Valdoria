@@ -1,4 +1,4 @@
-﻿// Echoes of Valdoria - personagem jogável genérico. Tudo que é específico de
+// Echoes of Valdoria - personagem jogável genérico. Tudo que é específico de
 // cada herói vem do UValdoriaHeroDefinition (Data Asset).
 
 #pragma once
@@ -132,6 +132,7 @@ protected:
 	// Entrada
 	void Input_Move(const FInputActionValue& Value);
 	void Input_Look(const FInputActionValue& Value);
+	bool IsCursorFree() const;
 	void Input_FirePressed();
 	void Input_FireReleased();
 	void Input_Secondary();

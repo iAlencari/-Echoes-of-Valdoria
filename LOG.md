@@ -95,3 +95,11 @@ F habilidade 1 · E habilidade 2 · Q ultimate
 - Licença trocada de GPL-3.0 para **MIT** (código original do projeto), com nota de que a Unreal e o conteúdo da Epic seguem o EULA da Epic.
 - Atalhos na Área de Trabalho: **Echoes of Valdoria - Jogar** (abre direto no jogo, janela 1600x900) e **Echoes of Valdoria - Editor** (abre o projeto no editor). Testado: o jogo abre com o ValdoriaGameMode.
 - Ainda não enviado ao GitHub: aguardando confirmação do dono.
+
+### Turno 9 — Claude Code — 18/11/2026
+**Fala do dono:** > "abre no segundo monitor por favor? adicionar um menu no esc ou alt pra eu poder tirar o cursor de dedntro e arrastar a janela"
+- Atalho **Jogar** agora abre no monitor 2 (que fica à esquerda: X=-1920), janela 1600x900 em -WinX=-1760 -WinY=60.
+- **Esc** abre/fecha o menu de pausa (Slate em C++, sem assets): Continuar, Reiniciar treino, Sair do jogo. O jogo pausa e o cursor aparece.
+- **Segurar Alt** solta o cursor (para arrastar a janela); soltar o Alt volta a prender. Com o cursor solto, cliques e movimento do mouse não atiram nem giram a câmera.
+- Módulo SlateCore adicionado. Teste automático agora também abre o menu de pausa (passou: menu aberto=1, jogo pausado=1).
+- Obs.: no editor (Play), o Esc encerra a sessão por padrão da Unreal; o menu de pausa vale no jogo aberto pelo atalho. No editor, Shift+F1 solta o mouse.
