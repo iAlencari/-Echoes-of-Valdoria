@@ -8,6 +8,7 @@
 #include "AbilitySystemInterface.h"
 #include "GameplayAbilitySpecHandle.h"
 #include "ValdoriaTypes.h"
+#include "ValdoriaShop.h"
 #include "ValdoriaHeroCharacter.generated.h"
 
 class UAbilitySystemComponent;
@@ -167,6 +168,9 @@ public:
 	float GetMagicPower() const;
 	float GetPhysicalResistance() const;
 	float GetMagicResistance() const;
+	/** Bônus da loja (a loja do jogador chama isto ao comprar e ao renascer). */
+	void SetShopBonus(const FValdoriaShopBonus& Bonus);
+	const FValdoriaShopBonus& GetShopBonus() const { return ShopBonus; }
 
 	int32 GetDashCharges() const { return DashChargesLeft; }
 	bool IsSprinting() const { return bIsSprinting; }
@@ -343,6 +347,10 @@ protected:
 	void UpdateStealthVisibility();
 	void DoLeapSlamImpact();
 	TMap<EValdoriaStatus, float> StatusEndTimes;
+	FValdoriaShopBonus ShopBonus;
+	/** Arma do Data Asset com os bônus da loja (pente maior...). */
+	FValdoriaWeaponStats BoostedWeapon;
+	void RebuildBoostedWeapon();
 	float SlowFraction = 0.f;
 	float SlowEndTime = 0.f;
 	float BuffFraction = 0.f;

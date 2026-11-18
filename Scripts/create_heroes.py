@@ -83,3 +83,20 @@ for hero_id, asset_name in (("brasa", "DA_Brasa"), ("kael", "DA_Kael"), ("iara",
 
 with open(LOG, "w", encoding="utf-8") as fh:
     fh.write("\n".join(lines))
+
+# --- 4) Loja (itens e créditos) - também não sobrescreve se já existir
+SHOP = "/Game/Valdoria/Shop/DA_Loja"
+if not eal.does_asset_exist(SHOP) or reset:
+    eal.make_directory("/Game/Valdoria/Shop")
+    shop_factory = unreal.DataAssetFactory()
+    shop_factory.set_editor_property("data_asset_class", unreal.ValdoriaShopCatalog)
+    shop = unreal.load_asset(SHOP) if eal.does_asset_exist(SHOP) else \
+        tools.create_asset("DA_Loja", "/Game/Valdoria/Shop", unreal.ValdoriaShopCatalog, shop_factory)
+    shop.apply_default_items()
+    eal.save_loaded_asset(shop)
+    lines.append("loja criada: " + SHOP)
+else:
+    lines.append("loja ja existe (mantida)")
+
+with open(LOG, "w", encoding="utf-8") as fh:
+    fh.write("\n".join(lines))

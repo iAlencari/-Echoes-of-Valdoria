@@ -36,6 +36,7 @@ void AValdoriaPlayerController::EndPlay(const EEndPlayReason::Type EndPlayReason
 	ClosePauseMenu();
 	CloseAdminPanel();
 	UnregisterChatKey();
+	CloseShop();
 	Super::EndPlay(EndPlayReason);
 }
 
@@ -53,6 +54,7 @@ void AValdoriaPlayerController::SetupInputComponent()
 	Admin.bExecuteWhenPaused = true;
 	InputComponent->BindKey(EKeys::Enter, IE_Pressed, this, &AValdoriaPlayerController::OpenChat);
 	InputComponent->BindKey(EKeys::V, IE_Pressed, this, &AValdoriaPlayerController::ToggleCameraMode);
+	InputComponent->BindKey(EKeys::B, IE_Pressed, this, &AValdoriaPlayerController::ToggleShop);
 	InputComponent->BindKey(EKeys::K, IE_Pressed, this, &AValdoriaPlayerController::HelpPressed);
 	InputComponent->BindKey(EKeys::K, IE_Released, this, &AValdoriaPlayerController::HelpReleased);
 }
@@ -61,7 +63,7 @@ void AValdoriaPlayerController::RefreshInputMode()
 {
 	// Cursor solto só com menus que pedem clique (pausa, configurações, ajuda, chat) ou com Alt.
 	// O painel de admin NÃO prende o mouse: dá para mirar e andar com ele aberto; Alt para clicar nele.
-	if (PauseWidget.IsValid() || HelpWidget.IsValid() || SettingsWidget.IsValid() || ChatWidget.IsValid() || bAltHeld)
+	if (PauseWidget.IsValid() || HelpWidget.IsValid() || SettingsWidget.IsValid() || ChatWidget.IsValid() || ShopWidget.IsValid() || bAltHeld)
 	{
 		ApplyCursorInput();
 	}
@@ -115,6 +117,11 @@ void AValdoriaPlayerController::FreeCursorReleased()
 
 void AValdoriaPlayerController::TogglePauseMenu()
 {
+	if (ShopWidget.IsValid())
+	{
+		CloseShop();
+		return;
+	}
 	if (ChatWidget.IsValid())
 	{
 		CloseChat();
@@ -359,5 +366,6 @@ bool AValdoriaPlayerController::SelectHero(FName HeroId)
 		return false;
 	}
 	Hero->SetHeroDefinition(Def);
+	ApplyShopToHero();
 	return true;
 }

@@ -294,3 +294,12 @@ Referências do dono (imagens, descritas em texto): barra de aliado ciano e de i
 - **Teste novo** `-ValdoriaHeroTest`: entra com cada herói, usa ataque, BD, F, E e ultimate num boneco inimigo e num aliado ferido, registra vida (linhas `HEROTEST`) e tira prints `Saved/Screenshots/Heroi_<nome>_<n>.png`. Resultado: todos os ataques e habilidades causaram efeito (ex.: Iara curou o aliado de 130 para 250; Kael com a ultimate 115 → 5; Vex ficou invisível; Brasa recebeu 31,5 de 50 com armadura e resistência).
 
 **Pendente:** loja no B; 5º herói (feixe contínuo); refletir, absorver, intangível, portal; animações de ataque; balancear (decisão do dono).
+### Turno 21 — Claude Code — 18/11/2026 (loja de melhorias no B)
+- **Loja** (`ValdoriaShop.h/.cpp`, catálogo `Content/Valdoria/Shop/DA_Loja`, criado por `Scripts/create_heroes.py` sem sobrescrever): referência de modelo Paladins/Deadlock, com sistema e números próprios. 4 categorias (Defesa, Utilidade, Cura, Dano), 11 itens com 3 níveis comprados em sequência, limite de 4 itens, créditos iniciais 400 + 4/s + 0,5 por ponto de dano + 100 por abate. Tudo zera quando a partida (mapa) recomeça; os itens continuam ao trocar de herói e ao renascer.
+  - Defesa: Placas de Liga (resist. física), Amuleto Rúnico (resist. mágica), Coração Robusto (vida máx.).
+  - Utilidade: Engrenagem do Tempo (−recarga, não afeta o ritmo de tiro), Botas Velozes (velocidade), Cartucheira (pente).
+  - Cura: Seiva Viva (cura causada), Sangue de Ferro (roubo de vida).
+  - Dano: Lâmina Afiada (poder físico), Foco Arcano (poder mágico), Olho Certeiro (dano na cabeça).
+- Herói: `SetShopBonus` soma os bônus em poder/resistências, recarga, velocidade, pente (`BoostedWeapon`), vida máxima, cura e roubo de vida.
+- HUD mostra "◆ créditos (B = loja)". Chat: `/creditos N` (modo admin).
+- Teste `-ValdoriaHeroTest` ampliado: compra 2 níveis de Cartucheira + Engrenagem (compras=111), abre a loja com a tecla B de verdade (aberta=1), print `Heroi_kael_8.png`.

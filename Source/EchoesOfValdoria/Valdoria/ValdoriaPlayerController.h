@@ -43,6 +43,19 @@ public:
 	bool SelectHero(FName HeroId);
 	UValdoriaHeroDefinition* FindHero(FName HeroId);
 
+	// --- Loja (tecla B, ValdoriaShop.cpp)
+	void ToggleShop();
+	bool IsShopOpen() const { return ShopWidget.IsValid(); }
+	/** Compra o próximo nível do item. Retorna falso se faltar crédito ou espaço. */
+	bool BuyItem(FName ItemId);
+	void AddCredits(float Amount);
+	int32 GetCredits() const { return FMath::Max(0, FMath::FloorToInt(Credits)); }
+	int32 GetItemLevel(FName ItemId) const { const int32* L = ShopLevels.Find(ItemId); return L ? *L : 0; }
+	void OnHeroDamageDealt(float Damage, bool bKill);
+	/** Reaplica os bônus comprados no herói atual (ao comprar, trocar de herói e renascer). */
+	void ApplyShopToHero();
+	class UValdoriaShopCatalog* GetShopCatalog();
+
 	/** Inimigo/personagem sob a mira (o que o painel edita). */
 	AValdoriaHeroCharacter* PickAimedCharacter() const;
 
@@ -115,4 +128,14 @@ protected:
 
 	UPROPERTY(Transient)
 	TMap<FName, TObjectPtr<UValdoriaHeroDefinition>> HeroCache;
+
+	UPROPERTY(Transient)
+	TObjectPtr<class UValdoriaShopCatalog> ShopCatalog;
+	TMap<FName, int32> ShopLevels;
+	float Credits = -1.f;
+	TSharedPtr<SWidget> ShopWidget;
+	TSharedRef<SWidget> BuildShopScreen();
+	void CloseShop();
+	FTimerHandle CreditTimer;
+	virtual void OnPossess(APawn* InPawn) override;
 };

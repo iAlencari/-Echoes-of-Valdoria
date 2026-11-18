@@ -9,6 +9,7 @@
 #include "EngineUtils.h"
 #include "GameFramework/PlayerState.h"
 #include "ValdoriaHeroCharacter.h"
+#include "ValdoriaPlayerController.h"
 #include "ValdoriaHeroDefinition.h"
 #include "Engine/Texture2D.h"
 
@@ -420,6 +421,10 @@ void AValdoriaHUD::DrawAbilities(AValdoriaHeroCharacter* Hero, float W, float H)
 void AValdoriaHUD::DrawAmmo(AValdoriaHeroCharacter* Hero, float W, float H)
 {
 	const float S = Scale;
+	if (const AValdoriaPlayerController* VPC = Cast<AValdoriaPlayerController>(GetOwningPlayerController()))
+	{
+		DrawLabel(FString::Printf(TEXT("◆ %d   (B = loja)"), VPC->GetCredits()), W - 330.f * S, H - 214.f * S, FLinearColor(1.f, 0.85f, 0.4f), 0.95f * S);
+	}
 	const UValdoriaHeroDefinition* Def = Hero->GetHeroDefinition();
 	const FLinearColor Theme = Def->ThemeColor;
 	const FValdoriaWeaponStats& Weapon = Hero->GetWeaponStats();

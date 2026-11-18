@@ -181,6 +181,7 @@ void AValdoriaPlayerController::RunChatCommand(const FString& Command)
 		ChatPrint(TEXT("/imortal  /recarga  /municao  /voar  (liga/desliga no seu herói)"), Ok);
 		ChatPrint(TEXT("/bots 0-3  bonecos atiram (0 parados, 3 difícil)"), Ok);
 		ChatPrint(TEXT("/dano N  tira N de vida de você  •  /vida  enche a vida  •  /ult  ultimate cheia"), Ok);
+		ChatPrint(TEXT("/creditos N  ganha créditos da loja (B)"), Ok);
 		ChatPrint(TEXT("/mapa np | treino  troca de mapa  •  /tempo N  velocidade do jogo"), Ok);
 	}
 	else if (Cmd == TEXT("heroi") || Cmd == TEXT("herói") || Cmd == TEXT("hero"))
@@ -245,6 +246,11 @@ void AValdoriaPlayerController::RunChatCommand(const FString& Command)
 	{
 		Hero->AdminRestoreAll();
 		ChatPrint(TEXT("Vida cheia."), Ok);
+	}
+	else if (Cmd == TEXT("creditos") || Cmd == TEXT("créditos"))
+	{
+		AddCredits(Arg.IsEmpty() ? 1000.f : FCString::Atof(*Arg));
+		ChatPrint(FString::Printf(TEXT("Créditos: %d"), GetCredits()), Ok);
 	}
 	else if (Cmd == TEXT("ult"))
 	{

@@ -562,6 +562,7 @@ void AValdoriaGameMode::RunHeroTestStep()
 	{
 	case 0:
 	{
+		if (PC->IsShopOpen()) { PC->ToggleShop(); }
 		if (Enemy) Enemy->Destroy();
 		if (Ally) Ally->Destroy();
 		Hero->bGodMode = false;
@@ -622,6 +623,19 @@ void AValdoriaGameMode::RunHeroTestStep()
 			UE_LOG(LogValdoria, Display, TEXT("HEROTEST %s levou 50 fisico -> perdeu %.1f (aliados perto=%d)"), *Id, Before - After, Hero->GetAlliesNearby());
 		}
 		break;
+	case 41:
+		if (Index == 1)
+		{
+			PC->AddCredits(3000.f);
+			const int32 Before = Hero->GetWeaponStats().MagazineSize;
+			const bool b1 = PC->BuyItem(TEXT("cartucheira"));
+			const bool b2 = PC->BuyItem(TEXT("cartucheira"));
+			const bool b3 = PC->BuyItem(TEXT("engrenagem"));
+			UE_LOG(LogValdoria, Display, TEXT("HEROTEST loja: compras=%d%d%d pente %d -> %d creditos=%d nivel cartucheira=%d"), b1, b2, b3,
+				Before, Hero->GetWeaponStats().MagazineSize, PC->GetCredits(), PC->GetItemLevel(TEXT("cartucheira")));
+			PressKey(EKeys::B, true); PressKey(EKeys::B, false);
+		}
+		break;
 	case 42:
 		if (Index == 3)
 		{
@@ -634,6 +648,11 @@ void AValdoriaGameMode::RunHeroTestStep()
 		}
 		break;
 	case 43:
+		if (Index == 1)
+		{
+			UE_LOG(LogValdoria, Display, TEXT("HEROTEST loja aberta com B: %d"), PC->IsShopOpen());
+			Shot(8);
+		}
 		if (Index == 3) { Shot(7); }
 		break;
 	default: break;

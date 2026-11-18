@@ -32,6 +32,7 @@
 #include "AbilitySystemBlueprintLibrary.h"
 #include "ValdoriaEffects.h"
 #include "ValdoriaWorldActors.h"
+#include "ValdoriaPlayerController.h"
 #include "EngineUtils.h"
 #include "UObject/ConstructorHelpers.h"
 
@@ -224,8 +225,8 @@ void AValdoriaHeroCharacter::ApplyHeroDefinition()
 
 	if (HasAuthority())
 	{
-		AbilitySystem->SetNumericAttributeBase(UValdoriaAttributeSet::GetMaxHealthAttribute(), Def->MaxHealth);
-		AbilitySystem->SetNumericAttributeBase(UValdoriaAttributeSet::GetHealthAttribute(), Def->MaxHealth);
+		AbilitySystem->SetNumericAttributeBase(UValdoriaAttributeSet::GetMaxHealthAttribute(), Def->MaxHealth + ShopBonus.MaxHealth);
+		AbilitySystem->SetNumericAttributeBase(UValdoriaAttributeSet::GetHealthAttribute(), Def->MaxHealth + ShopBonus.MaxHealth);
 		AbilitySystem->SetNumericAttributeBase(UValdoriaAttributeSet::GetMaxArmorAttribute(), Def->MaxArmor);
 		AbilitySystem->SetNumericAttributeBase(UValdoriaAttributeSet::GetArmorAttribute(), Def->MaxArmor);
 		AbilitySystem->SetNumericAttributeBase(UValdoriaAttributeSet::GetMaxShieldAttribute(), Def->MaxShield);
@@ -236,7 +237,8 @@ void AValdoriaHeroCharacter::ApplyHeroDefinition()
 	BreakStealth();
 	SlowFraction = BuffFraction = 0.f;
 	StatusEndTimes.Reset();
-	CurrentAmmo = Def->Weapon.MagazineSize;
+	RebuildBoostedWeapon();
+	CurrentAmmo = BoostedWeapon.MagazineSize;
 	bReloading = false;
 	CooldownEndTimes.Reset();
 	// O pawn pode ser possuído antes do BeginPlay (jogador entrando antes de o
@@ -282,7 +284,7 @@ const FValdoriaWeaponStats& AValdoriaHeroCharacter::GetWeaponStats() const
 	{
 		return WeaponOverride;
 	}
-	return ActiveDefinition ? ActiveDefinition->Weapon : Default;
+	return ActiveDefinition ? BoostedWeapon : Default;
 }
 
 float AValdoriaHeroCharacter::GetArmorDamageReduction() const
@@ -580,6 +582,11 @@ float AValdoriaHeroCharacter::GetCooldownRemaining(EValdoriaAbilitySlot Slot) co
 
 void AValdoriaHeroCharacter::StartCooldown(EValdoriaAbilitySlot Slot, float Seconds)
 {
+	// Redução de recarga da loja (o ritmo de tiro do botão esquerdo não muda).
+	if (Slot != EValdoriaAbilitySlot::PrimaryFire)
+	{
+		Seconds *= 1.f - FMath::Clamp(ShopBonus.CooldownReduction, 0.f, 0.6f);
+	}
 	CooldownEndTimes.Add(Slot, GetWorld()->GetTimeSeconds() + FMath::Max(0.f, Seconds));
 }
 
@@ -623,10 +630,36 @@ const FValdoriaPassiveRules& AValdoriaHeroCharacter::GetPassive() const
 	return ActiveDefinition ? ActiveDefinition->Passive : Default;
 }
 
-float AValdoriaHeroCharacter::GetPhysicalPower() const { return ActiveDefinition ? ActiveDefinition->PhysicalPower : 1.f; }
-float AValdoriaHeroCharacter::GetMagicPower() const { return ActiveDefinition ? ActiveDefinition->MagicPower : 1.f; }
-float AValdoriaHeroCharacter::GetPhysicalResistance() const { return ActiveDefinition ? ActiveDefinition->PhysicalResistance : 0.f; }
-float AValdoriaHeroCharacter::GetMagicResistance() const { return ActiveDefinition ? ActiveDefinition->MagicResistance : 0.f; }
+float AValdoriaHeroCharacter::GetPhysicalPower() const { return (ActiveDefinition ? ActiveDefinition->PhysicalPower : 1.f) + ShopBonus.PhysicalPower; }
+float AValdoriaHeroCharacter::GetMagicPower() const { return (ActiveDefinition ? ActiveDefinition->MagicPower : 1.f) + ShopBonus.MagicPower; }
+float AValdoriaHeroCharacter::GetPhysicalResistance() const { return (ActiveDefinition ? ActiveDefinition->PhysicalResistance : 0.f) + ShopBonus.PhysicalResistance; }
+float AValdoriaHeroCharacter::GetMagicResistance() const { return (ActiveDefinition ? ActiveDefinition->MagicResistance : 0.f) + ShopBonus.MagicResistance; }
+
+void AValdoriaHeroCharacter::RebuildBoostedWeapon()
+{
+	if (!ActiveDefinition)
+	{
+		return;
+	}
+	BoostedWeapon = ActiveDefinition->Weapon;
+	BoostedWeapon.MagazineSize = FMath::Max(1, FMath::RoundToInt(BoostedWeapon.MagazineSize * (1.f + ShopBonus.MagazineSize)));
+}
+
+void AValdoriaHeroCharacter::SetShopBonus(const FValdoriaShopBonus& Bonus)
+{
+	const float OldExtraHealth = ShopBonus.MaxHealth;
+	ShopBonus = Bonus;
+	RebuildBoostedWeapon();
+	UpdateMovementSpeed();
+	if (HasAuthority() && ActiveDefinition)
+	{
+		// Vida máxima nova; a vida atual sobe junto com o que foi ganho.
+		const float NewMax = ActiveDefinition->MaxHealth + ShopBonus.MaxHealth;
+		AbilitySystem->SetNumericAttributeBase(UValdoriaAttributeSet::GetMaxHealthAttribute(), NewMax);
+		AbilitySystem->SetNumericAttributeBase(UValdoriaAttributeSet::GetHealthAttribute(),
+			FMath::Clamp(GetHealth() + (ShopBonus.MaxHealth - OldExtraHealth), 1.f, NewMax));
+	}
+}
 
 float AValdoriaHeroCharacter::DealTypedDamage(AActor* Target, float BaseDamage, EValdoriaDamageType Type, float MagicShare, bool bHeadshot)
 {
@@ -658,7 +691,7 @@ float AValdoriaHeroCharacter::DealTypedDamage(AActor* Target, float BaseDamage, 
 	float Scale = 1.f;
 	if (bHeadshot)
 	{
-		Scale *= 1.f + Mine.HeadshotBonus;
+		Scale *= 1.f + Mine.HeadshotBonus + ShopBonus.HeadshotDamage;
 	}
 	if (Mine.BackstabMultiplier > 1.f)
 	{
@@ -703,7 +736,7 @@ void AValdoriaHeroCharacter::HealTarget(AActor* Target, float Amount)
 	FGameplayEffectSpecHandle Spec = AbilitySystem->MakeOutgoingSpec(UValdoriaHealEffect::StaticClass(), 1.f, AbilitySystem->MakeEffectContext());
 	if (Spec.IsValid())
 	{
-		Spec.Data->SetSetByCallerMagnitude(ValdoriaTags::Data_Heal, Amount);
+		Spec.Data->SetSetByCallerMagnitude(ValdoriaTags::Data_Heal, Amount * (1.f + ShopBonus.HealingPower));
 		AbilitySystem->ApplyGameplayEffectSpecToTarget(*Spec.Data.Get(), TargetASC);
 	}
 }
@@ -929,6 +962,18 @@ void AValdoriaHeroCharacter::OnDamageDealt(AValdoriaHeroCharacter* Victim, float
 		AbilitySystem->SetNumericAttributeBase(UValdoriaAttributeSet::GetUltimateChargeAttribute(), FMath::Min(Charge, ActiveDefinition->UltimateCost));
 	}
 	const bool bKill = Victim && Victim->GetHealth() <= 0.f;
+	// Loja: roubo de vida e créditos por dano/abate.
+	if (HasAuthority() && Victim && Victim != this)
+	{
+		if (ShopBonus.LifeSteal > 0.f)
+		{
+			HealTarget(this, Damage * ShopBonus.LifeSteal);
+		}
+		if (AValdoriaPlayerController* PC = Cast<AValdoriaPlayerController>(Controller))
+		{
+			PC->OnHeroDamageDealt(Damage, bKill);
+		}
+	}
 	ClientNotifyHit(Victim ? Victim->GetActorLocation() + FVector(0, 0, 60.f) : GetActorLocation(), Damage, bHeadshot, bKill);
 }
 
@@ -1227,7 +1272,7 @@ void AValdoriaHeroCharacter::UpdateMovementSpeed()
 	}
 	const FValdoriaMovementRules& Rules = GetMovementRules();
 	UCharacterMovementComponent* Move = GetCharacterMovement();
-	float Speed = ActiveDefinition->MoveSpeed * AdminSpeedMultiplier * (1.f - SlowFraction) * (1.f + BuffFraction);
+	float Speed = ActiveDefinition->MoveSpeed * AdminSpeedMultiplier * (1.f - SlowFraction) * (1.f + BuffFraction) * (1.f + ShopBonus.MoveSpeed);
 	if (bIsSprinting)
 	{
 		Speed *= Rules.SprintMultiplier;
