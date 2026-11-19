@@ -152,3 +152,43 @@ waves); fought Loki in seal form for the Brisingamen necklace; he and Loki are f
   he is immune to control and takes 30% less damage while blowing; everyone inside (allies, enemies, minions;
   never GS/GF/JG) jumps along a rainbow arc to the spot picked on the big map (anywhere outside buildings).
   Range: 40 m + up to 60 m per nearby Bifrost (base = whole map).
+
+### Heimdall - kit v2 (turn 46, owner's new ideas; replaces the draft above where they differ)
+- **Passive** adds: sees the silhouette of everyone riding ANY Bifrost, at any distance.
+- **C - O Olho que Tudo Vê** (owner): long cooldown (~90 s). For 3 s every enemy is revealed on the team's
+  minimap, and Heimdall sees all silhouettes through walls, all the way to the enemy base.
+- **3 - Chamado da Bifrost** (the old C): 40 s cooldown, victim rides 3 s. Its ELEVATION makes the ride go all
+  the way to the victim's base (the owner's original supreme A).
+- Destino de Ragnarök becomes the elevation of Gulltoppr (the first hero hit is marked for the duel).
+- Elevations (see the system below): LMB Machados -> bleed; RMB Cem Léguas -> heal cut (the "AC" stack);
+  1 Sentinela -> also reveals enemies hidden in fog areas; 2 Gulltoppr -> Destino de Ragnarök mark;
+  3 Chamado -> ride to the base; 4 Gjallarhorn -> allies land with a short shield.
+
+## System idea: Elevação (turn 46, owner's idea; needs the owner's OK before code)
+- During a match the hero gains levels (XP from minions, kills, assists and seals). Every few levels give one
+  **elevation point**. Each ability (LMB, RMB, 1, 2, 3, C, 4) can be elevated ONCE, and an elevated ability gains a
+  **second passive** (bleed, heal cut, reveal, longer effect...). A match ends with only part of the kit
+  elevated, so players build differently.
+- Data: one optional `Elevation` entry per ability in the hero Data Asset (text + effect), the owner fills them.
+
+## Map idea: Neblinas (fog/smoke areas, like bushes) (turn 46, owner)
+- Units inside are hidden from enemies outside (only seen within ~4 m), and see less themselves (sight cut
+  to ~8 m). Fits the team vision system (`UValdoriaVisionSubsystem`). Heimdall's sight and Sentinela elevation
+  reveal them.
+
+## Filho de Nazaré - Tank/Support (turn 46, owner's idea; mythology/Gospel stories, public domain)
+Approach (Claude's decision, owner agreed to let Claude decide): a **pacifist protector**. His power never kills:
+his damage cannot take an enemy hero below 1 HP (assists only), and he wins fights by healing, protecting and
+controlling. No crucifixion or sacrifice as a gameplay effect, no mockery, no weapon. White and earth-tone robe,
+soft golden light. Rationale: strong identity, and much less chance of the backlash other games got for gods of
+living religions (Smite, 2012). The owner keeps the final word on name, look and whether he ships.
+- **Passive - Dar a Outra Face**: damage he takes builds Graça; at full Graça his next ability is stronger.
+- **LMB - Luz**: short beam that pushes and slows enemies and heals allies it passes through.
+- **RMB - Acalmar a Tempestade**: area that removes control effects from allies and makes enemy projectiles
+  inside slower.
+- **1 - Multiplicação dos Pães**: drops baskets; each ally who takes one heals over time (shared, limited).
+- **2 - Caminhar sobre as Águas**: moves over gaps and water, ignores slows, short protection for himself.
+- **3 - Cura do Cego**: target ally is cleansed and sees hidden enemies (fog/stealth) for 5 s.
+- **C - Bem-aventuranças**: aura for 6 s, allies nearby take 20% less damage.
+- **4 - Levanta-te, Lázaro** (supreme): revives the most recently fallen ally where they died, or, if nobody
+  fell, a big heal plus a shield for all allies around him.
