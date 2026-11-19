@@ -41,7 +41,7 @@ public:
 
 	/** Heroes the bots pick from (preset ids). */
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Bots")
-	TArray<FName> BotHeroes = { TEXT("brasa"), TEXT("kael"), TEXT("iara"), TEXT("vex"), TEXT("lume"), TEXT("kay"), TEXT("ariel"), TEXT("heimdall") };
+	TArray<FName> BotHeroes = { TEXT("brasa"), TEXT("kael"), TEXT("iara"), TEXT("vex"), TEXT("lume"), TEXT("kay"), TEXT("ariel"), TEXT("heimdall"), TEXT("nazare") };
 };
 
 UCLASS()

@@ -194,7 +194,7 @@ void AValdoriaPlayerController::RunChatCommand(const FString& Command)
 		}
 		else
 		{
-			ChatPrint(TEXT("Heróis: /heroi brasa | kael | iara | vex | lume | kay | ariel | heimdall | recruta"), Bad);
+			ChatPrint(TEXT("Heróis: /heroi brasa | kael | iara | vex | lume | kay | ariel | heimdall | nazare | recruta"), Bad);
 		}
 	}
 	else if (Cmd == TEXT("modo") || Cmd == TEXT("mode"))

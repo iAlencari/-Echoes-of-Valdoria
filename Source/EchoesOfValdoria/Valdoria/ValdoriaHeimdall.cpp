@@ -65,56 +65,69 @@ void UValdoriaGA_BifrostCall::ActivateAbility(const FGameplayAbilitySpecHandle H
 {
 	VALDORIA_BEGIN();
 	StartCooldownAndCost(); // missing still costs the full cooldown (owner)
-	const FVector Fwd = FRotator(0.f, Hero->GetControlRotation().Yaw, 0.f).Vector();
+	FVector AimStart, AimDir;
+	Hero->GetAimRay(AimStart, AimDir);
+	const FVector Fwd = AimDir.GetSafeNormal2D().IsNearlyZero() ? Hero->GetActorForwardVector() : AimDir.GetSafeNormal2D();
 	const float ChargeTime = 0.55f;
-	const float Speed = GetRadius() / ChargeTime;
+	const float Length = GetRadius();
+	const FVector From = Hero->GetActorLocation();
+	const FVector To = From + Fwd * Length;
+	// Turn 48: ground friction stops the launch early, so the grab is decided along the whole charge line (like
+	// Gulltoppr): the first enemy hero on it (minions and guardians are passed through), reached after dist / speed.
+	AValdoriaHeroCharacter* Victim = nullptr;
+	float VictimDist = Length + 1.f;
+	for (TActorIterator<AValdoriaHeroCharacter> It(Hero->GetWorld()); It; ++It)
+	{
+		AValdoriaHeroCharacter* V = *It;
+		if (!Hero->IsEnemy(V) || V->IsDead() || V->IsMinionUnit() || V->IsGuardianUnit())
+		{
+			continue;
+		}
+		const FVector Closest = FMath::ClosestPointOnSegment(V->GetActorLocation(), From, To);
+		const float Along = FVector::Dist2D(Closest, From);
+		if (FVector::Dist(Closest, V->GetActorLocation()) < 170.f && Along < VictimDist)
+		{
+			Victim = V;
+			VictimDist = Along;
+		}
+	}
+	const float Speed = Length / ChargeTime;
 	Hero->LaunchCharacter(Fwd * Speed + FVector(0.f, 0.f, 120.f), true, true);
 	ValdoriaAudio::PlayAt(Hero, ValdoriaAudio::Load(TEXT("SciFi"), TEXT("forceField_000")), Hero->GetActorLocation(), 0.8f);
+	if (!Victim)
+	{
+		VALDORIA_END(); // missed: the full cooldown anyway (owner)
+		return;
+	}
 	const float Damage = GetMagnitude();
 	const float RideSeconds = GetDuration();
 	TWeakObjectPtr<AValdoriaHeroCharacter> WeakHero = Hero;
-	TSharedRef<float> Elapsed = MakeShared<float>(0.f);
-	TSharedRef<FTimerHandle> Timer = MakeShared<FTimerHandle>();
-	Hero->GetWorld()->GetTimerManager().SetTimer(*Timer, FTimerDelegate::CreateWeakLambda(Hero, [WeakHero, Elapsed, Timer, Fwd, Damage, RideSeconds, ChargeTime]()
+	TWeakObjectPtr<AValdoriaHeroCharacter> WeakVictim = Victim;
+	FTimerHandle Reach;
+	Hero->GetWorld()->GetTimerManager().SetTimer(Reach, FTimerDelegate::CreateWeakLambda(Hero, [WeakHero, WeakVictim, Fwd, Damage, RideSeconds]()
 	{
 		AValdoriaHeroCharacter* H = WeakHero.Get();
-		*Elapsed += 0.05f;
-		if (!H || H->IsDead() || *Elapsed > ChargeTime)
+		AValdoriaHeroCharacter* V = WeakVictim.Get();
+		if (!H || !V || H->IsDead() || V->IsDead())
 		{
-			if (H)
-			{
-				H->GetWorld()->GetTimerManager().ClearTimer(*Timer);
-			}
 			return;
 		}
-		// First enemy HERO touched (minions are passed through).
-		for (TActorIterator<AValdoriaHeroCharacter> It(H->GetWorld()); It; ++It)
+		H->GetCharacterMovement()->StopMovementImmediately();
+		H->DamageSourceLabel = TEXT("Chamado da Bifrost");
+		H->DealTypedDamage(V, Damage, EValdoriaDamageType::Magical, 1.f, false);
+		H->DamageSourceLabel.Reset();
+		// Thrown up and away (not a teleport); the nearest Bifrost "calls" the victim at the top of the arc.
+		V->ApplyStatus(EValdoriaStatus::Stunned, 0.8f);
+		V->LaunchCharacter(Fwd * 700.f + FVector(0.f, 0.f, 1300.f), true, true);
+		FTimerHandle Catch;
+		H->GetWorld()->GetTimerManager().SetTimer(Catch, FTimerDelegate::CreateWeakLambda(V, [WeakVictim, RideSeconds]()
 		{
-			AValdoriaHeroCharacter* Victim = *It;
-			if (!H->IsEnemy(Victim) || Victim->IsDead() || Victim->IsMinionUnit() || Victim->IsGuardianUnit() || FVector::Dist(Victim->GetActorLocation(), H->GetActorLocation()) > 220.f)
+			if (AValdoriaHeroCharacter* VV = WeakVictim.Get(); VV && !VV->IsDead())
 			{
-				continue;
+				VV->StartForcedRide(RideSeconds, 3500.f);
 			}
-			H->GetWorld()->GetTimerManager().ClearTimer(*Timer);
-			H->GetCharacterMovement()->StopMovementImmediately();
-			H->DamageSourceLabel = TEXT("Chamado da Bifrost");
-			H->DealTypedDamage(Victim, Damage, EValdoriaDamageType::Magical, 1.f, false);
-			H->DamageSourceLabel.Reset();
-			// Thrown up and away (not a teleport); the nearest Bifrost "calls" the victim at the top of the arc.
-			Victim->ApplyStatus(EValdoriaStatus::Stunned, 0.8f);
-			Victim->LaunchCharacter(Fwd * 700.f + FVector(0.f, 0.f, 1300.f), true, true);
-			TWeakObjectPtr<AValdoriaHeroCharacter> WeakVictim = Victim;
-			FTimerHandle Catch;
-			H->GetWorld()->GetTimerManager().SetTimer(Catch, FTimerDelegate::CreateWeakLambda(Victim, [WeakVictim, RideSeconds]()
-			{
-				if (AValdoriaHeroCharacter* V = WeakVictim.Get(); V && !V->IsDead())
-				{
-					V->StartForcedRide(RideSeconds, 3500.f);
-				}
-			}), 0.7f, false);
-			return;
-		}
-	}), 0.05f, true);
+		}), 0.7f, false);
+	}), FMath::Clamp(VictimDist / Speed, 0.05f, ChargeTime), false);
 	VALDORIA_END();
 }
 

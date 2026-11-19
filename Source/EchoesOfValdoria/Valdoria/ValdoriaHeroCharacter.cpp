@@ -1078,7 +1078,7 @@ float AValdoriaHeroCharacter::DealTypedDamage(AActor* Target, float BaseDamage, 
 	// Reductions stack multiplicatively and are capped at 75% so buffs never make anyone immortal.
 	const float BuffRed = GetWorld()->GetTimeSeconds() < Victim->BuffReductionUntil ? Victim->BuffReduction : 0.f;
 	const float Kept = FMath::Max(0.25f, (1.f - Victim->GetPassiveDamageReduction()) * (1.f - Victim->GetTeamDamageReduction())
-		* (1.f - BuffRed) * (1.f - Victim->RailGuardReduction));
+		* (1.f - BuffRed) * (1.f - Victim->RailGuardReduction) * (Victim->IsUngido() ? 0.9f : 1.f));
 	if (IsRiding() && IsRailGuardian())
 	{
 		Physical *= 0.7f; // Heimdall on a Bifrost: -30% damage (owner: so he does not camp on it)
@@ -1129,10 +1129,15 @@ float AValdoriaHeroCharacter::DealTypedDamage(AActor* Target, float BaseDamage, 
 	{
 		DealDamageTo(Victim, Total, bHeadshot);
 	}
+	if (Mine.ExecuteThreshold > 0.f && Victim->IsHeroUnit() && !Victim->IsDead() && Victim->GetHealth() > 0.f
+		&& Victim->GetHealth() <= Victim->GetMaxHealth() * Mine.ExecuteThreshold)
+	{
+		ExecuteEnemy(Victim);
+	}
 	// Turn 47 (owner): VAMPIRISMO heals from the basic attack and the V punch (weapon value + buffs, max 40%);
 	// ROUBO DE VIDA heals from abilities and passives (shop + buffs, max 30%). Caps are provisional.
-	const float Rate = bFromAbility ? FMath::Min(0.3f, ShopBonus.LifeSteal + BonusLifeSteal) * ValdoriaMultipliers::Get(GetWorld(), EValdoriaMult::LifeSteal)
-		: FMath::Min(0.4f, GetWeaponStats().LifeSteal + BonusVampirism) * ValdoriaMultipliers::Get(GetWorld(), EValdoriaMult::Vampirism);
+	const float Rate = bFromAbility ? FMath::Min(0.3f, ShopBonus.LifeSteal + BonusLifeSteal + (IsUngido() ? 0.1f : 0.f)) * ValdoriaMultipliers::Get(GetWorld(), EValdoriaMult::LifeSteal)
+		: FMath::Min(0.4f, GetWeaponStats().LifeSteal + BonusVampirism + (IsUngido() ? 0.2f : 0.f)) * ValdoriaMultipliers::Get(GetWorld(), EValdoriaMult::Vampirism);
 	if (Rate > 0.f)
 	{
 		HealTarget(this, Total * Rate);
@@ -1174,6 +1179,22 @@ void AValdoriaHeroCharacter::HealTarget(AActor* Target, float Amount)
 			}
 		}
 		Spec.Data->SetSetByCallerMagnitude(ValdoriaTags::Data_Heal, Healed);
+		// Comunhão (Nazaré's passive, owner): allies near him receive a part of every heal he receives.
+		static bool bSharing = false;
+		const float Share = Other->GetPassive().SharedReceivedHeal;
+		if (Share > 0.f && !bSharing && Healed > 0.f)
+		{
+			bSharing = true;
+			for (TActorIterator<AValdoriaHeroCharacter> It(GetWorld()); It; ++It)
+			{
+				if (*It != Other && !It->IsDead() && It->TeamId == Other->TeamId && It->IsHeroUnit()
+					&& FVector::Dist(It->GetActorLocation(), Other->GetActorLocation()) <= Other->GetPassive().Radius)
+				{
+					HealTarget(*It, Healed * Share / ValdoriaStatScale);
+				}
+			}
+			bSharing = false;
+		}
 		if (Target != this)
 		{
 			LastCombatTime = GetWorld()->GetTimeSeconds(); // healing others counts as general combat
@@ -1191,6 +1212,10 @@ void AValdoriaHeroCharacter::AddOverheal(float Amount, float Cap, float DecayPer
 void AValdoriaHeroCharacter::ApplySlow(float Fraction, float Seconds)
 {
 	const float Now = GetWorld()->GetTimeSeconds();
+	if (Now < SlowImmuneUntil)
+	{
+		return; // Caminhar sobre as Águas
+	}
 	SlowFraction = FMath::Clamp(FMath::Max(Fraction, Now < SlowEndTime ? SlowFraction : 0.f), 0.f, 0.9f);
 	SlowEndTime = FMath::Max(SlowEndTime, Now + Seconds);
 	UpdateMovementSpeed();
@@ -1432,7 +1457,7 @@ void AValdoriaHeroCharacter::TickStatusEffects(float DeltaSeconds)
 	// Minions and guardians have their own rules.
 	if (IsHeroUnit() && GetHealth() < GetMaxHealth() && !IsInPassiveCombat(5.f) && !IsInCombat(5.f))
 	{
-		HealTarget(this, OutOfCombatRegenHP * Step / ValdoriaStatScale);
+		HealTarget(this, OutOfCombatRegenHP * Step / ValdoriaStatScale * (IsUngido() ? 3.f : 1.f));
 	}
 	const FValdoriaPassiveRules& P = GetPassive();
 	if (P.DamageReductionPerAlly <= 0.f && P.AuraHealPerSecond <= 0.f && P.AllyDamageShare <= 0.f)
@@ -1880,6 +1905,119 @@ void AValdoriaHeroCharacter::SetNoclip(bool bEnable)
 	else
 	{
 		Move->SetMovementMode(MOVE_Falling);
+	}
+}
+
+void AValdoriaHeroCharacter::DealRawDamageTo(AActor* Target, float RealDamage)
+{
+	UAbilitySystemComponent* TargetASC = UAbilitySystemBlueprintLibrary::GetAbilitySystemComponent(Target);
+	if (!HasAuthority() || !TargetASC || RealDamage <= 0.f)
+	{
+		return;
+	}
+	FGameplayEffectContextHandle Context = AbilitySystem->MakeEffectContext();
+	Context.AddInstigator(this, this);
+	FGameplayEffectSpecHandle Spec = AbilitySystem->MakeOutgoingSpec(UValdoriaDamageEffect::StaticClass(), 1.f, Context);
+	if (Spec.IsValid())
+	{
+		Spec.Data->SetSetByCallerMagnitude(ValdoriaTags::Data_Damage, RealDamage);
+		AbilitySystem->ApplyGameplayEffectSpecToTarget(*Spec.Data.Get(), TargetASC);
+	}
+}
+
+bool AValdoriaHeroCharacter::IsInvulnerable() const
+{
+	return bGodMode || (GetWorld() && GetWorld()->GetTimeSeconds() < DamageImmuneUntil);
+}
+
+bool AValdoriaHeroCharacter::IsUngido() const
+{
+	return GetWorld() && GetWorld()->GetTimeSeconds() < UngidoUntil;
+}
+
+void AValdoriaHeroCharacter::Cleanse()
+{
+	StatusEndTimes.Empty();
+	SlowFraction = 0.f;
+	SlowEndTime = 0.f;
+	UpdateMovementSpeed();
+}
+
+bool AValdoriaHeroCharacter::TrySurviveLethal(float HitDamage)
+{
+	UWorld* W = GetWorld();
+	if (!W || bLastStandUsed || W->GetTimeSeconds() >= LastStandGuardUntil || HitDamage > GetMaxHealth() * 0.3f)
+	{
+		return false;
+	}
+	// Crucificado (owner): falls with 1 HP, takes 1 s to stand up, immune meanwhile; after that any damage kills.
+	bLastStandUsed = true;
+	DamageImmuneUntil = W->GetTimeSeconds() + 1.f;
+	StatusEndTimes.FindOrAdd(EValdoriaStatus::Stunned) = W->GetTimeSeconds() + 1.f;
+	return true;
+}
+
+void AValdoriaHeroCharacter::ExecuteEnemy(AValdoriaHeroCharacter* Victim)
+{
+	if (!HasAuthority() || !Victim || Victim->IsDead() || Victim->IsInvulnerable())
+	{
+		return; // damage immunity (Crucificado, god mode) also stops the execution
+	}
+	UWorld* W = GetWorld();
+	const float Now = W->GetTimeSeconds();
+	// Credit (owner, round 4): the ally who hurt this enemy most in the last 10 s lands the kill; he gets the assist.
+	AValdoriaHeroCharacter* Best = nullptr;
+	float BestDamage = 0.f;
+	for (TActorIterator<AValdoriaHeroCharacter> It(W); It; ++It)
+	{
+		AValdoriaHeroCharacter* A = *It;
+		if (A == this || A->IsDead() || A->TeamId != TeamId || !A->IsHeroUnit())
+		{
+			continue;
+		}
+		const FString Name = A->GetUnitName();
+		float Sum = 0.f;
+		for (const FDamageLogEntry& E : Victim->DamageLog)
+		{
+			if (E.Attacker == Name && Now - E.Time <= 10.f)
+			{
+				Sum += E.Amount;
+			}
+		}
+		if (Sum > BestDamage)
+		{
+			BestDamage = Sum;
+			Best = A;
+		}
+	}
+	AValdoriaHeroCharacter* Executor = Best ? Best : this;
+	Victim->LastStandGuardUntil = 0.f; // the execution is not a "hit" the Crucificado guard can save
+	Executor->DamageSourceLabel = TEXT("Deus do Velho Testamento");
+	Executor->DealRawDamageTo(Victim, Victim->GetHealth() + Victim->GetShield() + Victim->GetArmor() * 3.f + 100.f);
+	Executor->DamageSourceLabel.Reset();
+	if (!Victim->IsDead())
+	{
+		return;
+	}
+	PlayAreaEffect(Victim->GetActorLocation(), 300.f, FLinearColor(1.f, 0.88f, 0.55f));
+	// Heal: nearest ally within range heals 35% of missing health; nobody near -> himself.
+	const FValdoriaPassiveRules& Mine = GetPassive();
+	AValdoriaHeroCharacter* Healed = this;
+	float BestDist = Mine.ExecuteHealRadius;
+	for (TActorIterator<AValdoriaHeroCharacter> It(W); It; ++It)
+	{
+		AValdoriaHeroCharacter* A = *It;
+		const float D = FVector::Dist(A->GetActorLocation(), GetActorLocation());
+		if (A != this && !A->IsDead() && A->TeamId == TeamId && A->IsHeroUnit() && D <= BestDist)
+		{
+			BestDist = D;
+			Healed = A;
+		}
+	}
+	const float Missing = FMath::Max(0.f, Healed->GetMaxHealth() - Healed->GetHealth());
+	if (Mine.ExecuteHealMissing > 0.f && Missing > 0.f)
+	{
+		HealTarget(Healed, Missing * Mine.ExecuteHealMissing / ValdoriaStatScale);
 	}
 }
 

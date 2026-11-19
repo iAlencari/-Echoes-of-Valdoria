@@ -103,7 +103,11 @@ void UValdoriaAttributeSet::PostGameplayEffectExecute(const FGameplayEffectModCa
 		Damage = (Reduced - ArmorAbsorb) / FMath::Max(0.1f, 1.f - Reduction);
 	}
 
-	// 3) Vida.
+	// 3) Vida. (Crucificado: a lethal hit that is not big enough leaves the ally at 1 HP.)
+	if (Damage > 0.f && Damage >= GetHealth() && Target && Target->TrySurviveLethal(TotalDamage))
+	{
+		Damage = FMath::Max(0.f, GetHealth() - 1.f);
+	}
 	if (Damage > 0.f)
 	{
 		SetHealth(FMath::Clamp(GetHealth() - Damage, 0.f, GetMaxHealth()));

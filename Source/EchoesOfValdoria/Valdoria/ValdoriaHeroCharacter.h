@@ -78,7 +78,8 @@ public:
 
 	// --- Vida e morte
 	bool IsDead() const { return bIsDead; }
-	bool IsInvulnerable() const { return bGodMode; }
+	/** God mode (admin) or timed damage immunity (Crucificado, standing up after a saved lethal hit). */
+	bool IsInvulnerable() const;
 	virtual void HandleDeath(AValdoriaHeroCharacter* Killer);
 	virtual void OnDamageTaken(AValdoriaHeroCharacter* DamageInstigator, float Damage, bool bHeadshot);
 	virtual void OnDamageDealt(AValdoriaHeroCharacter* Victim, float Damage, bool bHeadshot);
@@ -325,6 +326,30 @@ public:
 	/** Temporary bonuses (buffs such as Ungido de Sangue): vampirism = basic attack and V, life steal = abilities. */
 	float BonusVampirism = 0.f;
 	float BonusLifeSteal = 0.f;
+
+	// Turn 48 (Filho de Nazaré and generic).
+	float DamageImmuneUntil = 0.f;
+	/** Ungido de Sangue (Cálice e Carne): 10% less damage, +10% life steal, +20% vampirism, +5% speed (speed buff),
+	 *  10% shorter cooldowns, 3x out-of-combat regeneration. */
+	float UngidoUntil = 0.f;
+	bool IsUngido() const;
+	float SlowImmuneUntil = 0.f;
+	/** Crucificado: while set, a lethal hit only kills if it dealt more than 30% of max health (once). */
+	float LastStandGuardUntil = 0.f;
+	bool bLastStandUsed = false;
+	/** True when the hit was absorbed: health stays at 1, 1 s immune and on the floor. */
+	bool TrySurviveLethal(float HitDamage);
+	/** Next respawn delay (seconds) instead of the mode formula; < 0 = use the formula. */
+	float RespawnOverride = -1.f;
+	/** Cálice e Carne channel. */
+	TWeakObjectPtr<AValdoriaHeroCharacter> ChaliceTarget;
+	FTimerHandle ChaliceTimer;
+	/** Removes control effects and slows. */
+	void Cleanse();
+	/** Deus do Velho Testamento: finishes Victim, credit to the ally who hurt it most, heal to the nearest ally. */
+	void ExecuteEnemy(AValdoriaHeroCharacter* Victim);
+	/** Damage already in real units (no stat scale, no multipliers). */
+	void DealRawDamageTo(AActor* Target, float RealDamage);
 
 	// Turn 47 (Heimdall and generic): control immunity, timed damage reduction, forced Bifrost ride.
 	float CCImmuneUntil = 0.f;

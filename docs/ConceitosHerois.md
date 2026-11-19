@@ -274,3 +274,15 @@ living religions (Smite, 2012). The owner keeps the final word on name, look and
   walls keep a bar: green full, yellow at half, red blinking under 25% with a heart icon (a cross-style "needs
   healing" icon for heroes who can heal). Support/tank heroes see icons of what they can offer (protection,
   damage share) when it is available.
+
+## Turn 48 - Filho de Nazaré "O Prometido" v1 in the game (`ValdoriaNazare.h/.cpp`, preset `nazare`, `DA_Nazare`)
+- Passive: execution at <=5% (golden blinking cross above the enemy bar for him), kill to the ally who hurt that
+  enemy most in the last 10 s, heal 35% of missing HP to the nearest ally within 12 m (else himself), Comunhão 10%.
+  Not yet: execution XP/gold to the ally who assisted most (kill credit only), feed effect to the HUD portrait,
+  overflow green shield with 5% DR.
+- LMB Luz (beam, 40 dps magic / 50 hps allies; no slow yet), RMB Acalmar a Tempestade (cleanse allies, silence
+  enemies 1.5 s; projectile slow not yet), 1 Cálice e Carne (channel 1%/0.25 s, Ungido de Sangue 7 s with all its
+  effects), 2 Multiplicação dos Pães (3 baskets, 60 HP over 4 s; placeholder cylinder look), 3 Caminhar sobre as
+  Águas (gliding dash, cleanse, slow immunity, 25% DR 2.5 s), C Rogai por Nós (kneel 2 s, 25% max HP),
+  4 Crucificado (3.5 s rise, immune, ally heals/pulses, 30% lethal-hit guard, dies and respawns in 3 s).
+- Elevations not yet. Look: mannequin placeholder, no weapon.

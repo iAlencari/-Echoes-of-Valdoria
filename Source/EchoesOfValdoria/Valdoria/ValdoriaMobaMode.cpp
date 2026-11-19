@@ -362,14 +362,16 @@ void AValdoriaMobaMode::OnHeroKilled(AValdoriaHeroCharacter* Victim, AValdoriaHe
 		// MOBA bots respawn at their base after the respawn delay (not where they died).
 		AValdoriaTrainingDummy* Bot = Cast<AValdoriaTrainingDummy>(Victim);
 		const FVector Home = Ground(Base[FMath::Clamp<int32>(Bot->TeamId, 0, 1)]);
+		const float BotDelay = Bot->RespawnOverride >= 0.f ? Bot->RespawnOverride : GetRespawnDelayFor(Bot) * ValdoriaMultipliers::Get(GetWorld(), EValdoriaMult::RespawnTime);
+		Bot->RespawnOverride = -1.f;
 		FTimerHandle Timer;
 		GetWorldTimerManager().SetTimer(Timer, FTimerDelegate::CreateWeakLambda(Bot, [Bot, Home]()
 		{
 			Bot->ResetCombatState();
 			Bot->TeleportTo(Home, Bot->GetActorRotation());
 			Bot->RestartAutopilotRoute();
-		}), GetRespawnDelayFor(Bot) * ValdoriaMultipliers::Get(GetWorld(), EValdoriaMult::RespawnTime), false);
-		Bot->RespawnAt = GetWorld()->GetTimeSeconds() + GetRespawnDelayFor(Bot) * ValdoriaMultipliers::Get(GetWorld(), EValdoriaMult::RespawnTime);
+		}), BotDelay, false);
+		Bot->RespawnAt = GetWorld()->GetTimeSeconds() + BotDelay;
 	}
 	else
 	{

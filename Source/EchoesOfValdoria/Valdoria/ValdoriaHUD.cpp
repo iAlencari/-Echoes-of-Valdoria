@@ -325,6 +325,16 @@ void AValdoriaHUD::DrawWorldHealthBars(AValdoriaHeroCharacter* Viewer)
 		if (bEnemy)
 		{
 			DrawSkull(X - 12.f * S, Y + BarH * 0.5f, 11.f * S, Color);
+			// Deus do Velho Testamento (Nazaré): an enemy hero in execution range shows a blinking golden cross.
+			const float Exec = Viewer ? Viewer->GetPassive().ExecuteThreshold : 0.f;
+			if (Exec > 0.f && Other->IsHeroUnit() && Frac <= Exec && Dist <= 2500.f)
+			{
+				const FLinearColor CrossColor = FLinearColor(1.f, 0.85f, 0.35f) * (0.5f + 0.5f * FMath::Abs(FMath::Sin(GetWorld()->GetTimeSeconds() * 8.f)));
+				const float Cx = Screen.X;
+				const float Cy = Y - 22.f * S;
+				DrawRect(Cx - 3.f * S, Cy - 14.f * S, 6.f * S, 26.f * S, CrossColor);
+				DrawRect(Cx - 10.f * S, Cy - 7.f * S, 20.f * S, 6.f * S, CrossColor);
+			}
 		}
 		else if (bAllyHero && Frac <= 0.25f)
 		{

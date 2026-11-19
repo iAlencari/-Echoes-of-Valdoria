@@ -9,6 +9,7 @@
 #include "Sound/SoundBase.h"
 #include "ValdoriaHeroAbilities.h"
 #include "ValdoriaHeimdall.h"
+#include "ValdoriaNazare.h"
 
 #define LOCTEXT_NAMESPACE "ValdoriaHeroes"
 
@@ -45,7 +46,7 @@ namespace
 
 TArray<FName> UValdoriaHeroDefinition::GetPresetIds()
 {
-	return { TEXT("brasa"), TEXT("kael"), TEXT("iara"), TEXT("vex"), TEXT("lume"), TEXT("kay"), TEXT("ariel"), TEXT("ariel_faisca"), TEXT("heimdall") };
+	return { TEXT("brasa"), TEXT("kael"), TEXT("iara"), TEXT("vex"), TEXT("lume"), TEXT("kay"), TEXT("ariel"), TEXT("ariel_faisca"), TEXT("heimdall"), TEXT("nazare") };
 }
 
 UValdoriaHeroDefinition* UValdoriaHeroDefinition::CreatePreset(UObject* Outer, FName PresetId)
@@ -446,6 +447,68 @@ bool UValdoriaHeroDefinition::ApplyPreset(FName PresetId)
 	// Ariel (created by Claude, turn 45): bigender, inspired by a gender-shifting character. C swaps the form.
 	// Owner: refer to Ariel by name (or "de Ariel"); refer to Kay only by name, never o/a.
 	// Forma Rocha (masculine): close-range bruiser. Forma Faísca (feminine): agile ranged energy.
+	if (Id == TEXT("nazare"))
+	{
+		// Turn 48: owner's hero (kit in docs/ConceitosHerois.md, kit v2 + round 4). Placeholder look: mannequin, no
+		// weapon (light from the hands). Presentation with reverence: light and ascension, no gore. Numbers provisional.
+		HeroId = TEXT("nazare");
+		DisplayName = LOCTEXT("NazareName", "Filho de Nazaré");
+		Description = LOCTEXT("NazareDesc", "O Prometido. Tanque e suporte: cura, protege e dá a própria vida pelo time, e não perdoa quem está por um fio.");
+		Roles.Add(EValdoriaHeroRole::Vanguard);
+		Roles.Add(EValdoriaHeroRole::Rearguard);
+		ThemeColor = FLinearColor(1.f, 0.88f, 0.55f);
+		MaxHealth = 350.f;
+		MaxArmor = 25.f;
+		MagicResistance = 0.1f;
+		MoveSpeed = 540.f;
+		MeshScale = 1.05f;
+		Mesh = TSoftObjectPtr<USkeletalMesh>(FSoftObjectPath(Manny));
+		Movement.ShiftMode = EValdoriaShiftMode::Sprint;
+		UltimateCost = 2000.f;
+		UltimateChargePerSecond = 5.f;
+
+		Weapon.WeaponName = LOCTEXT("NazareWeapon", "Luz");
+		Weapon.DamageType = EValdoriaDamageType::Magical;
+		Weapon.Damage = 4.f;          // per pulse: 10 pulses/s = 40 damage per second
+		Weapon.AllyHeal = 5.f;        // 50 healing per second on allies the beam touches
+		Weapon.FireRate = 10.f;
+		Weapon.bAutomatic = true;
+		Weapon.MagazineSize = 100;
+		Weapon.ReserveAmmo = 0;
+		Weapon.ReloadTime = 1.6f;
+		Weapon.Range = 1200.f;
+		Weapon.SpreadDegrees = 6.f;
+
+		PassiveName = LOCTEXT("NazarePassive", "Deus do Velho Testamento");
+		PassiveDescription = LOCTEXT("NazarePassiveDesc", "Um herói inimigo com 5% de vida ou menos que levar dano dele é executado (aparece uma cruz dourada piscando sobre ele). O abate vai para o aliado que mais feriu esse inimigo; ele fica com a assistência. Na execução, o aliado mais perto (até 12 m) recupera 35% da vida que falta; sem ninguém perto, ele mesmo. Comunhão: aliados perto dele recebem 10% de toda cura que ele recebe.");
+		Passive.Radius = 800.f;
+		Passive.ExecuteThreshold = 0.05f;
+		Passive.ExecuteHealMissing = 0.35f;
+		Passive.ExecuteHealRadius = 1200.f;
+		Passive.SharedReceivedHeal = 0.1f;
+
+		Add(this, EValdoriaAbilitySlot::PrimaryFire, UValdoriaGA_FireBeam::StaticClass(), LOCTEXT("NazareFire", "Luz"),
+			LOCTEXT("NazareFireDesc", "Feixe curto de luz (12 m): 40 de dano mágico por segundo nos inimigos e 50 de cura por segundo nos aliados que ele toca."));
+		FValdoriaAbilityEntry& Calm = Add(this, EValdoriaAbilitySlot::SecondaryFire, UValdoriaGA_CalmStorm::StaticClass(), LOCTEXT("NazareCalm", "Acalmar a Tempestade"),
+			LOCTEXT("NazareCalmDesc", "Onda de 7 m: aliados perdem todos os controles e lentidões; inimigos ficam silenciados (sem habilidades) por 1,5 s. Recarga de 12 s."));
+		Calm.Cooldown = 12.f; Calm.Radius = 700.f; Calm.Duration = 1.5f;
+		FValdoriaAbilityEntry& Chalice = Add(this, EValdoriaAbilitySlot::Ability1, UValdoriaGA_Chalice::StaticClass(), LOCTEXT("NazareChalice", "Cálice e Carne"),
+			LOCTEXT("NazareChaliceDesc", "Canaliza (aperte de novo para parar): a cada 0,25 s, 1% da sua vida máxima vai para o aliado mirado (até 12 m), sem nunca baixar de 1%. Você anda, mas não ataca. O aliado fica Ungido de Sangue por 7 s: 10% menos dano, +10% roubo de vida, +20% vampirismo, +5% velocidade, 10% menos recarga e regeneração fora de combate 3x mais rápida. Recarga de 10 s ao parar."));
+		Chalice.Cooldown = 10.f; Chalice.Radius = 1200.f; Chalice.Magnitude = 0.01f; Chalice.Duration = 7.f;
+		FValdoriaAbilityEntry& Bread = Add(this, EValdoriaAbilitySlot::Ability2, UValdoriaGA_Baskets::StaticClass(), LOCTEXT("NazareBread", "Multiplicação dos Pães"),
+			LOCTEXT("NazareBreadDesc", "Deixa 3 cestos à sua frente. Cada aliado que pega um recupera 60 de vida em 4 s. Os cestos duram 15 s. Recarga de 14 s."));
+		Bread.Cooldown = 14.f; Bread.Magnitude = 60.f; Bread.Duration = 4.f; Bread.SecondaryMagnitude = 3.f; Bread.Radius = 250.f;
+		FValdoriaAbilityEntry& Water = Add(this, EValdoriaAbilitySlot::Ability3, UValdoriaGA_WalkOnWater::StaticClass(), LOCTEXT("NazareWater", "Caminhar sobre as Águas"),
+			LOCTEXT("NazareWaterDesc", "Avança deslizando (atravessa vãos), tira os controles e lentidões, fica imune a lentidão e recebe 25% menos dano por 2,5 s. Recarga de 12 s."));
+		Water.Cooldown = 12.f; Water.Radius = 900.f; Water.Duration = 2.5f; Water.SecondaryMagnitude = 0.25f;
+		FValdoriaAbilityEntry& Pray = Add(this, EValdoriaAbilitySlot::AbilityExtra, UValdoriaGA_Pray::StaticClass(), LOCTEXT("NazarePray", "Rogai por Nós"),
+			LOCTEXT("NazarePrayDesc", "Ajoelha com as mãos para o céu por 2 s (não anda nem ataca) e recupera 25% da vida máxima. Recarga de 30 s."));
+		Pray.Cooldown = 30.f; Pray.Duration = 2.f; Pray.Magnitude = 0.25f;
+		FValdoriaAbilityEntry& Cross = Add(this, EValdoriaAbilitySlot::Ultimate, UValdoriaGA_Crucified::StaticClass(), LOCTEXT("NazareUlt", "Crucificado"),
+			LOCTEXT("NazareUltDesc", "Sobe aos céus por 3,5 s, imune a dano e a controle. Aliados a até 20 m curam 1,5% da vida máxima a cada 0,5 s (o dobro abaixo de 25%), e a cada 2 s um pulso cura 5% e tira os controles. Enquanto dura, um golpe fatal só mata um aliado se tirar mais de 30% da vida máxima dele; senão ele cai com 1 de vida e leva 1 s para levantar, imune. No fim, ele morre e volta na base 3 s depois."));
+		Cross.Duration = 3.5f; Cross.Radius = 2000.f; Cross.Magnitude = 0.015f; Cross.SecondaryMagnitude = 0.05f;
+		return true;
+	}
 	if (Id == TEXT("heimdall"))
 	{
 		// Turn 47: owner's hero, kit decided with Claude (docs/ConceitosHerois.md). Placeholder look: mannequin + hammer

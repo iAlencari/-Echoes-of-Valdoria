@@ -233,6 +233,22 @@ struct FValdoriaPassiveRules
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Passiva|Aliados", meta = (ClampMin = "0", ClampMax = "1"))
 	float AllyDamageShare = 0.f;
 
+	/** Turn 48 (Nazaré, Deus do Velho Testamento): an enemy hero at or below this fraction of max health who takes
+	 *  this hero's damage is executed (0 = off). The kill goes to the ally who hurt that enemy most. */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Passiva|Execução", meta = (ClampMin = "0", ClampMax = "1"))
+	float ExecuteThreshold = 0.f;
+
+	/** On execution, the nearest ally (within ExecuteHealRadius, else himself) heals this fraction of missing health. */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Passiva|Execução", meta = (ClampMin = "0", ClampMax = "1"))
+	float ExecuteHealMissing = 0.f;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Passiva|Execução", meta = (ClampMin = "0"))
+	float ExecuteHealRadius = 1200.f;
+
+	/** Comunhão: allies within Radius receive this fraction of every heal this hero receives. */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Passiva|Aliados", meta = (ClampMin = "0", ClampMax = "1"))
+	float SharedReceivedHeal = 0.f;
+
 	/** Cura por segundo em você e nos aliados perto. */
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Passiva|Aura", meta = (ClampMin = "0"))
 	float AuraHealPerSecond = 0.f;

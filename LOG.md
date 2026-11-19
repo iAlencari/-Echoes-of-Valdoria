@@ -669,3 +669,16 @@ Owner batch ("deixa pra compilar no final"): everything written first, one build
   sky, team 253, plus three golden ring pulses and a sound). `UValdoriaGA_Gjallarhorn::PickLanding`.
 - **Prompts** for reference videos (articulated mannequin) and the axe/horn models: `docs/PromptsVideo.md`.
 - **NOT COMPILED / NOT TESTED**: Deadlock was open (owner rule). Build and run `-ValdoriaHeroTest` next.
+
+### Turn 48b - Claude Code - 2026-11-19 (Filho de Nazaré v1, Chamado da Bifrost fix, review)
+- Turn 48 compiled and tested: hero test OK, multipliers file read in game. Unity-build clash fixed (`MaxLevel` in
+  progression -> `MaxHeroLevel`).
+- **Filho de Nazaré v1** (see docs/ConceitosHerois.md turn 48). Generic pieces: `DamageImmuneUntil`
+  (`IsInvulnerable`), `UngidoUntil`, `SlowImmuneUntil`, `LastStandGuardUntil` + `TrySurviveLethal` (attribute set),
+  `RespawnOverride`, `Cleanse`, `ExecuteEnemy`, `DealRawDamageTo`; passive fields `ExecuteThreshold`,
+  `ExecuteHealMissing`, `ExecuteHealRadius`, `SharedReceivedHeal`. In hero test, chat, picker, deathmatch bots.
+- **Chamado da Bifrost**: grab decided along the whole charge line (ground friction stopped the launch before the
+  target, so it missed the dummy in the hero test).
+- Review fixes: execution respects damage immunity; Crucificado rooted while rising; Caminhar sobre as Águas gravity.
+- Nazaré test was stopped (owner's brother using the PC). **Last fixes not compiled yet**: build + `-ValdoriaHeroTest`
+  + MOBA with `-ValdoriaHero=nazare` next.

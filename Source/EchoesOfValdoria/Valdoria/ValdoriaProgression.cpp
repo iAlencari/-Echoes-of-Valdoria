@@ -17,7 +17,7 @@
 namespace
 {
 	const int32 UltRankLevels[5] = { 5, 9, 13, 16, 20 };
-	constexpr int32 MaxLevel = 20;
+	constexpr int32 MaxHeroLevel = 20;
 	constexpr float PowerPerRank = 0.06f;    // +6% damage/heal per upgrade (Claude, provisional)
 	constexpr float CooldownPerRank = 0.05f; // -5% cooldown per upgrade (Claude, provisional)
 }
@@ -104,13 +104,13 @@ float AValdoriaHeroCharacter::XPToNextLevel() const
 
 void AValdoriaHeroCharacter::GainXP(float Amount)
 {
-	if (!bUsesLevels || Amount <= 0.f || Level >= MaxLevel)
+	if (!bUsesLevels || Amount <= 0.f || Level >= MaxHeroLevel)
 	{
 		return;
 	}
 	XP += Amount * ValdoriaMultipliers::Get(GetWorld(), EValdoriaMult::Experience);
 	bool bLevelled = false;
-	while (Level < MaxLevel && XP >= XPToNextLevel())
+	while (Level < MaxHeroLevel && XP >= XPToNextLevel())
 	{
 		XP -= XPToNextLevel();
 		++Level;
@@ -121,7 +121,7 @@ void AValdoriaHeroCharacter::GainXP(float Amount)
 		}
 		bLevelled = true;
 	}
-	if (Level >= MaxLevel)
+	if (Level >= MaxHeroLevel)
 	{
 		XP = 0.f;
 	}

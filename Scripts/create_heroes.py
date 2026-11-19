@@ -1,7 +1,7 @@
 # Cria (ou atualiza) os arquivos dos heróis prontos e o que eles usam:
 #  - ícones do HUD (recortados da imagem do dono, em RawContent/Icons) -> /Game/Valdoria/UI/Icons
 #  - material de energia translúcido (barreira, zonas, projéteis) -> /Game/Valdoria/Materials
-#  - Data Assets DA_Brasa, DA_Kael, DA_Iara, DA_Vex, DA_Lume, DA_Kay, DA_Ariel, DA_ArielFaisca, DA_Heimdall -> /Game/Valdoria/Heroes
+#  - Data Assets DA_Brasa, DA_Kael, DA_Iara, DA_Vex, DA_Lume, DA_Kay, DA_Ariel, DA_ArielFaisca, DA_Heimdall, DA_Nazare -> /Game/Valdoria/Heroes
 # Rodar:  UnrealEditor-Cmd.exe EchoesOfValdoria.uproject -run=pythonscript -script="Scripts/create_heroes.py"
 # Se um DA_ já existir ele NÃO é sobrescrito (para não apagar o balanceamento feito no editor),
 # a não ser que a variável de ambiente VALDORIA_RESET_HEROES=1 esteja definida.
@@ -77,7 +77,7 @@ eal.make_directory("/Game/Valdoria/Heroes")
 # Turn 45 (owner): not every hero lies down (X). Edit this table, or override with
 # VALDORIA_NO_PRONE=lume,vex (turn off) / VALDORIA_PRONE=lume (turn on). Applied on every run.
 CAN_PRONE = {"brasa": True, "kael": True, "iara": True, "vex": True, "lume": False,
-             "kay": True, "ariel": True, "ariel_faisca": True, "heimdall": True}
+             "kay": True, "ariel": True, "ariel_faisca": True, "heimdall": True, "nazare": True}
 for h in os.environ.get("VALDORIA_NO_PRONE", "").split(","):
     if h.strip():
         CAN_PRONE[h.strip().lower()] = False
@@ -97,7 +97,7 @@ def apply_prone(asset, hero_id):
 
 
 HEROES = (("brasa", "DA_Brasa"), ("kael", "DA_Kael"), ("iara", "DA_Iara"), ("vex", "DA_Vex"), ("lume", "DA_Lume"),
-          ("kay", "DA_Kay"), ("ariel", "DA_Ariel"), ("ariel_faisca", "DA_ArielFaisca"), ("heimdall", "DA_Heimdall"))
+          ("kay", "DA_Kay"), ("ariel", "DA_Ariel"), ("ariel_faisca", "DA_ArielFaisca"), ("heimdall", "DA_Heimdall"), ("nazare", "DA_Nazare"))
 for hero_id, asset_name in HEROES:
     path = "/Game/Valdoria/Heroes/" + asset_name
     if eal.does_asset_exist(path) and not reset and hero_id not in reset_some:

@@ -41,10 +41,10 @@ float UValdoriaGameplayAbility::GetEffectiveCooldown() const
 		{
 			if (Entry->Cooldown > 0.f)
 			{
-				return Entry->Cooldown * Hero->GetRankCooldownMultiplier(GetSlot()) * ValdoriaMultipliers::Get(Hero->GetWorld(), EValdoriaMult::Cooldown);
+				return Entry->Cooldown * Hero->GetRankCooldownMultiplier(GetSlot()) * ValdoriaMultipliers::Get(Hero->GetWorld(), EValdoriaMult::Cooldown) * (Hero->IsUngido() ? 0.9f : 1.f);
 			}
 		}
-		return DefaultCooldown * Hero->GetRankCooldownMultiplier(GetSlot()) * ValdoriaMultipliers::Get(Hero->GetWorld(), EValdoriaMult::Cooldown);
+		return DefaultCooldown * Hero->GetRankCooldownMultiplier(GetSlot()) * ValdoriaMultipliers::Get(Hero->GetWorld(), EValdoriaMult::Cooldown) * (Hero->IsUngido() ? 0.9f : 1.f);
 	}
 	return DefaultCooldown;
 }
