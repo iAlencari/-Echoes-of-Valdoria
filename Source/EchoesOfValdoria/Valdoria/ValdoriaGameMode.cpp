@@ -1,6 +1,7 @@
 // Echoes of Valdoria - modo de jogo de treino.
 
 #include "ValdoriaGameMode.h"
+#include "ValdoriaMultipliers.h"
 #include "EngineUtils.h"
 #include "Animation/AnimInstance.h"
 #include "Animation/AnimSequenceBase.h"
@@ -560,7 +561,7 @@ void AValdoriaGameMode::OnHeroKilled(AValdoriaHeroCharacter* Victim, AValdoriaHe
 	{
 		FTimerHandle Handle;
 		FTimerDelegate Delegate = FTimerDelegate::CreateUObject(this, &AValdoriaGameMode::RespawnPlayer, Controller);
-		const float Delay = GetRespawnDelayFor(Victim);
+		const float Delay = GetRespawnDelayFor(Victim) * ValdoriaMultipliers::Get(GetWorld(), EValdoriaMult::RespawnTime);
 		Victim->RespawnAt = GetWorld()->GetTimeSeconds() + Delay;
 		GetWorldTimerManager().SetTimer(Handle, Delegate, Delay, false);
 	}

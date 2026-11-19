@@ -658,3 +658,14 @@ Owner batch ("deixa pra compilar no final"): everything written first, one build
   `BuffReduction`, `RevealUnit`, `StartForcedRide`, `RailLockouts`, `LaneRail::DistanceToPoint`.
 - TODO Heimdall: big-map landing picker for Gjallarhorn (now crosshair), enemy warning marker 1 s before, axe mesh
   (hammer placeholder), surf riding pose, RMB reveal, elevations. Filho de Nazaré: next.
+
+### Turn 48 - Claude Code - 2026-11-19 (global multipliers, Gjallarhorn warning mark, video prompts)
+- **Global multipliers per mode** (`ValdoriaMultipliers.h/.cpp`, owner file `Config/Multiplicadores.ini`): `[Todos]`
+  x `[Modo N]`, anything missing = 1.0. Mode ids: 0 Campo de Treino, 1 Treino em Nova Paulicéia, 2 Mata-mata,
+  3 MOBA. Keys: Dano, DanoFisico, DanoMagico, DanoAtaqueBasico, DanoHabilidades, Cura, Vampirismo, RouboDeVida,
+  Vida, Armadura, Escudo, VidaGuardioes, Recarga, CargaUltimate, Velocidade, Ouro, Experiencia, TempoRenascer.
+  Admin panel: "Recarregar multiplicadores". (The ini is a plain file read at runtime; packaging will need it staged.)
+- **Gjallarhorn**: the landing spot is locked 1 s before the jump and marked for everyone (rainbow column from the
+  sky, team 253, plus three golden ring pulses and a sound). `UValdoriaGA_Gjallarhorn::PickLanding`.
+- **Prompts** for reference videos (articulated mannequin) and the axe/horn models: `docs/PromptsVideo.md`.
+- **NOT COMPILED / NOT TESTED**: Deadlock was open (owner rule). Build and run `-ValdoriaHeroTest` next.

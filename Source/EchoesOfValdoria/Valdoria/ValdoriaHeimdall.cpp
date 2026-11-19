@@ -141,6 +141,32 @@ float UValdoriaGA_Gjallarhorn::RangeFrom(const UWorld* World, const FVector& Whe
 	return FMath::Min(Range, 30000.f);
 }
 
+FVector UValdoriaGA_Gjallarhorn::PickLanding(AValdoriaHeroCharacter* H)
+{
+	// Where the crosshair points, clamped to the range, snapped to a walkable street.
+	UWorld* W = H->GetWorld();
+	const FVector From = H->GetActorLocation();
+	FVector Start, Dir;
+	H->GetAimRay(Start, Dir);
+	const float Range = RangeFrom(W, From);
+	FHitResult Hit;
+	FCollisionQueryParams Params(SCENE_QUERY_STAT(ValdoriaHorn), false, H);
+	FVector Target = W->LineTraceSingleByChannel(Hit, Start, Start + Dir * Range, ECC_WorldStatic, Params) ? Hit.ImpactPoint : Start + Dir * Range;
+	if (FVector::Dist2D(Target, From) > Range)
+	{
+		Target = From + (Target - From).GetSafeNormal2D() * Range;
+	}
+	if (UNavigationSystemV1* Nav = FNavigationSystem::GetCurrent<UNavigationSystemV1>(W))
+	{
+		FNavLocation Snap;
+		if (Nav->ProjectPointToNavigation(Target, Snap, FVector(1500.f, 1500.f, 3000.f)))
+		{
+			Target = Snap.Location; // inside a building -> nearest street
+		}
+	}
+	return Target;
+}
+
 void UValdoriaGA_Gjallarhorn::ActivateAbility(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo,
 	const FGameplayAbilityActivationInfo ActivationInfo, const FGameplayEventData* TriggerEventData)
 {
@@ -158,8 +184,51 @@ void UValdoriaGA_Gjallarhorn::ActivateAbility(const FGameplayAbilitySpecHandle H
 	Hero->PlayAreaEffect(Hero->GetActorLocation(), Area, FLinearColor(1.f, 0.85f, 0.4f));
 	ValdoriaAudio::PlayAt(Hero, ValdoriaAudio::Load(TEXT("SciFi"), TEXT("lowFrequency_explosion_000")), Hero->GetActorLocation(), 1.f);
 	TWeakObjectPtr<AValdoriaHeroCharacter> WeakHero = Hero;
+	// Turn 48 (owner): the landing spot is locked 1 s before the jump and marked for everyone (enemies and allies
+	// near it can see it and react): a column of rainbow light comes down from the sky plus pulsing rings.
+	TSharedRef<FVector> Landing = MakeShared<FVector>(Hero->GetActorLocation());
+	const float MarkLead = FMath::Min(1.f, Horn * 0.9f);
+	FTimerHandle MarkTimer;
+	World->GetTimerManager().SetTimer(MarkTimer, FTimerDelegate::CreateWeakLambda(Hero, [WeakHero, Area, Landing, MarkLead]()
+	{
+		AValdoriaHeroCharacter* H = WeakHero.Get();
+		if (!H || H->IsDead())
+		{
+			return;
+		}
+		UWorld* W = H->GetWorld();
+		*Landing = PickLanding(H);
+		const FVector Spot = *Landing;
+		// Rainbow column from the sky (team 253: nobody can mount it), gone right after the jump.
+		TArray<FVector> Column;
+		for (int32 i = 0; i <= 6; ++i)
+		{
+			Column.Add(Spot + FVector(0.f, 0.f, 6000.f * (1.f - i / 6.f) + 30.f));
+		}
+		FActorSpawnParameters P;
+		P.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
+		if (AValdoriaLaneRail* Beam = W->SpawnActor<AValdoriaLaneRail>(AValdoriaLaneRail::StaticClass(), Spot, FRotator::ZeroRotator, P))
+		{
+			Beam->Setup(253, TEXT("Gjallarhorn - destino"), Column, FLinearColor::White);
+			Beam->SetLifeSpan(MarkLead + 0.6f);
+		}
+		// Rings on the ground, three pulses during the warning.
+		for (int32 i = 0; i < 3; ++i)
+		{
+			FTimerHandle Pulse;
+			W->GetTimerManager().SetTimer(Pulse, FTimerDelegate::CreateWeakLambda(H, [WeakHero, Spot, Area]()
+			{
+				if (AValdoriaHeroCharacter* HH = WeakHero.Get())
+				{
+					HH->PlayAreaEffect(Spot, Area, FLinearColor(1.f, 0.85f, 0.4f));
+				}
+			}), 0.01f + i * MarkLead / 3.f, false);
+		}
+		ValdoriaAudio::PlayAt(H, ValdoriaAudio::Load(TEXT("SciFi"), TEXT("forceField_000")), Spot, 1.f);
+	}), FMath::Max(0.05f, Horn - MarkLead), false);
+
 	FTimerHandle Timer;
-	World->GetTimerManager().SetTimer(Timer, FTimerDelegate::CreateWeakLambda(Hero, [WeakHero, Area]()
+	World->GetTimerManager().SetTimer(Timer, FTimerDelegate::CreateWeakLambda(Hero, [WeakHero, Area, Landing]()
 	{
 		AValdoriaHeroCharacter* H = WeakHero.Get();
 		if (!H || H->IsDead())
@@ -168,25 +237,7 @@ void UValdoriaGA_Gjallarhorn::ActivateAbility(const FGameplayAbilitySpecHandle H
 		}
 		UWorld* W = H->GetWorld();
 		const FVector From = H->GetActorLocation();
-		// Landing spot: where the crosshair points, clamped to the range, snapped to a walkable street.
-		FVector Start, Dir;
-		H->GetAimRay(Start, Dir);
-		const float Range = RangeFrom(W, From);
-		FHitResult Hit;
-		FCollisionQueryParams Params(SCENE_QUERY_STAT(ValdoriaHorn), false, H);
-		FVector Target = W->LineTraceSingleByChannel(Hit, Start, Start + Dir * Range, ECC_WorldStatic, Params) ? Hit.ImpactPoint : Start + Dir * Range;
-		if (FVector::Dist2D(Target, From) > Range)
-		{
-			Target = From + (Target - From).GetSafeNormal2D() * Range;
-		}
-		if (UNavigationSystemV1* Nav = FNavigationSystem::GetCurrent<UNavigationSystemV1>(W))
-		{
-			FNavLocation Snap;
-			if (Nav->ProjectPointToNavigation(Target, Snap, FVector(1500.f, 1500.f, 3000.f)))
-			{
-				Target = Snap.Location; // inside a building -> nearest street
-			}
-		}
+		const FVector Target = *Landing; // locked when the mark appeared
 		// Everyone inside the area goes (allies, enemies, minions); never guardians or training targets.
 		TArray<AValdoriaHeroCharacter*> Riders;
 		for (TActorIterator<AValdoriaHeroCharacter> It(W); It; ++It)

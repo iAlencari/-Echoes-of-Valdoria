@@ -1,6 +1,7 @@
 // Echoes of Valdoria - 6v6 MOBA with Guardian Spots.
 
 #include "ValdoriaMobaMode.h"
+#include "ValdoriaMultipliers.h"
 #include "ValdoriaFog.h"
 #include "EngineUtils.h"
 #include "GameFramework/PlayerStart.h"
@@ -367,8 +368,8 @@ void AValdoriaMobaMode::OnHeroKilled(AValdoriaHeroCharacter* Victim, AValdoriaHe
 			Bot->ResetCombatState();
 			Bot->TeleportTo(Home, Bot->GetActorRotation());
 			Bot->RestartAutopilotRoute();
-		}), GetRespawnDelayFor(Bot), false);
-		Bot->RespawnAt = GetWorld()->GetTimeSeconds() + GetRespawnDelayFor(Bot);
+		}), GetRespawnDelayFor(Bot) * ValdoriaMultipliers::Get(GetWorld(), EValdoriaMult::RespawnTime), false);
+		Bot->RespawnAt = GetWorld()->GetTimeSeconds() + GetRespawnDelayFor(Bot) * ValdoriaMultipliers::Get(GetWorld(), EValdoriaMult::RespawnTime);
 	}
 	else
 	{

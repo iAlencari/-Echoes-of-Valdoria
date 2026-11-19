@@ -1,6 +1,7 @@
 // Echoes of Valdoria - loja de melhorias (tecla B): catálogo e tela.
 
 #include "ValdoriaShop.h"
+#include "ValdoriaMultipliers.h"
 #include "Engine/Engine.h"
 #include "Engine/GameViewportClient.h"
 #include "Styling/CoreStyle.h"
@@ -128,7 +129,7 @@ UValdoriaShopCatalog* AValdoriaPlayerController::GetShopCatalog()
 void AValdoriaPlayerController::AddCredits(float Amount)
 {
 	GetShopCatalog();
-	Credits = FMath::Max(0.f, Credits + Amount);
+	Credits = FMath::Max(0.f, Credits + (Amount > 0.f ? Amount * ValdoriaMultipliers::Get(GetWorld(), EValdoriaMult::Gold) : Amount));
 }
 
 void AValdoriaPlayerController::OnHeroDamageDealt(float Damage, bool bKill)

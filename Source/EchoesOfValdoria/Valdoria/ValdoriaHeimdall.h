@@ -6,13 +6,15 @@
 //  - Gjallarhorn (4): horn for 1.5 s (control immune, 30% less damage, slower, no attacks); the area moves with him;
 //    at the end everyone inside (allies, enemies, minions; never guardians) jumps along a rainbow arc to the aimed
 //    spot. Range grows near the Bifrosts. (First version: the spot is aimed with the crosshair; the big-map picker
-//    comes next.)
+//    comes next.) Turn 48: the spot is locked 1 s before and marked for everyone (rainbow column + rings).
 
 #pragma once
 
 #include "CoreMinimal.h"
 #include "ValdoriaGameplayAbility.h"
 #include "ValdoriaHeimdall.generated.h"
+
+class AValdoriaHeroCharacter;
 
 UCLASS()
 class ECHOESOFVALDORIA_API UValdoriaGA_RevealPulse : public UValdoriaGameplayAbility
@@ -44,4 +46,6 @@ public:
 		const FGameplayAbilityActivationInfo ActivationInfo, const FGameplayEventData* TriggerEventData) override;
 	/** Jump range from a spot: 40 m + up to 60 m per Bifrost within 30 m (closer = more), max 300 m. */
 	static float RangeFrom(const UWorld* World, const FVector& Where);
+	/** Landing spot from the crosshair (range-clamped, snapped to the navmesh). Locked 1 s before the jump. */
+	static FVector PickLanding(AValdoriaHeroCharacter* H);
 };

@@ -1,6 +1,7 @@
 // Echoes of Valdoria - MOBA spots (guardian bosses).
 
 #include "ValdoriaGuardian.h"
+#include "ValdoriaMultipliers.h"
 #include "EngineUtils.h"
 #include "TimerManager.h"
 #include "ValdoriaAttributeSet.h"
@@ -57,8 +58,8 @@ void AValdoriaGuardian::BeginPlay()
 	}
 	if (HasAuthority())
 	{
-		AbilitySystem->SetNumericAttributeBase(UValdoriaAttributeSet::GetMaxHealthAttribute(), GuardianHealth * ValdoriaStatScale);
-		AbilitySystem->SetNumericAttributeBase(UValdoriaAttributeSet::GetHealthAttribute(), GuardianHealth * ValdoriaStatScale);
+		AbilitySystem->SetNumericAttributeBase(UValdoriaAttributeSet::GetMaxHealthAttribute(), GuardianHealth * ValdoriaStatScale * ValdoriaMultipliers::Get(GetWorld(), EValdoriaMult::GuardianHealth));
+		AbilitySystem->SetNumericAttributeBase(UValdoriaAttributeSet::GetHealthAttribute(), GuardianHealth * ValdoriaStatScale * ValdoriaMultipliers::Get(GetWorld(), EValdoriaMult::GuardianHealth));
 	}
 	bNoAutoHeal = true;
 	SetAutopilot(true, 0.6f);
@@ -73,7 +74,7 @@ void AValdoriaGuardian::ScheduleRevive()
 		GetWorldTimerManager().SetTimer(Timer, FTimerDelegate::CreateWeakLambda(this, [this]()
 		{
 			Revive();
-			AbilitySystem->SetNumericAttributeBase(UValdoriaAttributeSet::GetHealthAttribute(), GuardianHealth * ValdoriaStatScale);
+			AbilitySystem->SetNumericAttributeBase(UValdoriaAttributeSet::GetHealthAttribute(), GuardianHealth * ValdoriaStatScale * ValdoriaMultipliers::Get(GetWorld(), EValdoriaMult::GuardianHealth));
 		}), RespawnSeconds, false);
 	}
 }
@@ -133,8 +134,8 @@ void AValdoriaGuardian::SetupSpot(uint8 Team, float Radius)
 	SetLeash(GetActorLocation(), AreaRadius);
 	if (HasAuthority())
 	{
-		AbilitySystem->SetNumericAttributeBase(UValdoriaAttributeSet::GetMaxHealthAttribute(), GuardianHealth * ValdoriaStatScale);
-		AbilitySystem->SetNumericAttributeBase(UValdoriaAttributeSet::GetHealthAttribute(), GuardianHealth * ValdoriaStatScale);
+		AbilitySystem->SetNumericAttributeBase(UValdoriaAttributeSet::GetMaxHealthAttribute(), GuardianHealth * ValdoriaStatScale * ValdoriaMultipliers::Get(GetWorld(), EValdoriaMult::GuardianHealth));
+		AbilitySystem->SetNumericAttributeBase(UValdoriaAttributeSet::GetHealthAttribute(), GuardianHealth * ValdoriaStatScale * ValdoriaMultipliers::Get(GetWorld(), EValdoriaMult::GuardianHealth));
 	}
 }
 void AValdoriaGuardian::StrikeRiders()
@@ -322,7 +323,7 @@ void AValdoriaGuardian::GiveTeamCredits(uint8 Team, float Near, float Far) const
 		{
 			PC->AddCredits(Amount);
 		}
-		H->Stats.Gold += Amount;
+		H->Stats.Gold += Amount * ValdoriaMultipliers::Get(GetWorld(), EValdoriaMult::Gold);
 		H->GainXP(Amount * 1.5f);
 	}
 }
@@ -449,7 +450,7 @@ void AValdoriaGuardian::TickSpotState(float DeltaSeconds)
 		if (Linked != LinkedSpots)
 		{
 			LinkedSpots = Linked;
-			const float NewMax = (GuardianHealth + PerSpotHealth * Linked) * ValdoriaStatScale;
+			const float NewMax = (GuardianHealth + PerSpotHealth * Linked) * ValdoriaStatScale * ValdoriaMultipliers::Get(GetWorld(), EValdoriaMult::GuardianHealth);
 			const float Frac = GetHealth() / FMath::Max(1.f, GetMaxHealth());
 			AbilitySystem->SetNumericAttributeBase(UValdoriaAttributeSet::GetMaxHealthAttribute(), NewMax);
 			AbilitySystem->SetNumericAttributeBase(UValdoriaAttributeSet::GetHealthAttribute(), NewMax * Frac);

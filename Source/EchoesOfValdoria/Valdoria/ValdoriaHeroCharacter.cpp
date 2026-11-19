@@ -1,6 +1,7 @@
 // Echoes of Valdoria - personagem jogável genérico.
 
 #include "ValdoriaHeroCharacter.h"
+#include "ValdoriaMultipliers.h"
 #include "AbilitySystemComponent.h"
 #include "Animation/AnimInstance.h"
 #include "Animation/AnimSequenceBase.h"
@@ -285,12 +286,12 @@ void AValdoriaHeroCharacter::ApplyHeroDefinition()
 
 	if (HasAuthority())
 	{
-		AbilitySystem->SetNumericAttributeBase(UValdoriaAttributeSet::GetMaxHealthAttribute(), (Def->MaxHealth + ShopBonus.MaxHealth) * ValdoriaStatScale);
-		AbilitySystem->SetNumericAttributeBase(UValdoriaAttributeSet::GetHealthAttribute(), (Def->MaxHealth + ShopBonus.MaxHealth) * ValdoriaStatScale);
-		AbilitySystem->SetNumericAttributeBase(UValdoriaAttributeSet::GetMaxArmorAttribute(), Def->MaxArmor * ValdoriaStatScale);
-		AbilitySystem->SetNumericAttributeBase(UValdoriaAttributeSet::GetArmorAttribute(), Def->MaxArmor * ValdoriaStatScale);
-		AbilitySystem->SetNumericAttributeBase(UValdoriaAttributeSet::GetMaxShieldAttribute(), Def->MaxShield * ValdoriaStatScale);
-		AbilitySystem->SetNumericAttributeBase(UValdoriaAttributeSet::GetShieldAttribute(), Def->MaxShield * ValdoriaStatScale);
+		AbilitySystem->SetNumericAttributeBase(UValdoriaAttributeSet::GetMaxHealthAttribute(), (Def->MaxHealth + ShopBonus.MaxHealth) * ValdoriaStatScale * ValdoriaMultipliers::Get(GetWorld(), EValdoriaMult::MaxHealth));
+		AbilitySystem->SetNumericAttributeBase(UValdoriaAttributeSet::GetHealthAttribute(), (Def->MaxHealth + ShopBonus.MaxHealth) * ValdoriaStatScale * ValdoriaMultipliers::Get(GetWorld(), EValdoriaMult::MaxHealth));
+		AbilitySystem->SetNumericAttributeBase(UValdoriaAttributeSet::GetMaxArmorAttribute(), Def->MaxArmor * ValdoriaStatScale * ValdoriaMultipliers::Get(GetWorld(), EValdoriaMult::MaxArmor));
+		AbilitySystem->SetNumericAttributeBase(UValdoriaAttributeSet::GetArmorAttribute(), Def->MaxArmor * ValdoriaStatScale * ValdoriaMultipliers::Get(GetWorld(), EValdoriaMult::MaxArmor));
+		AbilitySystem->SetNumericAttributeBase(UValdoriaAttributeSet::GetMaxShieldAttribute(), Def->MaxShield * ValdoriaStatScale * ValdoriaMultipliers::Get(GetWorld(), EValdoriaMult::MaxShield));
+		AbilitySystem->SetNumericAttributeBase(UValdoriaAttributeSet::GetShieldAttribute(), Def->MaxShield * ValdoriaStatScale * ValdoriaMultipliers::Get(GetWorld(), EValdoriaMult::MaxShield));
 	}
 	bHasWeaponOverride = false;
 	bPendingSlam = false;
@@ -998,10 +999,10 @@ void AValdoriaHeroCharacter::SetShopBonus(const FValdoriaShopBonus& Bonus)
 	if (HasAuthority() && ActiveDefinition)
 	{
 		// Vida máxima nova; a vida atual sobe junto com o que foi ganho.
-		const float NewMax = (ActiveDefinition->MaxHealth + ShopBonus.MaxHealth) * ValdoriaStatScale;
+		const float NewMax = (ActiveDefinition->MaxHealth + ShopBonus.MaxHealth) * ValdoriaStatScale * ValdoriaMultipliers::Get(GetWorld(), EValdoriaMult::MaxHealth);
 		AbilitySystem->SetNumericAttributeBase(UValdoriaAttributeSet::GetMaxHealthAttribute(), NewMax);
 		AbilitySystem->SetNumericAttributeBase(UValdoriaAttributeSet::GetHealthAttribute(),
-			FMath::Clamp(GetHealth() + (ShopBonus.MaxHealth - OldExtraHealth) * ValdoriaStatScale, 1.f, NewMax));
+			FMath::Clamp(GetHealth() + (ShopBonus.MaxHealth - OldExtraHealth) * ValdoriaStatScale * ValdoriaMultipliers::Get(GetWorld(), EValdoriaMult::MaxHealth), 1.f, NewMax));
 	}
 }
 
@@ -1014,6 +1015,9 @@ float AValdoriaHeroCharacter::DealTypedDamage(AActor* Target, float BaseDamage, 
 	const float Magic = Type == EValdoriaDamageType::Physical ? 0.f : (Type == EValdoriaDamageType::Magical ? 1.f : FMath::Clamp(MagicShare, 0.f, 1.f));
 	float Physical = BaseDamage * (1.f - Magic) * GetPhysicalPower();
 	float Magical = BaseDamage * Magic * GetMagicPower();
+	// Turn 48: global multipliers per mode (Config/Multiplicadores.ini).
+	Physical *= ValdoriaMultipliers::Get(GetWorld(), EValdoriaMult::PhysicalDamage);
+	Magical *= ValdoriaMultipliers::Get(GetWorld(), EValdoriaMult::MagicalDamage);
 
 	// Barreira inimiga: absorve o dano (sem resistências).
 	if (AValdoriaBarrier* Barrier = Cast<AValdoriaBarrier>(Target))
@@ -1037,7 +1041,8 @@ float AValdoriaHeroCharacter::DealTypedDamage(AActor* Target, float BaseDamage, 
 
 	// Passivas de quem ataca.
 	const FValdoriaPassiveRules& Mine = GetPassive();
-	float Scale = 1.f;
+	const bool bFromAbility = !DamageSourceLabel.IsEmpty() && DamageSourceLabel != TEXT("Soco (V)");
+	float Scale = bFromAbility ? ValdoriaMultipliers::Get(GetWorld(), EValdoriaMult::AbilityDamage) : ValdoriaMultipliers::Get(GetWorld(), EValdoriaMult::AttackDamage);
 	if (bHeadshot)
 	{
 		Scale *= 1.f + Mine.HeadshotBonus + ShopBonus.HeadshotDamage;
@@ -1126,9 +1131,8 @@ float AValdoriaHeroCharacter::DealTypedDamage(AActor* Target, float BaseDamage, 
 	}
 	// Turn 47 (owner): VAMPIRISMO heals from the basic attack and the V punch (weapon value + buffs, max 40%);
 	// ROUBO DE VIDA heals from abilities and passives (shop + buffs, max 30%). Caps are provisional.
-	const bool bFromAbility = !DamageSourceLabel.IsEmpty() && DamageSourceLabel != TEXT("Soco (V)");
-	const float Rate = bFromAbility ? FMath::Min(0.3f, ShopBonus.LifeSteal + BonusLifeSteal)
-		: FMath::Min(0.4f, GetWeaponStats().LifeSteal + BonusVampirism);
+	const float Rate = bFromAbility ? FMath::Min(0.3f, ShopBonus.LifeSteal + BonusLifeSteal) * ValdoriaMultipliers::Get(GetWorld(), EValdoriaMult::LifeSteal)
+		: FMath::Min(0.4f, GetWeaponStats().LifeSteal + BonusVampirism) * ValdoriaMultipliers::Get(GetWorld(), EValdoriaMult::Vampirism);
 	if (Rate > 0.f)
 	{
 		HealTarget(this, Total * Rate);
@@ -1141,7 +1145,7 @@ void AValdoriaHeroCharacter::HealTarget(AActor* Target, float Amount)
 	UAbilitySystemComponent* TargetASC = UAbilitySystemBlueprintLibrary::GetAbilitySystemComponent(Target);
 	AValdoriaHeroCharacter* Other = Cast<AValdoriaHeroCharacter>(Target);
 	const FValdoriaWeaponStats& MyWeapon = GetWeaponStats();
-	Amount *= ValdoriaStatScale; // data values are design units (see ValdoriaStatScale)
+	Amount *= ValdoriaStatScale * ValdoriaMultipliers::Get(GetWorld(), EValdoriaMult::Healing); // data values are design units (see ValdoriaStatScale)
 	if (!HasAuthority() || !TargetASC || Amount <= 0.f || !Other || Other->IsDead()
 		|| (Other->GetHealth() >= Other->GetMaxHealth() && MyWeapon.OverhealMax <= 0.f))
 	{
@@ -1418,7 +1422,7 @@ void AValdoriaHeroCharacter::TickStatusEffects(float DeltaSeconds)
 	if (IsHeroUnit())
 	{
 		GainXP(2.f * Step);       // passive XP (provisional)
-		Stats.Gold += 4.f * Step; // same as the shop's credits per second
+		Stats.Gold += 4.f * Step * ValdoriaMultipliers::Get(GetWorld(), EValdoriaMult::Gold); // same as the shop's credits per second
 	}
 	if (GetTeamRegen() > 0.f)
 	{
@@ -1483,12 +1487,12 @@ void AValdoriaHeroCharacter::OnDamageDealt(AValdoriaHeroCharacter* Victim, float
 		}
 		if (const UValdoriaShopCatalog* Catalog = GetDefault<UValdoriaShopCatalog>())
 		{
-			Stats.Gold += Damage / ValdoriaStatScale * Catalog->CreditsPerDamage;
+			Stats.Gold += Damage / ValdoriaStatScale * Catalog->CreditsPerDamage * ValdoriaMultipliers::Get(GetWorld(), EValdoriaMult::Gold);
 		}
 	}
 	if (ActiveDefinition && HasAuthority() && !IsUltimateReady())
 	{
-		const float Charge = Attributes->GetUltimateCharge() + Damage / ValdoriaStatScale * ActiveDefinition->UltimateChargePerDamage;
+		const float Charge = Attributes->GetUltimateCharge() + Damage / ValdoriaStatScale * ActiveDefinition->UltimateChargePerDamage * ValdoriaMultipliers::Get(GetWorld(), EValdoriaMult::UltimateCharge);
 		AbilitySystem->SetNumericAttributeBase(UValdoriaAttributeSet::GetUltimateChargeAttribute(), FMath::Min(Charge, ActiveDefinition->UltimateCost));
 	}
 	const bool bKill = Victim && Victim->GetHealth() <= 0.f;
@@ -1891,7 +1895,7 @@ void AValdoriaHeroCharacter::DealDamageTo(AActor* Target, float Damage, bool bHe
 	FGameplayEffectSpecHandle Spec = AbilitySystem->MakeOutgoingSpec(UValdoriaDamageEffect::StaticClass(), 1.f, Context);
 	if (Spec.IsValid())
 	{
-		Spec.Data->SetSetByCallerMagnitude(ValdoriaTags::Data_Damage, Damage * ValdoriaStatScale * FMath::Max(0.f, GetDamageMultiplier()));
+		Spec.Data->SetSetByCallerMagnitude(ValdoriaTags::Data_Damage, Damage * ValdoriaStatScale * FMath::Max(0.f, GetDamageMultiplier()) * ValdoriaMultipliers::Get(GetWorld(), EValdoriaMult::Damage));
 		if (bHeadshot)
 		{
 			Spec.Data->AddDynamicAssetTag(ValdoriaTags::Hit_Headshot);
@@ -2019,7 +2023,7 @@ void AValdoriaHeroCharacter::UpdateMovementSpeed()
 	}
 	const FValdoriaMovementRules& Rules = GetMovementRules();
 	UCharacterMovementComponent* Move = GetCharacterMovement();
-	float Speed = ActiveDefinition->MoveSpeed * AdminSpeedMultiplier * (1.f - SlowFraction) * (1.f + BuffFraction) * (1.f + ShopBonus.MoveSpeed);
+	float Speed = ActiveDefinition->MoveSpeed * AdminSpeedMultiplier * (1.f - SlowFraction) * (1.f + BuffFraction) * (1.f + ShopBonus.MoveSpeed) * ValdoriaMultipliers::Get(GetWorld(), EValdoriaMult::MoveSpeed);
 	if (bIsSprinting)
 	{
 		Speed *= Rules.SprintMultiplier;

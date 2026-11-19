@@ -4,6 +4,7 @@
 // levels 10 and 20 (effects come later, per hero). XP and gold numbers are provisional (owner balances).
 
 #include "ValdoriaHeroCharacter.h"
+#include "ValdoriaMultipliers.h"
 #include "ValdoriaHeroDefinition.h"
 #include "ValdoriaTrainingDummy.h"
 #include "ValdoriaGuardian.h"
@@ -107,7 +108,7 @@ void AValdoriaHeroCharacter::GainXP(float Amount)
 	{
 		return;
 	}
-	XP += Amount;
+	XP += Amount * ValdoriaMultipliers::Get(GetWorld(), EValdoriaMult::Experience);
 	bool bLevelled = false;
 	while (Level < MaxLevel && XP >= XPToNextLevel())
 	{
@@ -295,7 +296,7 @@ void AValdoriaHeroCharacter::AwardDeath(AValdoriaHeroCharacter* Killer)
 	{
 		++KillerHero->Stats.Kills;
 		KillerHero->GainXP(200.f);
-		KillerHero->Stats.Gold += 100.f;
+		KillerHero->Stats.Gold += 100.f * ValdoriaMultipliers::Get(GetWorld(), EValdoriaMult::Gold);
 	}
 	// Assists: enemy heroes who hit this hero in the last 10 s (not the killer).
 	for (const TPair<TWeakObjectPtr<AValdoriaHeroCharacter>, float>& P : RecentDamagers)
@@ -305,7 +306,7 @@ void AValdoriaHeroCharacter::AwardDeath(AValdoriaHeroCharacter* Killer)
 		{
 			++A->Stats.Assists;
 			A->GainXP(100.f);
-			A->Stats.Gold += 50.f;
+			A->Stats.Gold += 50.f * ValdoriaMultipliers::Get(GetWorld(), EValdoriaMult::Gold);
 		}
 	}
 	RecentDamagers.Reset();

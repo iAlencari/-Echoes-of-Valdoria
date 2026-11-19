@@ -1,6 +1,7 @@
 // Echoes of Valdoria - habilidades.
 
 #include "ValdoriaGameplayAbility.h"
+#include "ValdoriaMultipliers.h"
 #include "AbilitySystemComponent.h"
 #include "AbilitySystemBlueprintLibrary.h"
 #include "Engine/World.h"
@@ -40,10 +41,10 @@ float UValdoriaGameplayAbility::GetEffectiveCooldown() const
 		{
 			if (Entry->Cooldown > 0.f)
 			{
-				return Entry->Cooldown * Hero->GetRankCooldownMultiplier(GetSlot());
+				return Entry->Cooldown * Hero->GetRankCooldownMultiplier(GetSlot()) * ValdoriaMultipliers::Get(Hero->GetWorld(), EValdoriaMult::Cooldown);
 			}
 		}
-		return DefaultCooldown * Hero->GetRankCooldownMultiplier(GetSlot());
+		return DefaultCooldown * Hero->GetRankCooldownMultiplier(GetSlot()) * ValdoriaMultipliers::Get(Hero->GetWorld(), EValdoriaMult::Cooldown);
 	}
 	return DefaultCooldown;
 }

@@ -4,6 +4,7 @@
 // ações passam a ser RPCs para o servidor.
 
 #include "ValdoriaPlayerController.h"
+#include "ValdoriaMultipliers.h"
 #include "AbilitySystemComponent.h"
 #include "AssetRegistry/AssetRegistryModule.h"
 #include "Camera/PlayerCameraManager.h"
@@ -417,7 +418,8 @@ TSharedRef<SWidget> AValdoriaPlayerController::BuildAdminPanel()
 	{
 		TSharedRef<SWrapBox> Row = SNew(SWrapBox).PreferredSize(640.f);
 		Row->AddSlot()[Button(LOCTEXT("FillUlt", "Ultimate cheia"), [Hero]() { if (Hero()) Hero()->AdminFillUltimate(); })];
-		Row->AddSlot()[Button(LOCTEXT("LevelUp", "Subir 1 nível (MOBA)"), [Hero]() { if (AValdoriaHeroCharacter* H = Hero()) { H->GainXP(H->XPToNextLevel() - H->XP + 0.1f); } })];
+		Row->AddSlot()[Button(LOCTEXT("LevelUp", "Subir 1 nível (MOBA)"), [Hero]() { if (AValdoriaHeroCharacter* H = Hero()) { H->GainXP((H->XPToNextLevel() - H->XP + 0.1f) / FMath::Max(0.01f, ValdoriaMultipliers::Get(H->GetWorld(), EValdoriaMult::Experience))); } })];
+		Row->AddSlot()[Button(LOCTEXT("ReloadMult", "Recarregar multiplicadores"), []() { ValdoriaMultipliers::Reload(); })];
 		Row->AddSlot()[Button(LOCTEXT("Restore", "Vida cheia"), [Hero]() { if (Hero()) Hero()->AdminRestoreAll(); })];
 		Row->AddSlot()[Button(LOCTEXT("ResetCd", "Zerar recargas"), [Hero]() { if (Hero()) Hero()->ResetCombatState(); })];
 		Row->AddSlot()[Button(LOCTEXT("HurtMe", "Tirar 500 de vida de mim"), [Hero]() { if (AValdoriaHeroCharacter* H = Hero()) { const bool bGod = H->bGodMode; H->bGodMode = false; H->DealDamageTo(H, 50.f); H->bGodMode = bGod; } })];
