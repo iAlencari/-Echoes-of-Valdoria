@@ -113,12 +113,15 @@ Waiting for the owner's feedback on the Gemini images/videos before any code.
   - Landing point, option B: hold 4. The horn plays (about 1.5 s) and the minimap opens big in the middle of
     the screen with a circle of the maximum range around Heimdall. Move the mouse to place the rainbow marker,
     then confirm with LMB (or release 4). RMB cancels and refunds half the cooldown. A spot inside a building
-    snaps to the nearest street; the enemy base and the GS/GF/JG areas are not allowed. Enemies see the marker
+    snaps to the nearest street; ANY other place is allowed, enemy base and GS/GF/JG areas included (owner:
+    strategies and trolling friends into the GF). The GS/GF/JG units themselves are never carried.
+    Cast (Claude's pick): the area is centred on Heimdall and moves with him during the horn; he walks at reduced
+    speed, cannot shoot, and always travels with the group. The jump happens where he stands when the horn ends. Enemies see the marker
     and the arc 1 s before the jump (counterplay). The jump takes about 1.5 s along the arc and everyone lands
     together.
   - Range (provisional numbers): 40 m base, plus up to 60 m for each Bifrost within 30 m (closer = more).
     Next to the 3 bridges at the base it covers the whole map.
 - Bifrost concept image from the owner (Gemini, turn 46): `SourceArt/Concepts/Bifrost_Conceito.png`. Three bridges
   start from round glowing pads at the base and end in big tube portals at the lane ends; flowing rainbow strands,
-  smooth curves, cyberpunk Heimdall surfing in the inset. In the game the strands need a readable floor (a solid,
-  slightly brighter centre band) so riders do not look like they float in the air.
+  smooth curves, cyberpunk Heimdall surfing in the inset. Owner wants it exactly like this: loose strands, riders
+  look like they float (as in the films). No solid floor band.
