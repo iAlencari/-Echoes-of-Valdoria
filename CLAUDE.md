@@ -132,3 +132,6 @@ português simples. **Leia `LOG.md` inteiro antes de mexer.**
 - HP x10 via ValdoriaStatScale (data keeps design units). Levels/XP/respawn formula/CDR caps: docs/RegrasCombate.md.
 - Keys: V = punch (every hero), F5 = camera, Tab = scoreboard, Y = death recap, Ctrl+1..4 = spend level point (MOBA).
 - Minimap top-left with team vision (UValdoriaVisionSubsystem). Admin panel 100% opaque.
+
+## Name (owner, 19/11/2026)
+For now the game is called just **Valdoria** (repo and folder names stay). Side projects: `C:\Dev\Contos` (OTS) and `C:\Dev\VoxNumen` (anime RPG), each with its own private repo.
