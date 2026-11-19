@@ -49,3 +49,10 @@
 - Código e conteúdo original: Alencar (iAlencari), com Claude Code e OpenCode. Licença MIT
   (ver `LICENSE`). Inspiração apenas de gênero: Overwatch, Marvel Rivals, Deadlock, Valorant —
   nenhum asset, nome ou personagem desses jogos.
+
+## Fab packs (Fab Standard License, added by the owner 2026-11-18; source assets not redistributed)
+AbsorbtionFX, Advanced Companion Drone System, Attaku (finger poses), Dead Bodies Poses (nikoff), Dynamic Falling, First Person Rifle Animations, Free Animation Library, Free Animation Set (zipline/skydiving/glide/dash/falling), Free Animations Pack 2, Free Anims Mix Pack, Free Sample Animation Set, Free Crawl Animation, Look Window Pack 01, MC Sample, Struggle To Ascension, Overgrown Factory ENV.
+
+## NVIDIA DLSS 4.5 plugin for Unreal Engine 5.8 (v8.9.0), NVIDIA RTX SDK EULA.
+
++100 Fantasy Weapons Basemesh Pack V1 by Velit Draakziel (Fab, free; imported to /Game/Valdoria/Weapons/Fantasy, source files not redistributed).

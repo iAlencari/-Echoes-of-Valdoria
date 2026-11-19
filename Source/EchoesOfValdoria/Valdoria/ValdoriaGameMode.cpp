@@ -9,7 +9,12 @@
 #include "GameFramework/SpringArmComponent.h"
 #include "Components/CapsuleComponent.h"
 #include "GameFramework/CharacterMovementComponent.h"
+#include "AssetRegistry/AssetRegistryModule.h"
+#include "Engine/StaticMeshActor.h"
+#include "NavigationSystem.h"
+#include "NavigationPath.h"
 #include "Misc/CommandLine.h"
+#include "Misc/FileHelper.h"
 #include "Misc/Paths.h"
 #include "Containers/Ticker.h"
 #include "UnrealClient.h"
@@ -18,9 +23,12 @@
 #include "Kismet/GameplayStatics.h"
 #include "ValdoriaHUD.h"
 #include "ValdoriaHeroCharacter.h"
+#include "ValdoriaWorldActors.h"
+#include "ValdoriaGameplayAbility.h"
 #include "ValdoriaHeroDefinition.h"
 #include "ValdoriaPlayerController.h"
 #include "ValdoriaTrainingDummy.h"
+#include "ValdoriaGuardian.h"
 #include "ValdoriaSettings.h"
 #include "Framework/Application/SlateApplication.h"
 #include "Input/Events.h"
@@ -157,6 +165,59 @@ void AValdoriaGameMode::StartPlay()
 			return true;
 		}), 0.25f);
 	}
+	if (FParse::Param(FCommandLine::Get(), TEXT("ValdoriaPoseGallery")))
+	{
+		// Turn 44: candidate hover/air poses side by side (Lume's body, seen in profile), to pick by eye.
+		FTSTicker::GetCoreTicker().AddTicker(FTickerDelegate::CreateWeakLambda(this, [this](float)
+		{
+			static int32 Step = 0;
+			++Step;
+			AValdoriaPlayerController* PC = Cast<AValdoriaPlayerController>(GetWorld()->GetFirstPlayerController());
+			AValdoriaHeroCharacter* Hero = PC ? Cast<AValdoriaHeroCharacter>(PC->GetPawn()) : nullptr;
+			static const TCHAR* Clips[] = {
+				TEXT("/Game/Characters/Mannequins/Anims/Unarmed/MM_Idle.MM_Idle"),                                       // 1 current hover (reference)
+				TEXT("/Game/StruggleToAscension/Animations/UE5/AS_STA_idle_Ascension.AS_STA_idle_Ascension"),            // 2
+				TEXT("/Game/StruggleToAscension/Animations/UE5/AS_STA_Air_idle06.AS_STA_Air_idle06"),                    // 3
+				TEXT("/Game/StruggleToAscension/Animations/UE5/AS_STA_Air_idle07.AS_STA_Air_idle07"),                    // 4
+				TEXT("/Game/StruggleToAscension/Animations/UE5/AS_STA_Ground_idle05_to_idle06_AirLoop.AS_STA_Ground_idle05_to_idle06_AirLoop"), // 5
+				TEXT("/Game/StruggleToAscension/Animations/UE5/AS_STA_idle_Struggle.AS_STA_idle_Struggle"),              // 6
+				TEXT("/Game/FreeAnimationSet/Animations/Manny/Diving_Idle_Anim.Diving_Idle_Anim"),                       // 7
+				TEXT("/Game/FreeAnimationsPack2/Animations/AS_LevitatingFireballCharge2.AS_LevitatingFireballCharge2"),  // 8
+			};
+			constexpr int32 Num = UE_ARRAY_COUNT(Clips);
+			if (Step == 16 && Hero)
+			{
+				const FVector Fwd = Hero->GetActorForwardVector().GetSafeNormal2D();
+				const FVector Right = FVector::CrossProduct(FVector::UpVector, Fwd);
+				for (int32 i = 0; i < Num; ++i)
+				{
+					FActorSpawnParameters P;
+					P.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AdjustIfPossibleButAlwaysSpawn;
+					const FVector Where = Hero->GetActorLocation() + Fwd * 900.f + Right * (i - (Num - 1) * 0.5f) * 140.f;
+					if (AValdoriaTrainingDummy* D = GetWorld()->SpawnActor<AValdoriaTrainingDummy>(AValdoriaTrainingDummy::StaticClass(), Where, Right.Rotation(), P))
+					{
+						D->TeamId = Hero->TeamId;
+						D->SetHeroDefinition(PC->FindHero(TEXT("lume")));
+						D->DebugBaseAnim = TSoftObjectPtr<UAnimSequenceBase>(FSoftObjectPath(Clips[i]));
+						D->bGodMode = true;
+						UE_LOG(LogValdoria, Display, TEXT("POSEGALLERY %d (da esquerda) = %s"), i + 1, Clips[i]);
+					}
+				}
+				PC->SetControlRotation(FRotator(-6.f, Hero->GetActorRotation().Yaw, 0.f));
+				Hero->SetActorHiddenInGame(true);
+			}
+			auto Shot = [](const TCHAR* Name) { FScreenshotRequest::RequestScreenshot(FPaths::ConvertRelativePathToFull(FPaths::ProjectSavedDir() / TEXT("Screenshots") / Name), false, false); };
+			if (Step == 24) { Shot(TEXT("Poses_A.png")); }
+			if (Step == 30) { Shot(TEXT("Poses_B.png")); }
+			if (Step == 36) { Shot(TEXT("Poses_C.png")); }
+			if (Step == 40)
+			{
+				FPlatformMisc::RequestExit(false);
+				return false;
+			}
+			return true;
+		}), 0.25f);
+	}
 	if (FParse::Param(FCommandLine::Get(), TEXT("ValdoriaWeaponPose")))
 	{
 		FTSTicker::GetCoreTicker().AddTicker(FTickerDelegate::CreateWeakLambda(this, [this](float)
@@ -172,6 +233,35 @@ void AValdoriaGameMode::StartPlay()
 			RunHeroTestStep();
 			return HeroTestStep < 100000;
 		}), 0.25f);
+	}
+	if (FParse::Param(FCommandLine::Get(), TEXT("ValdoriaBeamTest")))
+	{
+		FTSTicker::GetCoreTicker().AddTicker(FTickerDelegate::CreateWeakLambda(this, [this](float)
+		{
+			RunBeamTestStep();
+			return BeamTestStep < 100000;
+		}), 0.25f);
+	}
+	if (FParse::Param(FCommandLine::Get(), TEXT("ValdoriaAdminTest")))
+	{
+		FTSTicker::GetCoreTicker().AddTicker(FTickerDelegate::CreateWeakLambda(this, [this](float)
+		{
+			RunAdminTestStep();
+			return AdminTestStep < 100000;
+		}), 0.4f);
+	}
+	if (FParse::Value(FCommandLine::Get(), TEXT("ValdoriaPlaytest="), PlaytestSeconds) && PlaytestSeconds > 0)
+	{
+		FParse::Value(FCommandLine::Get(), TEXT("ValdoriaHero="), PlaytestHero);
+		PlaytestTag = FString::Printf(TEXT("%s_%s_%s"), *UGameplayStatics::GetCurrentLevelName(this),
+			*GetClass()->GetName().Replace(TEXT("Valdoria"), TEXT("")).Replace(TEXT("Mode"), TEXT("")),
+			PlaytestHero.IsEmpty() ? TEXT("recruta") : *PlaytestHero);
+		UE_LOG(LogValdoria, Display, TEXT("PLAYTEST inicio: %s (%d s)"), *PlaytestTag, PlaytestSeconds);
+		FTSTicker::GetCoreTicker().AddTicker(FTickerDelegate::CreateWeakLambda(this, [this](float)
+		{
+			RunPlaytestStep();
+			return PlaytestStep < 100000;
+		}), 1.f);
 	}
 	if (FParse::Param(FCommandLine::Get(), TEXT("ValdoriaInputTest")))
 	{
@@ -385,7 +475,11 @@ void AValdoriaGameMode::SpawnTrainingDummies()
 	{
 		FHitResult Hit;
 		FCollisionQueryParams Params(SCENE_QUERY_STAT(ValdoriaDummyGround), false);
-		if (GetWorld()->LineTraceSingleByChannel(Hit, P + FVector(0, 0, 400.f), P - FVector(0, 0, 3000.f), ECC_WorldStatic, Params))
+		// Start just above the spawn height (was +400): in the Nova Pauliceia metro +400 is above the station
+		// ceiling, so the dummies were placed on the street on top of the metro, out of sight (turn 44 playtest).
+		// Only static geometry (a channel trace also hit the player's own capsule standing on the spawn, so the
+		// reference height was wrong and every dummy was rejected: none on Nova Pauliceia, 1 on the default map).
+		if (GetWorld()->LineTraceSingleByObjectType(Hit, P + FVector(0, 0, 150.f), P - FVector(0, 0, 3000.f), FCollisionObjectQueryParams(ECC_WorldStatic), Params))
 		{
 			OutZ = Hit.ImpactPoint.Z;
 			return true;
@@ -443,6 +537,20 @@ void AValdoriaGameMode::OnHeroKilled(AValdoriaHeroCharacter* Victim, AValdoriaHe
 	{
 		return;
 	}
+	if (PlaytestSeconds > 0)
+	{
+		auto Name = [](const AValdoriaHeroCharacter* H)
+		{
+			const FString Def = H && H->GetHeroDefinition() ? H->GetHeroDefinition()->GetName().Replace(TEXT("DA_"), TEXT("")) : TEXT("?");
+			return (H && H->IsPlayerControlled() ? TEXT("EU:") : TEXT("bot:")) + Def;
+		};
+		PlaytestDeaths.FindOrAdd(Name(Victim))++;
+		if (Killer && Killer != Victim)
+		{
+			PlaytestKills.FindOrAdd(Name(Killer))++;
+		}
+		UE_LOG(LogValdoria, Display, TEXT("PLAYTEST abate: %s matou %s"), *Name(Killer), *Name(Victim));
+	}
 	if (AValdoriaTrainingDummy* Dummy = Cast<AValdoriaTrainingDummy>(Victim))
 	{
 		Dummy->ScheduleRevive();
@@ -470,13 +578,85 @@ void AValdoriaGameMode::RespawnPlayer(AController* Controller)
 		Old->Destroy();
 	}
 	RestartPlayer(Controller);
-	if (Keep)
+	if (AValdoriaHeroCharacter* NewHero = Cast<AValdoriaHeroCharacter>(Controller->GetPawn()))
 	{
-		if (AValdoriaHeroCharacter* NewHero = Cast<AValdoriaHeroCharacter>(Controller->GetPawn()))
+		if (Keep)
 		{
 			NewHero->SetHeroDefinition(Keep);
 		}
+		FVector Spot;
+		if (bSpreadRespawns && FindSpreadSpawnPoint(Spot))
+		{
+			NewHero->TeleportTo(Spot, NewHero->GetActorRotation());
+		}
 	}
+}
+
+bool AValdoriaGameMode::FindSpreadSpawnPoint(FVector& OutLocation, float MinDistance)
+{
+	UWorld* World = GetWorld();
+	auto TopHit = [World](float X, float Y, float TopZ, FHitResult& Hit)
+	{
+		FCollisionQueryParams Params(SCENE_QUERY_STAT(ValdoriaSpread), false);
+		return World->LineTraceSingleByObjectType(Hit, FVector(X, Y, TopZ), FVector(X, Y, TopZ - 20000.f), FCollisionObjectQueryParams(ECC_WorldStatic), Params);
+	};
+	if (!bSpreadReady)
+	{
+		bSpreadReady = true;
+		for (TActorIterator<AStaticMeshActor> It(World); It; ++It)
+		{
+			const UStaticMeshComponent* C = It->GetStaticMeshComponent();
+			if (C && C->GetCollisionEnabled() != ECollisionEnabled::NoCollision && C->Bounds.GetBox().GetExtent().GetMax() < 100000.f)
+			{
+				SpreadBounds += C->Bounds.GetBox();
+			}
+		}
+		if (!SpreadBounds.IsValid)
+		{
+			return false;
+		}
+		// Street level = the lowest open (seen from the sky) floor found by sampling the map.
+		SpreadFloorZ = TNumericLimits<float>::Max();
+		for (int32 i = 0; i < 96; ++i)
+		{
+			FHitResult Hit;
+			const float X = FMath::FRandRange(SpreadBounds.Min.X, SpreadBounds.Max.X);
+			const float Y = FMath::FRandRange(SpreadBounds.Min.Y, SpreadBounds.Max.Y);
+			if (TopHit(X, Y, SpreadBounds.Max.Z + 500.f, Hit) && Hit.ImpactNormal.Z > 0.85f)
+			{
+				SpreadFloorZ = FMath::Min(SpreadFloorZ, Hit.ImpactPoint.Z);
+			}
+		}
+	}
+	if (!SpreadBounds.IsValid || SpreadFloorZ == TNumericLimits<float>::Max())
+	{
+		return false;
+	}
+	const FBox Inner = SpreadBounds.ExpandBy(-SpreadBounds.GetExtent() * FVector(0.1f, 0.1f, 0.f));
+	for (int32 Try = 0; Try < 60; ++Try)
+	{
+		FHitResult Hit;
+		const float X = FMath::FRandRange(Inner.Min.X, Inner.Max.X);
+		const float Y = FMath::FRandRange(Inner.Min.Y, Inner.Max.Y);
+		if (!TopHit(X, Y, SpreadBounds.Max.Z + 500.f, Hit) || Hit.ImpactNormal.Z < 0.85f || Hit.ImpactPoint.Z > SpreadFloorZ + 400.f)
+		{
+			continue; // roofs, walls and holes are not spawn spots
+		}
+		const FVector Spot = Hit.ImpactPoint + FVector(0.f, 0.f, 110.f);
+		bool bCrowded = false;
+		for (TActorIterator<AValdoriaHeroCharacter> It(World); It && !bCrowded; ++It)
+		{
+			bCrowded = !It->IsDead() && !It->IsA<AValdoriaGuardian>() && FVector::Dist(It->GetActorLocation(), Spot) < MinDistance;
+		}
+		// Room for a standing hero (nothing blocking a capsule there).
+		bCrowded = bCrowded || World->OverlapAnyTestByChannel(Spot, FQuat::Identity, ECC_WorldStatic, FCollisionShape::MakeCapsule(40.f, 90.f));
+		if (!bCrowded)
+		{
+			OutLocation = Spot;
+			return true;
+		}
+	}
+	return false;
 }
 
 
@@ -491,6 +671,306 @@ void AValdoriaGameMode::PressKey(const FKey& Key, bool bDown)
 	else
 	{
 		FSlateApplication::Get().ProcessKeyUpEvent(Event);
+	}
+}
+
+void AValdoriaGameMode::RunBeamTestStep()
+{
+	// -ValdoriaBeamTest: Lume's draining beam with and without a target (visual, life steal, overheal),
+	// then the Recruit's aim glide (falls slower while aiming in the air).
+	++BeamTestStep;
+	AValdoriaPlayerController* PC = Cast<AValdoriaPlayerController>(GetWorld()->GetFirstPlayerController());
+	AValdoriaHeroCharacter* Hero = PC ? Cast<AValdoriaHeroCharacter>(PC->GetPawn()) : nullptr;
+	if (!Hero)
+	{
+		return;
+	}
+	AValdoriaTrainingDummy* Dummy = nullptr;
+	for (TActorIterator<AValdoriaTrainingDummy> It(GetWorld()); It; ++It) { Dummy = *It; break; }
+	auto Shot = [](const TCHAR* Name) { FScreenshotRequest::RequestScreenshot(FPaths::ConvertRelativePathToFull(FPaths::ProjectSavedDir() / TEXT("Screenshots") / Name), true, false); };
+	switch (BeamTestStep)
+	{
+	case 12: PC->SelectHero(TEXT("lume")); break;
+	case 14: PC->SetControlRotation(FRotator(0.f, Hero->GetActorRotation().Yaw + 150.f, 0.f)); PressKey(EKeys::LeftMouseButton, true); break; // no target
+	case 18:
+	{
+		int32 Fx = 0;
+		for (TActorIterator<AValdoriaFx> It(GetWorld()); It; ++It) { ++Fx; }
+		const UValdoriaHeroDefinition* D = Hero->GetHeroDefinition();
+		UE_LOG(LogValdoria, Display, TEXT("BEAMTEST sem alvo: efeitos=%d primario=%s municao=%d"), Fx,
+			D && D->Abilities.Num() > 0 ? *D->Abilities[0].AbilityClass.Get()->GetName() : TEXT("-"), Hero->GetAmmo());
+		Shot(TEXT("Beam_SemAlvo.png"));
+		break;
+	}
+	case 19: PressKey(EKeys::LeftMouseButton, false); break;
+	case 20:
+		if (Dummy)
+		{
+			Hero->TeleportTo(Dummy->GetActorLocation() - Dummy->GetActorForwardVector() * -700.f, Hero->GetActorRotation());
+			PC->SetControlRotation((Dummy->GetActorLocation() - Hero->GetActorLocation()).Rotation());
+			Dummy->bGodMode = false;
+			Dummy->bNoAutoHeal = true;
+		}
+		break;
+	case 21: if (Dummy) { PC->SetControlRotation((Dummy->GetActorLocation() - Hero->GetActorLocation()).Rotation()); } PressKey(EKeys::LeftMouseButton, true); break;
+	case 25: Shot(TEXT("Beam_Alvo.png")); break;
+	case 34:
+		PressKey(EKeys::LeftMouseButton, false);
+		UE_LOG(LogValdoria, Display, TEXT("BEAMTEST lume vida=%.0f/%.0f sobrecura=%.1f alvo vida=%.0f"), Hero->GetHealth(), Hero->GetMaxHealth(), Hero->Overheal, Dummy ? Dummy->GetHealth() : -1.f);
+		break;
+	case 36: PC->SelectHero(TEXT("recruta")); break;
+	case 38: Hero->TeleportTo(Hero->GetActorLocation() + FVector(0, 0, 2500.f), Hero->GetActorRotation()); break;
+	case 41: UE_LOG(LogValdoria, Display, TEXT("BEAMTEST queda normal vz=%.0f"), Hero->GetVelocity().Z); PressKey(EKeys::RightMouseButton, true); break;
+	case 43: UE_LOG(LogValdoria, Display, TEXT("BEAMTEST mirando no ar vz=%.0f"), Hero->GetVelocity().Z); Shot(TEXT("Beam_PlanarMira.png")); break;
+	case 44: PressKey(EKeys::RightMouseButton, false); break;
+	// Turn 44: Lume jumps, and holding Space in the air makes her sink very slowly (GlideFallSpeed).
+	case 50: PC->SelectHero(TEXT("lume")); break;
+	case 53:
+		UE_LOG(LogValdoria, Display, TEXT("LUMETEST no chao: z=%.0f andando=%d"), Hero->GetActorLocation().Z, Hero->GetCharacterMovement()->IsMovingOnGround());
+		LumeJumpStart = Hero->GetActorLocation();
+		PressKey(EKeys::SpaceBar, true);
+		PressKey(EKeys::W, true); // jump forward to measure the distance
+		break;
+	case 54: UE_LOG(LogValdoria, Display, TEXT("LUMETEST pulou: vz=%.0f no ar=%d"), Hero->GetVelocity().Z, Hero->GetCharacterMovement()->IsFalling()); break;
+	case 58: case 62: case 66: case 70:
+		UE_LOG(LogValdoria, Display, TEXT("LUMETEST segurando Espaco: vz=%.0f z=%.0f planando=%d anim=%s"), Hero->GetVelocity().Z, Hero->GetActorLocation().Z,
+			Hero->IsGliding(), *GetNameSafe(Hero->CurrentMovementAnim.Get()));
+		if (BeamTestStep == 66) { Shot(TEXT("Lume_Planando.png")); }
+		break;
+	case 72:
+		UE_LOG(LogValdoria, Display, TEXT("LUMETEST distancia do salto (indo para a frente, segurando Espaco): %.0f cm"), FVector::Dist2D(LumeJumpStart, Hero->GetActorLocation()));
+		PressKey(EKeys::SpaceBar, false);
+		PressKey(EKeys::W, false);
+		UE_LOG(LogValdoria, Display, TEXT("BEAMTEST fim"));
+		BeamTestStep = 100000;
+		FPlatformMisc::RequestExit(false);
+		break;
+	default: break;
+	}
+}
+
+void AValdoriaGameMode::RunPlaytestStep()
+{
+	++PlaytestStep;
+	AValdoriaPlayerController* PC = Cast<AValdoriaPlayerController>(GetWorld()->GetFirstPlayerController());
+	AValdoriaHeroCharacter* Me = PC ? Cast<AValdoriaHeroCharacter>(PC->GetPawn()) : nullptr;
+	auto DefName = [](const AValdoriaHeroCharacter* H)
+	{
+		return H && H->GetHeroDefinition() ? H->GetHeroDefinition()->GetName().Replace(TEXT("DA_"), TEXT("")) : FString(TEXT("?"));
+	};
+	// Pick the hero (again after a respawn if needed) and keep it on autopilot: Claude "plays" through it.
+	if (Me && PlaytestStep >= 3)
+	{
+		if (!PlaytestHero.IsEmpty() && PlaytestHero != TEXT("recruta") && !DefName(Me).Equals(PlaytestHero, ESearchCase::IgnoreCase))
+		{
+			PC->SelectHero(FName(*PlaytestHero));
+		}
+		if (!Me->IsAutopilot() && !Me->IsDead())
+		{
+			Me->SetAutopilot(true, 0.7f);
+		}
+	}
+	// Once: is there a navmesh, and can the player reach a random spot? (autopilot pathfinding, turn 44)
+	if (PlaytestStep == 6 && Me)
+	{
+		UNavigationSystemV1* Nav = FNavigationSystem::GetCurrent<UNavigationSystemV1>(GetWorld());
+		FNavLocation Spot;
+		const bool bData = Nav && Nav->GetDefaultNavDataInstance(FNavigationSystem::DontCreate) != nullptr;
+		const bool bRandom = bData && Nav->GetRandomReachablePointInRadius(Me->GetActorLocation(), 5000.f, Spot);
+		UNavigationPath* Path = bRandom ? UNavigationSystemV1::FindPathToLocationSynchronously(GetWorld(), Me->GetActorLocation(), Spot.Location, Me) : nullptr;
+		UE_LOG(LogValdoria, Display, TEXT("PLAYTEST navmesh: dados=%d ponto=%d caminho=%d pontos=%d"), bData, bRandom,
+			Path && Path->IsValid(), Path ? Path->PathPoints.Num() : 0);
+	}
+	// Every 5 s: state of every hero (guardians summarised), stuck and fallen checks.
+	if (PlaytestStep % 5 == 0)
+	{
+		int32 GuardAlive = 0, GuardTotal = 0, Minions[2] = { 0, 0 };
+		float GuardHealth = 0.f, GuardMax = 0.f, GuardLowest = 1.f;
+		FString Line;
+		for (TActorIterator<AValdoriaHeroCharacter> It(GetWorld()); It; ++It)
+		{
+			AValdoriaHeroCharacter* H = *It;
+			if (H->IsA<AValdoriaGuardian>())
+			{
+				++GuardTotal;
+				GuardAlive += H->IsDead() ? 0 : 1;
+				GuardHealth += H->GetHealth();
+				GuardMax += H->GetMaxHealth();
+				GuardLowest = FMath::Min(GuardLowest, H->GetHealth() / FMath::Max(1.f, H->GetMaxHealth()));
+				continue;
+			}
+			if (const AValdoriaTrainingDummy* Minion = Cast<AValdoriaTrainingDummy>(H); Minion && Minion->bMinion)
+			{
+				Minions[FMath::Clamp<int32>(H->TeamId, 0, 1)] += H->IsDead() ? 0 : 1; // counted, not listed (turn 45)
+				continue;
+			}
+			const FString Who = (H->IsPlayerControlled() ? TEXT("EU:") : TEXT("bot:")) + DefName(H) + FString::Printf(TEXT("#%u"), H->GetUniqueID() % 1000);
+			const FVector P = H->GetActorLocation();
+			Line += FString::Printf(TEXT(" | %s t%d %s %.0f/%.0f (%.0f,%.0f,%.0f)"), *Who, H->TeamId, H->IsDead() ? TEXT("MORTO") : TEXT("vivo"),
+				H->GetHealth(), H->GetMaxHealth(), P.X, P.Y, P.Z);
+			if (!H->IsDead() && P.Z < -3000.f && !PlaytestReported.Contains(Who + TEXT("caiu")))
+			{
+				PlaytestReported.Add(Who + TEXT("caiu"));
+				UE_LOG(LogValdoria, Warning, TEXT("PLAYTEST PROBLEMA caiu do mapa: %s em (%.0f,%.0f,%.0f)"), *Who, P.X, P.Y, P.Z);
+			}
+			if (H->IsAutopilot() && !H->IsDead())
+			{
+				const FVector* Last = PlaytestLastPos.Find(Who);
+				int32& Still = PlaytestStill.FindOrAdd(Who);
+				Still = (Last && FVector::Dist(*Last, P) < 150.f) ? Still + 1 : 0;
+				if (Still == 3 && !PlaytestReported.Contains(Who + TEXT("preso")))
+				{
+					PlaytestReported.Add(Who + TEXT("preso"));
+					UE_LOG(LogValdoria, Warning, TEXT("PLAYTEST PROBLEMA parado/preso 15 s: %s em (%.0f,%.0f,%.0f)"), *Who, P.X, P.Y, P.Z);
+					FScreenshotRequest::RequestScreenshot(FPaths::ConvertRelativePathToFull(FPaths::ProjectSavedDir() / TEXT("Screenshots/Playtest") / (PlaytestTag + TEXT("_preso.png"))), false, false);
+				}
+			}
+			PlaytestLastPos.Add(Who, P);
+		}
+		UE_LOG(LogValdoria, Display, TEXT("PLAYTEST t=%d guardioes=%d/%d vida=%.0f%% menor=%.0f%% minions=%d/%d%s"), PlaytestStep, GuardAlive, GuardTotal,
+			GuardMax > 0.f ? GuardHealth / GuardMax * 100.f : 0.f, GuardLowest * 100.f, Minions[0], Minions[1], *Line);
+	}
+	// Screenshots at 30%, 60% and 90% of the run.
+	for (int32 n = 1; n <= 3; ++n)
+	{
+		if (PlaytestStep == FMath::Max(4, PlaytestSeconds * (n * 3) / 10))
+		{
+			FScreenshotRequest::RequestScreenshot(FPaths::ConvertRelativePathToFull(FPaths::ProjectSavedDir() / TEXT("Screenshots/Playtest") / FString::Printf(TEXT("%s_%d.png"), *PlaytestTag, n)), true, false);
+		}
+	}
+	if (PlaytestStep >= PlaytestSeconds)
+	{
+		FString K, D;
+		for (const TPair<FString, int32>& P : PlaytestKills) { K += FString::Printf(TEXT(" %s=%d"), *P.Key, P.Value); }
+		for (const TPair<FString, int32>& P : PlaytestDeaths) { D += FString::Printf(TEXT(" %s=%d"), *P.Key, P.Value); }
+		UE_LOG(LogValdoria, Display, TEXT("PLAYTEST resumo %s | abates:%s | mortes:%s | FPS=%.0f"), *PlaytestTag, *K, *D, 1.f / FMath::Max(0.001f, FApp::GetDeltaTime()));
+		UE_LOG(LogValdoria, Display, TEXT("PLAYTEST fim"));
+		PlaytestStep = 100000;
+		FPlatformMisc::RequestExit(false);
+	}
+}
+
+void AValdoriaGameMode::RunAdminTestStep()
+{
+	++AdminTestStep;
+	AValdoriaPlayerController* PC = Cast<AValdoriaPlayerController>(GetWorld()->GetFirstPlayerController());
+	AValdoriaHeroCharacter* Hero = PC ? Cast<AValdoriaHeroCharacter>(PC->GetPawn()) : nullptr;
+	if (!PC || !Hero)
+	{
+		return;
+	}
+	auto Snapshot = [this, PC]() -> FString
+	{
+		AValdoriaHeroCharacter* H = Cast<AValdoriaHeroCharacter>(PC->GetPawn());
+		int32 Total = 0, Alive = 0, Spawned = 0;
+		for (TActorIterator<AValdoriaTrainingDummy> It(GetWorld()); It; ++It)
+		{
+			++Total;
+			Alive += It->IsDead() ? 0 : 1;
+			Spawned += It->ActorHasTag(TEXT("AdminSpawned")) ? 1 : 0;
+		}
+		const AValdoriaHeroCharacter* T = PC->DebugGetAdminTarget().Get();
+		return FString::Printf(TEXT("heroi=%s vida=%.0f ult=%.2f pos=(%.0f,%.0f,%.0f) imortal=%d semCD=%d municao=%d voo=%d vel=%.1f grav=%.2f ar=%.2f | bonecos=%d vivos=%d criados=%d | alvo=%s vida=%.0f mov=%d time=%d | tempo=%.2f"),
+			H && H->GetHeroDefinition() ? *H->GetHeroDefinition()->GetName() : TEXT("-"), H ? H->GetHealth() : 0.f, H ? H->GetUltimatePercent() : 0.f,
+			H ? H->GetActorLocation().X : 0.f, H ? H->GetActorLocation().Y : 0.f, H ? H->GetActorLocation().Z : 0.f,
+			H && H->bGodMode, H && H->bNoCooldowns, H && H->bInfiniteAmmo, H && H->bAdminFlight, H ? H->AdminSpeedMultiplier : 0.f,
+			H ? H->GetCharacterMovement()->GravityScale : 0.f, H ? H->GetCharacterMovement()->AirControl : 0.f,
+			Total, Alive, Spawned, T ? *T->GetName() : TEXT("-"), T ? T->GetHealth() : 0.f, T ? (int32)T->GetCharacterMovement()->MovementMode : -1, T ? (int32)T->TeamId : -1,
+			UGameplayStatics::GetGlobalTimeDilation(this));
+	};
+	if (AdminTestStep == 10)
+	{
+		PC->DebugSetAdminMode(true); // like /adm: admin on, panel closed
+	}
+	else if (AdminTestStep == 12)
+	{
+		UE_LOG(LogValdoria, Display, TEXT("ADMINTEST /adm (painel fechado=%d): %s"), !PC->IsAdminPanelOpen(), *Snapshot());
+		// Look at the nearest dummy so "Pegar alvo da mira" has a target.
+		AValdoriaTrainingDummy* Near = nullptr;
+		for (TActorIterator<AValdoriaTrainingDummy> It(GetWorld()); It; ++It)
+		{
+			if (!Near || FVector::Dist(It->GetActorLocation(), Hero->GetActorLocation()) < FVector::Dist(Near->GetActorLocation(), Hero->GetActorLocation()))
+			{
+				Near = *It;
+			}
+		}
+		if (Near)
+		{
+			PC->SetControlRotation((Near->GetActorLocation() - Hero->GetActorLocation()).Rotation());
+		}
+	}
+	else if (AdminTestStep == 13)
+	{
+		PC->ToggleAdminPanel();
+		const TArray<FString> All = PC->DebugListAdminControls();
+		UE_LOG(LogValdoria, Display, TEXT("ADMINTEST F10: painel=%d controles=%d"), PC->IsAdminPanelOpen(), All.Num());
+		static const TCHAR* Skip[] = { TEXT("Abrir mapa"), TEXT("Fechar (F10)"), TEXT("print"), TEXT("Câmera livre"), TEXT("Tempos de CPU"), TEXT("Mostrar colisões") };
+		// Owner (turn 44): do not click every weapon model each run, only the ones the current heroes hold.
+		TSet<FString> SkipWeapons;
+		{
+			static const TCHAR* UsedByHeroes[] = { TEXT("Rifle"), TEXT("Martelo"), TEXT("EscudoA"), TEXT("CajadoA"), TEXT("CajadoB"), TEXT("AdagaA"), TEXT("AdagaB"), TEXT("Sem arma") };
+			IAssetRegistry& Reg = FModuleManager::LoadModuleChecked<FAssetRegistryModule>("AssetRegistry").Get();
+			TArray<FAssetData> Weapons;
+			Reg.GetAssetsByPath(FName(TEXT("/Game/Valdoria/Weapons/Merged")), Weapons, false);
+			Reg.GetAssetsByPath(FName(TEXT("/Game/Valdoria/Weapons/Fantasy")), Weapons, false);
+			for (const FAssetData& W : Weapons)
+			{
+				if (W.AssetClassPath.GetAssetName() != TEXT("StaticMesh")) { continue; }
+				// Same label rule as the admin panel's ARMA tab.
+				const FString Name = W.AssetName.ToString().Replace(TEXT("SM_Arma_"), TEXT("")).Replace(TEXT("SM_"), TEXT("")).Replace(TEXT("_"), TEXT(" "));
+				bool bUsed = false;
+				for (const TCHAR* U : UsedByHeroes) { bUsed |= Name == U; }
+				if (!bUsed) { SkipWeapons.Add(Name); }
+			}
+		}
+		for (const FString& L : All)
+		{
+			bool bSkip = SkipWeapons.Contains(L);
+			for (const TCHAR* S : Skip) { bSkip |= L.Contains(S); }
+			if (L == TEXT("Iara") || L == TEXT("Kael Rook") || L == TEXT("Lume") || L == TEXT("Vex") || L == TEXT("Brasa") || L == TEXT("Recruta (teste)"))
+			{
+				continue; // hero switches go last (they reset the admin Recruit)
+			}
+			if (L == TEXT("Iara") || L == TEXT("Kael Rook") || L == TEXT("Lume") || L == TEXT("Vex") || L == TEXT("Brasa") || L == TEXT("Recruta (teste)"))
+			{
+				continue; // hero switches go last (they reset the admin Recruit)
+			}
+			if (!bSkip) { AdminTestQueue.Add(L); }
+		}
+		// Turn 44: run the main admin toggles on EVERY hero (switch, wait a few steps, then click and log).
+		static const TCHAR* Heroes[] = { TEXT("Brasa"), TEXT("Kael Rook"), TEXT("Iara"), TEXT("Vex"), TEXT("Lume"), TEXT("Recruta (teste)") };
+		static const TCHAR* Core[] = { TEXT("Imortal"), TEXT("Sem recarga nas habilidades"), TEXT("Munição infinita"), TEXT("Impulso infinito"),
+			TEXT("Ultimate cheia"), TEXT("Vida cheia"), TEXT("Tirar 50 de vida de mim"), TEXT("Zerar recargas"), TEXT("Voar normal e infinito (Espaço sobe, Ctrl desce)") };
+		for (const TCHAR* H : Heroes)
+		{
+			AdminTestQueue.Add(H);
+			AdminTestQueue.Add(TEXT("#espera"));
+			AdminTestQueue.Add(TEXT("#espera"));
+			AdminTestQueue.Add(TEXT("#estado")); // state right after the switch, nothing clicked
+			for (const TCHAR* C : Core)
+			{
+				AdminTestQueue.Add(C);
+			}
+			AdminTestQueue.Add(TEXT("#estado"));
+		}
+		FScreenshotRequest::RequestScreenshot(FPaths::ConvertRelativePathToFull(FPaths::ProjectSavedDir() / TEXT("Screenshots/Admin_Abas.png")), true, false);
+	}
+	else if (AdminTestStep > 14 && AdminTestQueue.Num() > 0)
+	{
+		const FString L = AdminTestQueue[0];
+		AdminTestQueue.RemoveAt(0);
+		const bool bOk = L.StartsWith(TEXT("#")) ? false : PC->DebugClickAdmin(L);
+		UE_LOG(LogValdoria, Display, TEXT("ADMINTEST [%s] clicou=%d: %s"), *L, bOk, *Snapshot());
+		if (L.StartsWith(TEXT("MOVIMENTO")))
+		{
+			FScreenshotRequest::RequestScreenshot(FPaths::ConvertRelativePathToFull(FPaths::ProjectSavedDir() / TEXT("Screenshots/Admin_Movimento.png")), true, false);
+		}
+	}
+	else if (AdminTestStep > 14)
+	{
+		UE_LOG(LogValdoria, Display, TEXT("ADMINTEST fim"));
+		AdminTestStep = 100000;
+		FPlatformMisc::RequestExit(false);
 	}
 }
 
@@ -595,11 +1075,11 @@ void AValdoriaGameMode::RunHeroTestStep()
 	}
 	AValdoriaPlayerController* PC = Cast<AValdoriaPlayerController>(GetWorld()->GetFirstPlayerController());
 	AValdoriaHeroCharacter* Hero = PC ? Cast<AValdoriaHeroCharacter>(PC->GetPawn()) : nullptr;
-	static const TCHAR* Ids[] = { TEXT("brasa"), TEXT("kael"), TEXT("iara"), TEXT("vex"), TEXT("lume") };
+	static const TCHAR* Ids[] = { TEXT("brasa"), TEXT("kael"), TEXT("iara"), TEXT("vex"), TEXT("lume"), TEXT("kay"), TEXT("ariel") };
 	const int32 PerHero = 44;
 	const int32 Index = (HeroTestStep - Warmup) / PerHero;
 	const int32 S = (HeroTestStep - Warmup) % PerHero;
-	if (Index >= 5 || !Hero)
+	if (Index >= UE_ARRAY_COUNT(Ids) || !Hero)
 	{
 		UE_LOG(LogValdoria, Display, TEXT("HEROTEST fim"));
 		HeroTestStep = 100000;
@@ -616,8 +1096,9 @@ void AValdoriaGameMode::RunHeroTestStep()
 	};
 	auto Report = [&](const TCHAR* What)
 	{
-		UE_LOG(LogValdoria, Display, TEXT("HEROTEST %s %s: inimigo vida=%.0f escudo=%.0f arm=%.0f | aliado vida=%.0f | eu vida=%.0f arm=%.0f prot=%.2f invisivel=%d ult=%.0f%% municao=%d"),
+		UE_LOG(LogValdoria, Display, TEXT("HEROTEST %s %s: inimigo vida=%.0f escudo=%.0f arm=%.0f dist=%.0f | aliado vida=%.0f | eu vida=%.0f arm=%.0f prot=%.2f invisivel=%d ult=%.0f%% municao=%d"),
 			*Id, What, Enemy ? Enemy->GetHealth() : -1.f, Enemy ? Enemy->GetShield() : -1.f, Enemy ? Enemy->GetArmor() : -1.f,
+			Enemy ? FVector::Dist2D(Enemy->GetActorLocation(), Hero->GetActorLocation()) : -1.f,
 			Ally ? Ally->GetHealth() : -1.f, Hero->GetHealth(), Hero->GetArmor(), Hero->GetPassiveDamageReduction(),
 			Hero->IsHiddenByStealth(), Hero->GetUltimatePercent() * 100.f, Hero->GetAmmo());
 	};
@@ -688,6 +1169,16 @@ void AValdoriaGameMode::RunHeroTestStep()
 		PressKey(EKeys::D, false);
 		break;
 	case 11: Report(TEXT("depois do ataque")); Shot(1); break;
+	case 12:
+		// Back to 3.3 m in front of the enemy dummy: the sidestep while attacking used to leave short-range
+		// abilities (cones, slams) out of reach, so their checks depended on how far the hero walked (turn 45).
+		if (Enemy)
+		{
+			const FVector Away = (Hero->GetActorLocation() - Enemy->GetActorLocation()).GetSafeNormal2D();
+			Hero->SetActorLocation(FVector(Enemy->GetActorLocation().X, Enemy->GetActorLocation().Y, Hero->GetActorLocation().Z) + Away * 330.f, false, nullptr, ETeleportType::TeleportPhysics);
+			AimAtEnemy();
+		}
+		break;
 	case 13: Use(EValdoriaAbilitySlot::SecondaryFire, TEXT("botao direito")); break;
 	case 14: case 22: case 25:
 		if (Index == 4 && Enemy)
@@ -705,36 +1196,51 @@ void AValdoriaGameMode::RunHeroTestStep()
 	case 18:
 		if (Index == 0)
 		{
-			// Esquema estilo Valorant: a habilidade 1 vai para o Q (tecla de verdade).
-			FValdoriaOptions::Get().KeyScheme = 1;
-			Hero->RefreshKeyScheme();
+			// Standard keys (owner, turn 45): ability 1 is on the real key 1.
+			AimAtEnemy();
+			PressKey(EKeys::One, true);
 		}
 		else
 		{
-			Use(EValdoriaAbilitySlot::Ability1, TEXT("F"));
+			Use(EValdoriaAbilitySlot::Ability1, TEXT("1"));
 		}
 		break;
 	case 19:
 		if (Index == 0)
 		{
-			AimAtEnemy();
-			PressKey(EKeys::Q, true);
+			PressKey(EKeys::One, false);
+			UE_LOG(LogValdoria, Display, TEXT("HEROTEST tecla 1 usou a habilidade 1 (recarga=%.1f)"), Hero->GetCooldownRemaining(EValdoriaAbilitySlot::Ability1));
+		}
+		if (Index == 5)
+		{
+			PressKey(EKeys::Four, true); // Kay: a short tap on 4 switches the element
 		}
 		break;
 	case 20:
-		if (Index == 0)
+		if (Index == 5)
 		{
-			PressKey(EKeys::Q, false);
-			UE_LOG(LogValdoria, Display, TEXT("HEROTEST teclas Valorant: Q usou a habilidade 1 (recarga=%.1f)"), Hero->GetCooldownRemaining(EValdoriaAbilitySlot::Ability1));
-			FValdoriaOptions::Get().KeyScheme = 0;
-			Hero->RefreshKeyScheme();
+			PressKey(EKeys::Four, false);
 		}
 		break;
-	case 21: Report(TEXT("depois do F")); Shot(3); break;
-	case 23: Use(EValdoriaAbilitySlot::Ability2, TEXT("E")); break;
-	case 27: Report(TEXT("depois do E")); Shot(4); break;
-	case 29: Hero->AdminFillUltimate(); break;
-	case 32: Use(EValdoriaAbilitySlot::Ultimate, TEXT("ultimate")); break;
+	case 21:
+		Report(TEXT("depois do 1")); Shot(3);
+		if (Index == 5) { UE_LOG(LogValdoria, Display, TEXT("HEROTEST kay elemento depois do toque no 4: %d (%s) troca em %.1f s"), Hero->GetCurrentElement(), *Hero->GetElementName().ToString(), Hero->GetElementSwitchRemaining()); }
+		break;
+	case 23: AimAtEnemy(); Use(EValdoriaAbilitySlot::Ability2, TEXT("2")); break; // aimed abilities (Vex dash) need the target under the crosshair
+	case 27: Report(TEXT("depois do 2")); Shot(4); break;
+	case 28: Use(EValdoriaAbilitySlot::Ability3, TEXT("3")); break; // turn 45: every hero has ability 3
+	case 29:
+		Report(TEXT("depois do 3"));
+		Hero->AdminFillUltimate();
+		if (Index == 5) { PressKey(EKeys::Four, true); } // Kay: hold 4 for 3 s (12 steps)
+		break;
+	case 30:
+		if (Index == 6) { Use(EValdoriaAbilitySlot::AbilityExtra, TEXT("C (trocar de forma)")); }
+		break;
+	case 31:
+		if (Index == 6) { UE_LOG(LogValdoria, Display, TEXT("HEROTEST ariel forma depois do C: %s"), Hero->GetHeroDefinition() ? *Hero->GetHeroDefinition()->HeroId.ToString() : TEXT("?")); }
+		break;
+	case 32: if (Index != 5) { Use(EValdoriaAbilitySlot::Ultimate, TEXT("ultimate")); } break;
 	case 33: Use(EValdoriaAbilitySlot::PrimaryFire, TEXT("ataque na ultimate")); Shot(5); break;
 	case 35: case 36: case 37:
 		if (Index == 4 && Ally)
@@ -783,6 +1289,11 @@ void AValdoriaGameMode::RunHeroTestStep()
 		}
 		break;
 	case 43:
+		if (Index == 5)
+		{
+			UE_LOG(LogValdoria, Display, TEXT("HEROTEST kay devastacao (4 segurado 3,5 s): ult=%.0f%% inimigo vida=%.0f"), Hero->GetUltimatePercent() * 100.f, Enemy ? Enemy->GetHealth() : -1.f);
+			PressKey(EKeys::Four, false);
+		}
 		if (Index == 1)
 		{
 			UE_LOG(LogValdoria, Display, TEXT("HEROTEST loja aberta com B: %d"), PC->IsShopOpen());
@@ -796,6 +1307,9 @@ void AValdoriaGameMode::RunHeroTestStep()
 
 void AValdoriaGameMode::RunWeaponPoseStep()
 {
+	// -ValdoriaWeaponPose: each hero holding its weapon(s), seen from two sides, to check the grip against
+	// the owner's concept art. Optional Saved/grip_variants.txt, one shot pair per line, to try grips without
+	// rebuilding: "id name  P Y R  X Y Z  Scale  [oP oY oR  oX oY oZ  oScale]" (o = offhand).
 	++WeaponPoseStep;
 	AValdoriaPlayerController* PC = Cast<AValdoriaPlayerController>(GetWorld()->GetFirstPlayerController());
 	AValdoriaHeroCharacter* Hero = PC ? Cast<AValdoriaHeroCharacter>(PC->GetPawn()) : nullptr;
@@ -803,46 +1317,58 @@ void AValdoriaGameMode::RunWeaponPoseStep()
 	{
 		return;
 	}
-	static const FRotator Candidates[] = {
-		FRotator(0, 0, 0), FRotator(0, 90, 0), FRotator(0, -90, 0), FRotator(0, 180, 0),
-		FRotator(90, 0, 0), FRotator(-90, 0, 0), FRotator(0, 0, 90), FRotator(0, 0, -90),
-		FRotator(0, 90, 90), FRotator(0, -90, 90), FRotator(0, 90, -90), FRotator(0, -90, -90),
-	};
-	const int32 N = UE_ARRAY_COUNT(Candidates);
-	const int32 S = WeaponPoseStep - 12;
-	if (S == 0)
+	static TArray<FString> Lines;
+	if (WeaponPoseStep == 12)
 	{
-		const bool bOk = PC->SelectHero(TEXT("kael"));
-		Hero->bUseControllerRotationYaw = false;
-		UE_LOG(LogValdoria, Display, TEXT("WEAPONPOSE selecionou=%d heroi=%s"), bOk, Hero->GetHeroDefinition() ? *Hero->GetHeroDefinition()->HeroId.ToString() : TEXT("-"));
-		const UStaticMesh* Mesh = Hero->WeaponComponent->GetStaticMesh();
-		UE_LOG(LogValdoria, Display, TEXT("WEAPONPOSE malha=%s extensao=%s socket=%s"), Mesh ? *Mesh->GetName() : TEXT("-"),
-			Mesh ? *Mesh->GetBounds().BoxExtent.ToString() : TEXT("-"), *Hero->WeaponComponent->GetAttachSocketName().ToString());
-		return;
+		Lines.Reset();
+		FString Text;
+		if (FFileHelper::LoadFileToString(Text, *(FPaths::ProjectSavedDir() / TEXT("grip_variants.txt"))))
+		{
+			Text.ParseIntoArrayLines(Lines);
+			Lines.RemoveAll([](const FString& L) { return L.TrimStartAndEnd().IsEmpty() || L.StartsWith(TEXT("#")); });
+		}
+		if (Lines.Num() == 0)
+		{
+			Lines = { TEXT("brasa atual"), TEXT("kael atual"), TEXT("iara atual"), TEXT("vex atual"), TEXT("lume atual") };
+		}
 	}
-	const int32 Index = (S - 1) / 2;
-	if (Index >= N)
+	const int32 S = WeaponPoseStep - 12;
+	const int32 Index = S / 5;
+	if (Index >= Lines.Num())
 	{
 		UE_LOG(LogValdoria, Display, TEXT("WEAPONPOSE fim"));
 		WeaponPoseStep = 100000;
 		FPlatformMisc::RequestExit(false);
 		return;
 	}
-	if ((S - 1) % 2 == 0)
+	TArray<FString> Tok;
+	Lines[Index].ParseIntoArrayWS(Tok);
+	const FString Id = Tok.IsValidIndex(0) ? Tok[0] : FString();
+	const FString Name = Id + TEXT("_") + (Tok.IsValidIndex(1) ? Tok[1] : FString(TEXT("atual")));
+	auto Num = [&Tok](int32 i, float Def) { return Tok.IsValidIndex(i) ? FCString::Atof(*Tok[i]) : Def; };
+	const FString Shot = FPaths::ConvertRelativePathToFull(FPaths::ProjectSavedDir() / TEXT("Screenshots") / TEXT("Grip_") + Name);
+	switch (S % 5)
 	{
-		// Câmera vendo o herói de lado (o corpo não gira com a câmera neste teste).
-		PC->SetControlRotation(FRotator(-5.f, Hero->GetActorRotation().Yaw - 100.f, 0.f));
-		FTransform T = Hero->WeaponComponent->GetRelativeTransform();
-		T.SetRotation(Candidates[Index].Quaternion());
-		Hero->WeaponComponent->SetRelativeTransform(T);
-	}
-	else
-	{
-		FScreenshotRequest::RequestScreenshot(FPaths::ConvertRelativePathToFull(FPaths::ProjectSavedDir()
-			/ TEXT("Screenshots") / FString::Printf(TEXT("Pose_%02d.png"), Index)), false, false);
+	case 0:
+		PC->SelectHero(FName(*Id));
+		Hero->bUseControllerRotationYaw = false;
+		Hero->SetActorRotation(FRotator::ZeroRotator);
+		if (Tok.Num() >= 9)
+		{
+			Hero->WeaponComponent->SetRelativeTransform(FTransform(FRotator(Num(2, 0), Num(3, 0), Num(4, 0)), FVector(Num(5, 0), Num(6, 0), Num(7, 0)), FVector(Num(8, 1))));
+		}
+		if (Tok.Num() >= 16)
+		{
+			Hero->OffhandComponent->SetRelativeTransform(FTransform(FRotator(Num(9, 0), Num(10, 0), Num(11, 0)), FVector(Num(12, 0), Num(13, 0), Num(14, 0)), FVector(Num(15, 1))));
+		}
+		PC->SetControlRotation(FRotator(-8.f, 145.f, 0.f));
+		break;
+	case 2: FScreenshotRequest::RequestScreenshot(Shot + TEXT("_a.png"), false, false); break;
+	case 3: PC->SetControlRotation(FRotator(-8.f, -90.f, 0.f)); break;
+	case 4: FScreenshotRequest::RequestScreenshot(Shot + TEXT("_b.png"), false, false); break;
+	default: break;
 	}
 }
-
 void AValdoriaGameMode::RunFlightTestStep()
 {
 	++FlightTestStep;

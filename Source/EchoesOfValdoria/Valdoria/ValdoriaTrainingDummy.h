@@ -46,6 +46,12 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Treino")
 	bool bHunter = false;
 
+	/** Deathmatch bots: revive at a random spread spot of the map instead of where they started. */
+	bool bReviveAtSpreadSpot = false;
+	/** MOBA minion (turn 45): small, weak, walks its lane; removed when it dies instead of reviving. */
+	UPROPERTY(EditAnywhere, Category = "Boneco")
+	bool bMinion = false;
+
 	virtual void Tick(float DeltaSeconds) override;
 	virtual void ScheduleRevive();
 

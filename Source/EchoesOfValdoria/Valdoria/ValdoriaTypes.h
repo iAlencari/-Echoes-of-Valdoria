@@ -65,13 +65,16 @@ enum class EValdoriaHeroRole : uint8
 UENUM(BlueprintType)
 enum class EValdoriaAbilitySlot : uint8
 {
+	// Owner's standard layout (turn 44, every hero): basic attack = left mouse, ability 5 = right mouse,
+	// abilities 1/2/3 = keys 1/2/3, ultimate = key 4, optional extra ability = C. Order kept for saved assets.
 	None		UMETA(DisplayName = "Nenhum"),
-	PrimaryFire	UMETA(DisplayName = "Tiro principal (botão esquerdo)"),
-	SecondaryFire UMETA(DisplayName = "Tiro secundário (botão direito)"),
-	Ability1	UMETA(DisplayName = "Habilidade 1 (F)"),
-	Ability2	UMETA(DisplayName = "Habilidade 2 (E)"),
-	Ultimate	UMETA(DisplayName = "Ultimate (Q ou X)"),
-	Ability3	UMETA(DisplayName = "Habilidade 3 (C)")
+	PrimaryFire	UMETA(DisplayName = "Ataque básico (botão esquerdo)"),
+	SecondaryFire UMETA(DisplayName = "Habilidade 5 (botão direito)"),
+	Ability1	UMETA(DisplayName = "Habilidade 1 (tecla 1)"),
+	Ability2	UMETA(DisplayName = "Habilidade 2 (tecla 2)"),
+	Ultimate	UMETA(DisplayName = "Suprema (tecla 4)"),
+	Ability3	UMETA(DisplayName = "Habilidade 3 (tecla 3)"),
+	AbilityExtra UMETA(DisplayName = "Habilidade extra (C)")
 };
 
 /** Como o herói voa. */
@@ -137,6 +140,13 @@ struct FValdoriaWeaponStats
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Arma", meta = (ClampMin = "0"))
 	float SpreadDegrees = 0.6f;
 
+	/** Owner (turn 44): spread multiplier while crouched (0.6 = 40% tighter) and lying down (0.35 = even tighter).
+	 *  Stacks with passives such as Kael's "still" bonus. Placeholders, balance per hero. */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Arma", meta = (ClampMin = "0", ClampMax = "1"))
+	float CrouchSpreadMultiplier = 0.6f;
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Arma", meta = (ClampMin = "0", ClampMax = "1"))
+	float ProneSpreadMultiplier = 0.35f;
+
 	/** A partir desta distância (cm) o dano começa a cair. */
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Arma|Queda de dano")
 	float FalloffStart = 2500.f;
@@ -179,6 +189,18 @@ struct FValdoriaWeaponStats
 	/** Cura em aliados atingidos pelo projétil (0 = não cura). */
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Arma|Projétil", meta = (ClampMin = "0"))
 	float AllyHeal = 0.f;
+
+	/** Life steal: this fraction of the damage dealt heals the shooter (Lume's draining beam). */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Arma|Cura", meta = (ClampMin = "0"))
+	float LifeSteal = 0.f;
+
+	/** Overheal: healing past full health becomes a temporary shield, up to this fraction of the target's max health (0 = off). */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Arma|Cura", meta = (ClampMin = "0"))
+	float OverhealMax = 0.f;
+
+	/** How fast that overheal shield fades (points per second). */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Arma|Cura", meta = (ClampMin = "0"))
+	float OverhealDecay = 8.f;
 };
 
 /**
@@ -331,6 +353,13 @@ struct FValdoriaMovementRules
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Planar", meta = (EditCondition = "bCanGlide", ClampMin = "0", ClampMax = "1"))
 	float GlideAirControl = 0.8f;
 
+	/** Aiming or shooting in the air also slows the fall (Recruit), no Space needed. */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Planar")
+	bool bAimGlide = false;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Planar", meta = (EditCondition = "bAimGlide", ClampMin = "0"))
+	float AimGlideFallSpeed = 260.f;
+
 	// --- Voar
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Voar")
 	EValdoriaFlightMode FlightMode = EValdoriaFlightMode::None;
@@ -350,6 +379,29 @@ struct FValdoriaMovementRules
 	/** Modo habilidade: quanto tempo voa ao usar (s). */
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Voar", meta = (ClampMin = "0.1"))
 	float FlightAbilityDuration = 6.f;
+
+	/** Fuel mode without fuel limit (Vex: unlimited flight). */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Voar")
+	bool bUnlimitedFlight = false;
+
+	/** While flying: no attack and no abilities (Vex holds herself up with telekinesis). */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Voar")
+	bool bFlightBlocksActions = false;
+
+	// --- Vigor (Lume, turn 44): stamina spent by Shift (sprint per second, dash per use); regenerates after a pause.
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Vigor")
+	bool bUsesVigor = false;
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Vigor", meta = (EditCondition = "bUsesVigor", ClampMin = "1"))
+	float VigorMax = 100.f;
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Vigor", meta = (EditCondition = "bUsesVigor", ClampMin = "0"))
+	float VigorSprintPerSecond = 20.f;
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Vigor", meta = (EditCondition = "bUsesVigor", ClampMin = "0"))
+	float VigorDashCost = 30.f;
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Vigor", meta = (EditCondition = "bUsesVigor", ClampMin = "0"))
+	float VigorRegenPerSecond = 25.f;
+	/** Seconds without spending before vigor starts to come back. */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Vigor", meta = (EditCondition = "bUsesVigor", ClampMin = "0"))
+	float VigorRegenDelay = 1.f;
 
 	// --- Escalar parede (segurar Espaço de frente para uma parede alta)
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Escalar")
@@ -397,6 +449,18 @@ struct FValdoriaAnimationSet
 	TSoftObjectPtr<UAnimSequenceBase> ProneIdle;
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Animações|Deitar")
 	TSoftObjectPtr<UAnimSequenceBase> ProneCrawl;
+	/** Crawling backwards / sideways (empty = uses ProneCrawl). */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Animações|Deitar")
+	TSoftObjectPtr<UAnimSequenceBase> ProneCrawlBackward;
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Animações|Deitar")
+	TSoftObjectPtr<UAnimSequenceBase> ProneCrawlLeft;
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Animações|Deitar")
+	TSoftObjectPtr<UAnimSequenceBase> ProneCrawlRight;
+	/** Played once (full body) when lying down / getting up with X. */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Animações|Deitar")
+	TSoftObjectPtr<UAnimSequenceBase> ProneEnter;
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Animações|Deitar")
+	TSoftObjectPtr<UAnimSequenceBase> ProneExit;
 
 	/** Subir em beirada (toca uma vez). */
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Animações|Escalar")
@@ -438,6 +502,44 @@ struct FValdoriaAnimationSet
 	TSoftObjectPtr<UAnimSequenceBase> JogRight;
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Animações|Base")
 	TSoftObjectPtr<UAnimSequenceBase> FallLoop;
+
+	/** Gliding (Space glide, or aiming in the air with bAimGlide). Fab "Free Animation Set". */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Animações|Ar")
+	TSoftObjectPtr<UAnimSequenceBase> Glide;
+	/** Gliding while moving sideways (empty = Glide). */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Animações|Ar")
+	TSoftObjectPtr<UAnimSequenceBase> GlideLeft;
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Animações|Ar")
+	TSoftObjectPtr<UAnimSequenceBase> GlideRight;
+	/** In the air going UP after a jump (empty = FallLoop, or Hover for floating heroes). Turn 45: Lume was stiff in the air. */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Animações|Ar")
+	TSoftObjectPtr<UAnimSequenceBase> AirRise;
+	/** In the air coming DOWN without gliding (empty = FallLoop, or Hover for floating heroes). */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Animações|Ar")
+	TSoftObjectPtr<UAnimSequenceBase> AirFall;
+	/** Flying and moving (superhero style; empty = Fly). The hover clip stays for standing still in the air. */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Animações|Voo")
+	TSoftObjectPtr<UAnimSequenceBase> FlyMove;
+	/** Flying and diving down fast (empty = FlyMove / Fly). */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Animações|Voo")
+	TSoftObjectPtr<UAnimSequenceBase> FlyDown;
+
+	/** Riding a Bifrost trail (leaning forward, arms back). */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Animações|Ar")
+	TSoftObjectPtr<UAnimSequenceBase> RidePose;
+	/** Bifrost vertical part (rising at the spawn): upright pose. Empty = RidePose. */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Animações|Ar")
+	TSoftObjectPtr<UAnimSequenceBase> RideVerticalPose;
+	/** Forward lean (degrees) on the horizontal part of the Bifrost; the vertical part is upright. */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Animações|Ar")
+	float RideLean = 28.f;
+
+	/** Upper-body pose held while the primary fire is held (Lume's draining beam), frozen at FireHoldPoseTime. */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Animações|Ações")
+	TSoftObjectPtr<UAnimSequenceBase> FireHoldPose;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Animações|Ações")
+	float FireHoldPoseTime = 2.f;
 	/** Acima desta velocidade (cm/s) usa correr; abaixo, andar. */
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Animações|Base")
 	float WalkRunSpeed = 320.f;
@@ -489,6 +591,15 @@ USTRUCT(BlueprintType)
 struct FValdoriaAbilityEntry
 {
 	GENERATED_BODY()
+
+	/** Element set (Kay, turn 44): -1 = always available; 0 fire, 1 earth, 2 water, 3 air = only while that element is
+	 *  active. Several entries can share a slot with different sets: the key uses the one of the current element. */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Habilidade")
+	int32 ElementSet = -1;
+
+	/** Stack-type ability (turn 44): shows a small stack icon in the HUD (see FValdoriaStacks). */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Habilidade")
+	bool bStacks = false;
 
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Habilidade")
 	FText DisplayName;

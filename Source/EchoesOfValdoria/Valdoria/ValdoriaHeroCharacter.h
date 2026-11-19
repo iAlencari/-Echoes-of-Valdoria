@@ -104,6 +104,16 @@ public:
 	bool bInfiniteDashes = false;
 	UPROPERTY(Replicated, BlueprintReadOnly, Category = "Admin")
 	float AdminSpeedMultiplier = 1.f;
+	/** Flight fuel never runs out (admin). */
+	UPROPERTY(BlueprintReadOnly, Category = "Admin")
+	bool bInfiniteFlight = false;
+	/** Test only (-ValdoriaPoseGallery): forces this base animation, ignoring the Data Asset. */
+	TSoftObjectPtr<UAnimSequenceBase> DebugBaseAnim;
+	/** Admin: normal flight (hold Space in the air, Ctrl goes down), infinite, for any hero. Collides with the world. */
+	UPROPERTY(BlueprintReadOnly, Category = "Admin")
+	bool bAdminFlight = false;
+	/** Admin override of air control (negative = use the hero's value). */
+	float AdminAirControl = -1.f;
 	void AdminSetSpeedMultiplier(float Multiplier);
 	float GetDamageMultiplier() const;
 	void AdminSetDamageMultiplier(float Multiplier);
@@ -195,6 +205,61 @@ public:
 	bool TryMountRail();
 	void StopRiding();
 	bool IsRiding() const { return RideRail.IsValid(); }
+	/** Riding the vertical part of a Bifrost (rising at the spawn). */
+	bool bRideVertical = false;
+	// --- Elements (Kay), hold-to-cast ultimate, forms (Ariel) and vigor (Lume) - turn 44
+	int32 CurrentElement = 0;
+	float ElementSwitchReadyTime = 0.f;
+	float UltHoldStart = -1.f;
+	void SwitchElement();
+	int32 GetCurrentElement() const { return CurrentElement; }
+	FLinearColor GetElementColor() const;
+	FText GetElementName() const;
+	EValdoriaDamageType GetElementDamageType(EValdoriaDamageType Fallback) const;
+	/** 0..1 while the ultimate key is held on a hold-to-cast ultimate; -1 when not holding. */
+	float GetUltimateHoldProgress() const;
+	float GetElementSwitchRemaining() const;
+	void TickUltimateHold();
+	/** Swaps to another hero definition (Ariel's other form) next tick, keeping health %, ultimate charge and cooldowns. */
+	void SwapToForm(FName FormId);
+	float Vigor = -1.f;
+	float VigorLastSpend = -10.f;
+	void TickVigor(float DeltaSeconds);
+	float GetVigorPercent() const;
+
+	/** Vex telekinetic dash (turn 44): flies to Target (follows it if it moves, gives up after 1.5 s). Enemy: push, damage
+	 *  and a brief stagger on arrival. Ally: just arrives; Shield (behind her during the flight) is removed on arrival. */
+	void StartTelekineticDash(AValdoriaHeroCharacter* Target, float Speed, float Damage, float Push, AActor* Shield);
+	bool IsTelekineticDashing() const { return TkDashTarget.IsValid(); }
+	void TickTelekineticDash();
+	TWeakObjectPtr<AValdoriaHeroCharacter> TkDashTarget;
+	TWeakObjectPtr<AActor> TkDashShield;
+	float TkDashEnd = 0.f;
+	float TkDashSpeed = 2500.f;
+	float TkDashDamage = 0.f;
+	float TkDashPush = 0.f;
+	/** Autopilot pathfinding (turn 44): direction of the next navmesh path point towards Goal (straight line if there
+	 *  is no navmesh). Re-paths every 0.6 s or when the goal moves more than 4 m. */
+	FVector AutopilotNavDirection(const FVector& Goal);
+	TArray<FVector> NavPath;
+	int32 NavPathIndex = 0;
+	float NavRepathTime = 0.f;
+	FVector NavGoal = FVector::ZeroVector;
+	FVector AutopilotRoamGoal = FVector::ZeroVector;
+	float AutopilotRoamTime = 0.f;
+	/** Falling below this height kills the hero (computed from the lowest player start, -30 m). */
+	float FallKillZ = TNumericLimits<float>::Lowest();
+	void TickFallOutOfMap();
+	/** Invisible map limits (owner, turn 44): a box around the map's geometry. Sides block like walls; the sky
+	 *  is a soft ceiling where flying slows down to a stop. Computed once from the level's static meshes. */
+	void TickMapBounds();
+	FBox MapBounds = FBox(ForceInit);
+	float MapCeilingZ = 0.f;
+	bool bMapBoundsReady = false;
+	static constexpr float MapBoundsPadding = 500.f;   // cm past the outermost geometry (fallback when there is no ground)
+	static constexpr float MapGroundInset = 60.f;      // turn 45: cm INSIDE the edge of the ground pieces (no walking off the floor)
+	static constexpr float MapCeilingAbove = 2500.f;   // cm above the highest geometry
+	static constexpr float MapCeilingSoft = 1500.f;    // slow-down band under the ceiling
 	FString GetRideLaneName() const;
 	// --- Seal / reverse-seal (hold G next to a defeated spot guardian)
 	class AValdoriaGuardian* FindChannelTarget() const;
@@ -211,15 +276,42 @@ public:
 	float LastCombatTime = -100.f;
 	void SetAutopilotRoute(const TArray<FVector>& Points) { AutopilotRoute = Points; AutopilotRouteIndex = 0; }
 	void RestartAutopilotRoute() { AutopilotRouteIndex = 0; }
+	void SetAutopilotPace(float RepathSeconds, float PickSeconds) { NavRepathInterval = RepathSeconds; AutopilotPickInterval = PickSeconds; }
 	/** Team buff from a MOBA spot: 0 damage reduction, 1 damage bonus, 2 regeneration per second. Lasts Seconds. */
 	void ApplyTeamBuff(uint8 Type, float Value, float Seconds);
 	float GetTeamDamageReduction() const;
 	float GetTeamDamageBonus() const;
 	float GetTeamRegen() const;
+	// ---- Stacks (owner, turn 45). A stack lives on the hero that RECEIVES it and remembers who caused it.
+	// HUD: your own stacks sit small above your abilities; stacks an enemy put on you sit smaller with a red mark;
+	// stacks you put on someone else show next to their health bar, only for you.
+	struct FValdoriaStack
+	{
+		TWeakObjectPtr<AValdoriaHeroCharacter> Source;
+		FName Key;
+		FString Label;          // 1-3 letters drawn on the small icon
+		FLinearColor Color = FLinearColor::White;
+		int32 Count = 1;
+		float EndTime = 0.f;    // 0 = until removed
+	};
+	/** Sets the count of a stack (Count <= 0 removes it). Duration 0 = stays until changed. */
+	void SetStack(AValdoriaHeroCharacter* Source, FName Key, const FString& Label, FLinearColor Color, int32 Count, float Duration = 0.f);
+	/** Adds to a stack, capped at MaxCount, and refreshes its duration. */
+	void AddStack(AValdoriaHeroCharacter* Source, FName Key, const FString& Label, FLinearColor Color, int32 Add = 1, int32 MaxCount = 99, float Duration = 0.f);
+	void RemoveStack(AValdoriaHeroCharacter* Source, FName Key) { SetStack(Source, Key, FString(), FLinearColor::White, 0); }
+	/** Live stacks (expired ones are skipped by the HUD and cleaned on the next change). */
+	const TArray<FValdoriaStack>& GetStacks() const { return Stacks; }
+	bool IsStackLive(const FValdoriaStack& Stack) const { return Stack.Count > 0 && (Stack.EndTime <= 0.f || Stack.EndTime > GetWorld()->GetTimeSeconds()); }
+	TArray<FValdoriaStack> Stacks;
+
 	/** Anti-heal: healing this hero receives is cut by Fraction for Seconds. */
 	void ApplyAntiHeal(float Fraction, float Seconds) { AntiHealValue = FMath::Max(Fraction, GetWorld()->GetTimeSeconds() < AntiHealEnd ? AntiHealValue : 0.f); AntiHealEnd = GetWorld()->GetTimeSeconds() + Seconds; }
 	/** (1 + healing received from items) x (1 - active anti-heal). */
 	float GetHealingReceivedMultiplier() const { return (1.f + ShopBonus.HealingReceived) * (1.f - (GetWorld()->GetTimeSeconds() < AntiHealEnd ? FMath::Clamp(AntiHealValue, 0.f, 0.9f) : 0.f)); }
+	/** Overheal: temporary shield from healing past full health; absorbs damage first and fades over time. */
+	float Overheal = 0.f;
+	float OverhealDecayRate = 0.f;
+	void AddOverheal(float Amount, float Cap, float DecayPerSecond);
 	/** Who hit this hero last, and when (guardians defend allies under attack). */
 	TWeakObjectPtr<AValdoriaHeroCharacter> LastAttacker;
 	float LastAttackedTime = -100.f;
@@ -278,6 +370,9 @@ protected:
 	void Input_Ability1();
 	void Input_Ability2();
 	void Input_Ability3();
+	void Input_AbilityExtra();
+	/** Key 4 held / released (heroes whose ultimate is charged by holding, e.g. Kay). */
+	void Input_UltimateReleased();
 	void Input_Ultimate();
 	void Input_Reload();
 	void Input_JumpPressed();
@@ -368,9 +463,20 @@ protected:
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Componentes")
 	TObjectPtr<UStaticMeshComponent> WeaponComponent;
 
+	/** Item in the other hand (shield, second dagger). */
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Valdoria")
+	TObjectPtr<UStaticMeshComponent> OffhandComponent;
+
 	/** Disco mágico sob os pés (locomoção "andar sobre efeito"). */
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Componentes")
 	TObjectPtr<UStaticMeshComponent> RideDisc;
+	/** Per-foot discs (bRideEffectPerFoot). They stay where the foot planted (absolute location). */
+	UPROPERTY(VisibleAnywhere, Category = "Componentes")
+	TObjectPtr<UStaticMeshComponent> FootDiscL;
+	UPROPERTY(VisibleAnywhere, Category = "Componentes")
+	TObjectPtr<UStaticMeshComponent> FootDiscR;
+	float FootDiscAlpha[2] = { 0.f, 0.f };
+	void TickFootDiscs(float DeltaSeconds);
 
 	UPROPERTY()
 	TObjectPtr<UValdoriaAttributeSet> Attributes;
@@ -389,6 +495,7 @@ protected:
 	UPROPERTY(Transient) TObjectPtr<UInputAction> Ability1Action;
 	UPROPERTY(Transient) TObjectPtr<UInputAction> Ability2Action;
 	UPROPERTY(Transient) TObjectPtr<UInputAction> Ability3Action;
+	UPROPERTY(Transient) TObjectPtr<UInputAction> AbilityExtraAction;
 	void MapAbilityKeys();
 	UPROPERTY(Transient) TObjectPtr<UInputAction> UltimateAction;
 	UPROPERTY(Transient) TObjectPtr<UInputAction> ReloadAction;
@@ -407,6 +514,10 @@ protected:
 	FTimerHandle ReloadTimer;
 	float LastDamageTakenTime = -100.f;
 	bool bFireHeld = false;
+	bool bSecondaryHeld = false;
+	bool bAimGliding = false;
+	bool bWasFireHold = false;
+	void Input_SecondaryReleased();
 	bool bAbilitiesGranted = false;
 
 	// Efeitos temporários e passivas
@@ -448,6 +559,13 @@ protected:
 	void Input_InteractPressed() { bInteractHeld = true; }
 	void Input_InteractReleased() { bInteractHeld = false; }
 	int32 AutopilotRouteIndex = 0;
+	/** Stuck rescue (turn 45): where the bot was at the last check; no progress in 3 s = skip to the next route point. */
+	FVector AutopilotStuckPos = FVector::ZeroVector;
+	float AutopilotStuckCheck = 0.f;
+	int32 AutopilotStuckStrikes = 0;
+	/** How often the autopilot re-plans its path and re-picks a target (turn 45: minions use slower values, FPS). */
+	float NavRepathInterval = 0.6f;
+	float AutopilotPickInterval = 0.5f;
 	float TeamBuffValue[3] = { 0.f, 0.f, 0.f };
 	float TeamBuffEnd[3] = { 0.f, 0.f, 0.f };
 	float AntiHealValue = 0.f;

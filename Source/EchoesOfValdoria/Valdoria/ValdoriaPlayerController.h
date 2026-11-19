@@ -18,11 +18,23 @@ class ECHOESOFVALDORIA_API AValdoriaPlayerController : public APlayerController
 
 public:
 	bool IsPauseMenuOpen() const { return PauseWidget.IsValid(); }
+	/** Lobby (turn 45): play / heroes / shop (skins coming soon) / inventory / training / settings / quit.
+	 *  Opens once when the game starts (not in tests or with -ValdoriaNoLobby) and from the pause menu. */
+	void OpenLobby();
+	void CloseLobby();
+	bool IsLobbyOpen() const { return LobbyWidget.IsValid(); }
 	bool IsAdminPanelOpen() const { return AdminWidget.IsValid(); }
 	bool IsChatOpen() const { return ChatWidget.IsValid(); }
 	bool IsAdminMode() const { return bAdminMode; }
 	void DebugSetAdminMode(bool bOn) { bAdminMode = bOn; }
 	void DebugOpenSettings() { OpenSettings(); }
+	/** Test helpers: labels of every button/checkbox in the open admin panel (all tabs), and click one by label. */
+	TArray<FString> DebugListAdminControls() const;
+	bool DebugClickAdmin(const FString& Label);
+	TWeakObjectPtr<class AValdoriaHeroCharacter> DebugGetAdminTarget() const { return AdminTarget; }
+
+	/** Keeps the admin Recruit maxed out while admin mode is on. */
+	virtual void PlayerTick(float DeltaTime) override;
 
 	/** Esc: abre/fecha o menu de pausa. */
 	void TogglePauseMenu();
@@ -114,11 +126,17 @@ protected:
 
 	/** Modo administrador: ligado pelo menu de pausa ou por /adm; só com ele o F1 abre o painel. */
 	bool bAdminMode = false;
+	/** Recruit that got the admin "everything maxed" loadout (reverted when admin mode or the hero changes). */
+	TWeakObjectPtr<class AValdoriaHeroCharacter> AdminMaxHero;
+	/** Tab pages of the admin panel (for the test helpers). */
+	TWeakPtr<class SWidgetSwitcher> AdminPages;
 
 	TSharedPtr<SWidget> PauseWidget;
 	TSharedPtr<SWidget> AdminWidget;
 	TWeakObjectPtr<AValdoriaHeroCharacter> AdminTarget;
-	TArray<TWeakObjectPtr<UValdoriaHeroDefinition>> AdminHeroList;
+	/** Strong references on purpose: weak ones were garbage-collected and the panel's hero buttons then switched to the Recruit. */
+	UPROPERTY(Transient)
+	TArray<TObjectPtr<UValdoriaHeroDefinition>> AdminHeroList;
 	TArray<FString> AdminMapList;
 	FVector SavedPositions[3];
 	FRotator SavedRotations[3];
@@ -137,5 +155,12 @@ protected:
 	TSharedRef<SWidget> BuildShopScreen();
 	void CloseShop();
 	FTimerHandle CreditTimer;
+	// Lobby (ValdoriaLobby.cpp)
+	void MaybeOpenLobbyAtStart();
+	TSharedRef<SWidget> BuildLobby();
+	void LobbyPlay();
+	TSharedPtr<SWidget> LobbyWidget;
+	TWeakPtr<class SWidgetSwitcher> LobbyPages;
+	int32 LobbyMode = 0;
 	virtual void OnPossess(APawn* InPawn) override;
 };

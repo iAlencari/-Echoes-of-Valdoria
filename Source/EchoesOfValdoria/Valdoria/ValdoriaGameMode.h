@@ -35,6 +35,12 @@ public:
 	/** Cria um boneco de treino (usado também pelo painel de administrador). Kind: 0 básico, 1 armadura, 2 escudo, 3 andando. */
 	AActor* SpawnDummyAt(const FVector& Location, const FRotator& Facing, uint8 Kind);
 
+	/** Turn 44: a random open spot at street level anywhere on the map, at least MinDistance from every living
+	 *  hero (deathmatch spawns, so nobody is born on top of the enemies). False if none was found. */
+	bool FindSpreadSpawnPoint(FVector& OutLocation, float MinDistance = 1500.f);
+	/** Respawn the player at a spread spot instead of the player start (deathmatch). */
+	bool bSpreadRespawns = false;
+
 protected:
 	virtual AActor* ChoosePlayerStart_Implementation(AController* Player) override;
 	virtual APawn* SpawnDefaultPawnFor_Implementation(AController* NewPlayer, AActor* StartSpot) override;
@@ -63,6 +69,30 @@ protected:
 	TWeakObjectPtr<class AValdoriaTrainingDummy> HeroTestAlly;
 	FVector HeroTestHome = FVector::ZeroVector;
 	FRotator HeroTestHomeRot = FRotator::ZeroRotator;
+	/** Admin panel test (-ValdoriaAdminTest): clicks every panel control and logs the state after each. */
+	void RunAdminTestStep();
+	void RunBeamTestStep();
+	int32 BeamTestStep = 0;
+	FVector LumeJumpStart = FVector::ZeroVector;
+	int32 AdminTestStep = 0;
+	TArray<FString> AdminTestQueue;
 	int32 AutoTestStep = 0;
 	FTimerHandle AutoTestTimer;
+
+	/** Playtest observer (-ValdoriaPlaytest=<seconds> [-ValdoriaHero=<id>] [-ValdoriaAuto]): picks the hero, puts it on
+	 *  autopilot, logs every hero's state, flags stuck / fallen heroes, kills and deaths per hero, screenshots, exits. */
+	void RunPlaytestStep();
+	int32 PlaytestStep = 0;
+	int32 PlaytestSeconds = 0;
+	FString PlaytestHero;
+	FString PlaytestTag;
+	TMap<FString, int32> PlaytestKills;
+	TMap<FString, int32> PlaytestDeaths;
+	TMap<FString, FVector> PlaytestLastPos;
+	TMap<FString, int32> PlaytestStill;
+	TSet<FString> PlaytestReported;
+
+	FBox SpreadBounds = FBox(ForceInit);
+	float SpreadFloorZ = 0.f;
+	bool bSpreadReady = false;
 };

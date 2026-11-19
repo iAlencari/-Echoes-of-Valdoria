@@ -76,6 +76,35 @@ public:
 	float PerSpotDamage = 0.15f;
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Spot|Final")
 	float FinalBaseDamage = 4.f;
+	/** Final guardian also inherits the kits of its standing spot guardians (rider strikes, support mage). */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Spot|Final")
+	bool bInheritSpotKits = true;
+	/** Share of each standing spot's buff the final guardian applies to itself (placeholder, owner balances). */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Spot|Final")
+	float InheritBuffShare = 0.5f;
+	/** Styles inherited right now (refreshed every 0.5 s). */
+	TArray<EValdoriaGuardianStyle> InheritedStyles;
+	bool bInheritedMage = false;
+
+	/** MOBA rule (owner, turn 44): the final guardian is immune until the last spot of at least one lane of its team is
+	 *  sealed or gone (break a lane first, like a base core in any MOBA). It still fights while immune. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Spot|Final")
+	bool bGateUntilLaneBroken = true;
+	bool IsFinalGated() const { return bFinalGuardian && bGateUntilLaneBroken && !bGateOpen; }
+
+	// --- Credits (shop) for the players of a team (placeholders, owner balances). "Near" = inside the spot area.
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Spot|Rewards")
+	float CreditsSemiSeal = 50.f;      // the team that defeats a spot (semi-seal), near only
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Spot|Rewards")
+	float CreditsSealNear = 150.f;
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Spot|Rewards")
+	float CreditsSealTeam = 50.f;
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Spot|Rewards")
+	float CreditsRevertNear = 100.f;
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Spot|Rewards")
+	float CreditsRevertTeam = 25.f;
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Spot|Rewards")
+	float CreditsGone = 100.f;         // second defeat (gone for good), near only
 
 	/** Team this spot belongs to (its allies get the buff). */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Spot")
@@ -115,6 +144,9 @@ public:
 	/** Set by the MOBA mode (e.g. x3 on the last spot after early losses). */
 	float BuffMultiplier = 1.f;
 	int32 SpotIndex = 0;
+	/** Size compared with Brasa (turn 45: 3 = twice the old 1.5). Body, hitbox and reach scale with it. */
+	UPROPERTY(EditAnywhere, Category = "Guardian")
+	float GuardianScale = 3.f;
 	int32 LaneIndex = 0;
 
 	/** Support mage (staff): area heal on a cooldown (heals the other guardian too) and an empower on
@@ -158,4 +190,11 @@ protected:
 	UPROPERTY(Transient) TObjectPtr<UMaterialInstanceDynamic> ShieldMaterial;
 	void TickMage();
 	void StrikeRiders();
+	void TickInherited();
+	int32 RiderStrikeCount = 0;
+	/** Final guardian gate state (see bGateUntilLaneBroken). */
+	bool bGateOpen = false;
+	void TickFinalGate();
+	/** Gives shop credits to the players of Team: Near inside the spot area, Far to the others. */
+	void GiveTeamCredits(uint8 Team, float Near, float Far) const;
 };

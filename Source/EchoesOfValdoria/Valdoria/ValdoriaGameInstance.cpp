@@ -50,6 +50,7 @@ void UValdoriaGameInstance::Init()
 	FCoreUObjectDelegates::PostLoadMapWithWorld.AddUObject(this, &UValdoriaGameInstance::OnPostLoadMap);
 	ImageNP = LoadObject<UTexture2D>(nullptr, TEXT("/Game/Valdoria/UI/Loading/T_Loading_NP.T_Loading_NP"), nullptr, LOAD_NoWarn | LOAD_Quiet);
 	ImageTraining = LoadObject<UTexture2D>(nullptr, TEXT("/Game/Valdoria/UI/Loading/T_Loading_NP2.T_Loading_NP2"), nullptr, LOAD_NoWarn | LOAD_Quiet);
+	ArmLoadingScreen(TEXT("")); // armed before the very first map load (turn 44)
 	// Lower FPS in the background (the owner plays other games on the other monitor).
 	FocusTicker = FTSTicker::GetCoreTicker().AddTicker(FTickerDelegate::CreateWeakLambda(this, [this](float)
 	{
@@ -87,7 +88,7 @@ void UValdoriaGameInstance::Shutdown()
 
 FString UValdoriaGameInstance::GetMapDisplayName(const FString& MapPath)
 {
-	if (MapPath.Contains(TEXT("NP_NovaPauliceia")))
+	if (MapPath.Contains(TEXT("NP_NovaPauliceia")) || MapPath.Contains(TEXT("NP_Moba")))
 	{
 		return TEXT("Nova Paulicéia");
 	}
@@ -171,10 +172,9 @@ TSharedRef<SWidget> UValdoriaGameInstance::BuildLoadingScreen(const FString& Map
 		];
 }
 
-void UValdoriaGameInstance::OnPreLoadMap(const FString& MapName)
+void UValdoriaGameInstance::ArmLoadingScreen(const FString& MapName)
 {
-	PendingMap = MapName;
-	if (IsRunningDedicatedServer() || !GetMoviePlayer() || !GetMoviePlayer()->IsInitialized())
+	if (IsRunningDedicatedServer() || !GetMoviePlayer() || !GetMoviePlayer()->IsInitialized() || GetMoviePlayer()->IsMovieCurrentlyPlaying())
 	{
 		return;
 	}
@@ -186,12 +186,22 @@ void UValdoriaGameInstance::OnPreLoadMap(const FString& MapName)
 	GetMoviePlayer()->SetupLoadingScreen(Attributes);
 }
 
+void UValdoriaGameInstance::OnPreLoadMap(const FString& MapName)
+{
+	// Turn 44: the engine's movie player also listens to PreLoadMap and may run BEFORE this handler; if the screen was
+	// only set up here it could miss this load (and show up on the next one). It is now armed in advance (Init and
+	// after every load); this call only refreshes the map name/art when the player has not started yet.
+	PendingMap = MapName;
+	ArmLoadingScreen(MapName);
+}
+
 void UValdoriaGameInstance::OnPostLoadMap(UWorld* World)
 {
 	if (!World || IsRunningDedicatedServer() || !World->IsGameWorld())
 	{
 		return;
 	}
+	ArmLoadingScreen(TEXT("")); // ready for the next map change, whoever triggers it
 	// Depois de carregar (e ao abrir o jogo), a mesma tela some devagar com a música de carregamento.
 	ShowIntroOverlay(World->GetMapName());
 }

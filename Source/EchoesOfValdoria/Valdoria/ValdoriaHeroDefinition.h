@@ -183,6 +183,10 @@ public:
 	FVector RideEffectScale = FVector(1.3f, 1.3f, 0.03f);
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Visual")
 	FLinearColor RideEffectColor = FLinearColor::Black;
+	/** One small disc under EACH foot, made just before the foot lands and fading after it lifts
+	 *  (owner, turn 45: Vex; one disc for both feet looked like a board). RideEffectScale = one disc. */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Visual")
+	bool bRideEffectPerFoot = false;
 
 	/** Modelo 3D da arma (malha estática) e onde ela fica presa na malha do herói. */
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Visual|Arma")
@@ -191,9 +195,48 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Visual|Arma")
 	FName WeaponSocket = TEXT("hand_r");
 
+	// --- Elements (Kay, turn 44): tap the ultimate key (4) to switch element, hold it to cast the ultimate.
+	/** Number of elements (0 = none; Kay = 4: fire, earth, water, air). Abilities with ElementSet = n belong to element n. */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Elementos")
+	int32 ElementCount = 0;
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Elementos")
+	TArray<FText> ElementNames;
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Elementos")
+	TArray<FLinearColor> ElementColors;
+	/** Damage type of the basic attack per element (fire/water magical, earth physical, air hybrid by default). */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Elementos")
+	TArray<EValdoriaDamageType> ElementDamageTypes;
+	/** Cooldown of the element switch (tap on the ultimate key). */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Elementos")
+	float ElementSwitchCooldown = 20.f;
+	/** Hold the ultimate key this long to cast the ultimate (0 = normal press). Releasing early cancels. */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Elementos")
+	float UltimateHoldSeconds = 0.f;
+	/** Cooldown given when the hold is released before it completes. */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Elementos")
+	float UltimateCancelCooldown = 3.f;
+
+	// --- Forms (Ariel, turn 44): an ability swaps to another hero definition (the other form), keeping health % and charge.
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Formas")
+	FName AlternateFormId;
+
+	/** Weapons float by telekinesis (Vex): they bob gently around their socket instead of being held. */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Visual|Arma")
+	bool bWeaponsFloat = false;
+
 	/** Posição, rotação e escala da arma em relação ao osso/soquete. */
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Visual|Arma")
 	FTransform WeaponOffset;
+
+	/** Second item in the other hand (Brasa's shield, Vex's second dagger). Empty = none. */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Visual|Arma")
+	TSoftObjectPtr<UStaticMesh> OffhandMesh;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Visual|Arma")
+	FName OffhandSocket = TEXT("hand_l");
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Visual|Arma")
+	FTransform OffhandOffset;
 
 	/** Sons do ataque principal (vários = sorteia um) e da recarga. */
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Sons")
@@ -205,6 +248,10 @@ public:
 	/** Passos: volume (0 = sem passos, por exemplo para quem flutua). */
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Sons")
 	float FootstepVolume = 0.5f;
+
+	/** Passive-style silence (Vex): no footsteps and no movement sounds at all, whatever FootstepVolume says. */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Sons")
+	bool bSilentMovement = false;
 
 	/** Animações de agachar, deslizar, deitar, escalar e impulso. */
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Visual")
@@ -234,6 +281,12 @@ public:
 	/** Só a aparência de um herói pronto (animações e corpo), sem mexer no balanceamento. */
 	UFUNCTION(BlueprintCallable, Category = "Herói")
 	bool ApplyPresetLooks(FName PresetId);
+	/** Adds the preset abilities whose slot (and element) this asset does not have yet, keeping everything the owner
+	 *  balanced (turn 45: ability 3 for every hero). Called by ApplyPresetLooks. Returns how many were added. */
+	int32 AddMissingPresetAbilities(FName PresetId);
+
+	/** Movement animations (crouch, slide, mantle, wall climb, prone with transitions) from the owner's Fab packs. */
+	void ApplyMovementAnimationPack();
 
 	static TArray<FName> GetPresetIds();
 

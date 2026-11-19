@@ -9,6 +9,7 @@
 #include "ValdoriaHeroCharacter.h"
 #include "ValdoriaHeroDefinition.h"
 #include "ValdoriaWorldActors.h"
+#include "Engine/StaticMesh.h"
 #include "ValdoriaAudio.h"
 
 // Começo padrão: confere, gasta recarga/ultimate. Sai da função se não puder usar.
@@ -140,7 +141,7 @@ void UValdoriaGA_FireProjectile::ActivateAbility(const FGameplayAbilitySpecHandl
 
 	AValdoriaProjectile::FParams P;
 	P.Damage = Weapon.Damage;
-	P.DamageType = Weapon.DamageType;
+	P.DamageType = Hero->GetElementDamageType(Weapon.DamageType); // Kay: element of the moment
 	P.MagicShare = Weapon.HybridMagicShare;
 	P.Speed = Weapon.ProjectileSpeed;
 	P.Gravity = Weapon.ProjectileGravity;
@@ -149,6 +150,80 @@ void UValdoriaGA_FireProjectile::ActivateAbility(const FGameplayAbilitySpecHandl
 	P.Color = GetThemeColor();
 	P.Size = Weapon.SplashRadius > 0.f ? 0.22f : 0.1f;
 	AValdoriaProjectile::Launch(Hero, Start, Dir, P);
+	VALDORIA_END();
+}
+
+UValdoriaGA_TelekineticDagger::UValdoriaGA_TelekineticDagger() {}
+
+void UValdoriaGA_TelekineticDagger::ActivateAbility(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo,
+	const FGameplayAbilityActivationInfo ActivationInfo, const FGameplayEventData* TriggerEventData)
+{
+	VALDORIA_BEGIN();
+	const FValdoriaWeaponStats& Weapon = Hero->GetWeaponStats();
+	Hero->StartCooldown(GetSlot(), 1.f / FMath::Max(0.1f, Weapon.FireRate));
+	if (Hero->HasAuthority())
+	{
+		// Pull back every dagger already out (they hit enemies on the way back) ...
+		for (TActorIterator<AValdoriaTelekinesisDagger> It(Hero->GetWorld()); It; ++It)
+		{
+			if (It->GetOwner() == Hero)
+			{
+				It->Recall();
+			}
+		}
+		// ... and throw the next one at the same time.
+		const FVector Start = Hero->GetActorLocation() + FVector(0.f, 0.f, 60.f) - Hero->GetActorForwardVector() * 20.f; // from the back
+		const FVector Target = AimPoint(Hero, 6000.f);
+		const FVector Dir = (Target - Start).GetSafeNormal();
+		const UValdoriaHeroDefinition* Def = Hero->GetHeroDefinition();
+		UStaticMesh* Mesh = Def && !Def->WeaponMesh.IsNull() ? Def->WeaponMesh.LoadSynchronous() : nullptr;
+		AValdoriaTelekinesisDagger::Throw(Hero, Mesh, Start, Dir, Weapon.Damage, Weapon.Damage * 0.6f, Weapon.DamageType,
+			FMath::Max(1500.f, Weapon.ProjectileSpeed), FMath::Max(800.f, Weapon.Range), GetThemeColor());
+	}
+	VALDORIA_END();
+}
+
+UValdoriaGA_TelekineticPush::UValdoriaGA_TelekineticPush()
+{
+	DefaultCooldown = 9.f;
+	DefaultMagnitude = 20.f;
+	DefaultRadius = 2000.f;
+	DefaultSecondary = 1500.f;
+}
+
+void UValdoriaGA_TelekineticPush::ActivateAbility(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo,
+	const FGameplayAbilityActivationInfo ActivationInfo, const FGameplayEventData* TriggerEventData)
+{
+	VALDORIA_BEGIN();
+	StartCooldownAndCost();
+	FVector Start, Dir;
+	Hero->GetAimRay(Start, Dir);
+	const FVector End = Start + Dir * GetRadius();
+	FHitResult Hit;
+	FCollisionQueryParams Params(SCENE_QUERY_STAT(ValdoriaTelekinesis), false, Hero);
+	Hero->IgnoreFriendlyBarriers(Params);
+	FCollisionObjectQueryParams Objects;
+	Objects.AddObjectTypesToQuery(ECC_Pawn);
+	Objects.AddObjectTypesToQuery(ECC_WorldStatic);
+	// Wide sweep: the hand grabs whoever is roughly under the crosshair.
+	const bool bHit = Hero->GetWorld()->SweepSingleByObjectType(Hit, Start, End, FQuat::Identity, Objects, FCollisionShape::MakeSphere(70.f), Params);
+	Hero->PlayAreaEffect(bHit ? Hit.ImpactPoint : End, 120.f, GetThemeColor());
+	AValdoriaHeroCharacter* Target = bHit ? Cast<AValdoriaHeroCharacter>(Hit.GetActor()) : nullptr;
+	if (Target && !Target->IsDead() && Hero->HasAuthority())
+	{
+		const FVector Away = (Target->GetActorLocation() - Hero->GetActorLocation()).GetSafeNormal2D();
+		if (Hero->IsEnemy(Target))
+		{
+			ApplyDamageTo(Target, GetMagnitude());
+			Target->LaunchCharacter(Away * GetSecondary() + FVector(0.f, 0.f, 350.f), true, true); // expelled
+		}
+		else
+		{
+			// Ally: pulled to you, stopping just in front of you.
+			const float Dist = FVector::Dist2D(Target->GetActorLocation(), Hero->GetActorLocation());
+			Target->LaunchCharacter(-Away * FMath::Min(GetSecondary(), Dist * 2.2f) + FVector(0.f, 0.f, 300.f), true, true);
+		}
+	}
 	VALDORIA_END();
 }
 
@@ -468,6 +543,112 @@ void UValdoriaGA_BladeDance::ActivateAbility(const FGameplayAbilitySpecHandle Ha
 		AValdoriaHeroCharacter* Last = Targets.Last();
 		const FVector Behind = Last->GetActorLocation() - Last->GetActorForwardVector() * 150.f;
 		Hero->TeleportTo(Behind, (Last->GetActorLocation() - Behind).Rotation());
+	}
+	VALDORIA_END();
+}
+
+UValdoriaGA_TelekineticDash::UValdoriaGA_TelekineticDash()
+{
+	DefaultCooldown = 8.f;
+	DefaultMagnitude = 40.f;
+	DefaultRadius = 1800.f;
+	DefaultSecondary = 250.f;
+}
+
+void UValdoriaGA_TelekineticDash::ActivateAbility(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo,
+	const FGameplayAbilityActivationInfo ActivationInfo, const FGameplayEventData* TriggerEventData)
+{
+	VALDORIA_BEGIN();
+	// The hero (ally or enemy) best aligned with the crosshair, within 12 degrees, in reach and in sight.
+	// (A thin sweep missed too often: the camera ray passes beside a target that is clearly "under" the crosshair.)
+	FVector Start, Dir;
+	Hero->GetAimRay(Start, Dir);
+	AValdoriaHeroCharacter* Target = nullptr;
+	float BestCos = FMath::Cos(FMath::DegreesToRadians(12.f));
+	for (TActorIterator<AValdoriaHeroCharacter> It(Hero->GetWorld()); It; ++It)
+	{
+		AValdoriaHeroCharacter* Other = *It;
+		if (Other == Hero || Other->IsDead() || (Hero->IsEnemy(Other) && Other->IsHiddenByStealth()))
+		{
+			continue;
+		}
+		const FVector To = Other->GetActorLocation() - Start;
+		const float Cos = FVector::DotProduct(To.GetSafeNormal(), Dir);
+		if (Cos > BestCos && FVector::Dist(Other->GetActorLocation(), Hero->GetActorLocation()) <= GetRadius() && HasLineOfSight(Hero, Other))
+		{
+			BestCos = Cos;
+			Target = Other;
+		}
+	}
+	if (!Target)
+	{
+		VALDORIA_END(); // nothing under the crosshair: no cooldown spent
+		return;
+	}
+	StartCooldownAndCost();
+	AActor* Shield = nullptr;
+	if (Hero->HasAuthority() && !Hero->IsEnemy(Target))
+	{
+		// Ally: one hand forward drives her, the other hand creates a small round shield behind her.
+		const FVector Away = (Hero->GetActorLocation() - Target->GetActorLocation()).GetSafeNormal2D();
+		const FVector Where = Hero->GetActorLocation() + Away * 90.f + FVector(0.f, 0.f, 40.f);
+		FActorSpawnParameters SpawnParams;
+		SpawnParams.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
+		if (AValdoriaBarrier* Barrier = Hero->GetWorld()->SpawnActor<AValdoriaBarrier>(AValdoriaBarrier::StaticClass(), Where, Away.Rotation(), SpawnParams))
+		{
+			Barrier->Setup(Hero, GetSecondary(), 110.f, 110.f, 2.f, GetThemeColor(), true);
+			Barrier->MakeRound();
+			Shield = Barrier;
+		}
+	}
+	Hero->StartTelekineticDash(Target, 2800.f, GetMagnitude(), 1400.f, Shield);
+	Hero->PlayAreaEffect(Hero->GetActorLocation(), 120.f, GetThemeColor());
+	VALDORIA_END();
+}
+
+UValdoriaGA_TelekineticStorm::UValdoriaGA_TelekineticStorm()
+{
+	bIsUltimate = true;      // spends the ultimate charge (the first build forgot this: it fired for free)
+	DefaultCooldown = 1.f;
+	DefaultMagnitude = 100.f;
+	DefaultRadius = 1200.f;
+	DefaultSecondary = 5.f;
+}
+
+void UValdoriaGA_TelekineticStorm::ActivateAbility(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo,
+	const FGameplayAbilityActivationInfo ActivationInfo, const FGameplayEventData* TriggerEventData)
+{
+	VALDORIA_BEGIN();
+	StartCooldownAndCost();
+	TArray<AValdoriaHeroCharacter*> Targets;
+	for (TActorIterator<AValdoriaHeroCharacter> It(Hero->GetWorld()); It; ++It)
+	{
+		if (Hero->IsEnemy(*It) && !It->IsDead() && FVector::Dist(It->GetActorLocation(), Hero->GetActorLocation()) <= GetRadius() && HasLineOfSight(Hero, *It))
+		{
+			Targets.Add(*It);
+		}
+	}
+	const FVector From = Hero->GetActorLocation();
+	Targets.Sort([&From](const AValdoriaHeroCharacter& A, const AValdoriaHeroCharacter& B)
+	{
+		return FVector::DistSquared(A.GetActorLocation(), From) < FVector::DistSquared(B.GetActorLocation(), From);
+	});
+	Targets.SetNum(FMath::Min(Targets.Num(), FMath::Max(1, FMath::RoundToInt(GetSecondary()))));
+	Hero->PlayAreaEffect(From, 250.f, GetThemeColor());
+	if (Hero->HasAuthority())
+	{
+		const UValdoriaHeroDefinition* Def = Hero->GetHeroDefinition();
+		UStaticMesh* Mesh = Def && !Def->WeaponMesh.IsNull() ? Def->WeaponMesh.LoadSynchronous() : nullptr;
+		int32 i = 0;
+		for (AValdoriaHeroCharacter* Target : Targets)
+		{
+			// Each dagger rises from her back on a slightly different arc and flies straight at its target.
+			const FVector Start = From + FVector(0.f, 0.f, 90.f) + Hero->GetActorRightVector() * (i - (Targets.Num() - 1) * 0.5f) * 40.f;
+			const FVector Aim = Target->GetActorLocation() + FVector(0.f, 0.f, 30.f);
+			AValdoriaTelekinesisDagger::Throw(Hero, Mesh, Start, (Aim - Start).GetSafeNormal(), GetMagnitude(), GetMagnitude() * 0.6f,
+				EValdoriaDamageType::Physical, 6000.f, FVector::Dist(Start, Aim) + 300.f, GetThemeColor());
+			++i;
+		}
 	}
 	VALDORIA_END();
 }
@@ -824,15 +1005,46 @@ void UValdoriaGA_FireBeam::ActivateAbility(const FGameplayAbilitySpecHandle Hand
 		Hero->BeamLockTime += Pulse;
 	}
 	Hero->BeamTarget = Target;
+	// Continuous beam visual from the casting hand, also with no target (stops at walls), with
+	// motes flowing back to the hand while it drains someone (owner: the beam showed nothing without a target).
+	const FVector Hand = Hero->GetMesh()->DoesSocketExist(TEXT("hand_r")) ? Hero->GetMesh()->GetSocketLocation(TEXT("hand_r")) : Hero->GetActorLocation() + FVector(0, 0, 60.f);
+	FVector End = Start + Dir * Weapon.Range;
+	{
+		FHitResult Wall;
+		FCollisionQueryParams Params(SCENE_QUERY_STAT(ValdoriaBeam), false, Hero);
+		if (Hero->GetWorld()->LineTraceSingleByChannel(Wall, Start, End, ECC_Visibility, Params))
+		{
+			End = Wall.ImpactPoint;
+		}
+	}
+	const FVector BeamEnd = Target ? Target->GetActorLocation() + FVector(0, 0, 30.f) : End;
+	const FLinearColor BeamColor = Hero->GetHeroDefinition() ? Hero->GetHeroDefinition()->ThemeColor : FLinearColor(1.f, 0.9f, 0.4f);
+	AValdoriaFx::Beam(Hero->GetWorld(), Hand, BeamEnd, BeamColor * (Target ? 2.5f : 1.5f), Target ? 9.f : 6.f, Pulse * 1.4f);
+	AValdoriaFx::Burst(Hero->GetWorld(), BeamEnd, Target ? 40.f : 28.f, BeamColor, Pulse * 1.2f);
+	if (Target)
+	{
+		for (int32 i = 0; i < 3; ++i)
+		{
+			const float A = FMath::Frac(Hero->GetWorld()->GetTimeSeconds() * 1.5f + i / 3.f);
+			AValdoriaFx::Burst(Hero->GetWorld(), FMath::Lerp(BeamEnd, Hand, A), 14.f, FLinearColor(1.f, 0.25f, 0.3f) * 2.f, Pulse * 1.2f);
+		}
+	}
 	if (!Target)
 	{
-		Hero->PlayShotEffects(Start + Dir * Weapon.Range, false);
+		Hero->PlayShotEffects(End, false);
 		VALDORIA_END();
 		return;
 	}
 	Hero->PlayShotEffects(Target->GetActorLocation() + FVector(0, 0, 30.f), true);
 	const FValdoriaPassiveRules& Passive = Hero->GetPassive();
 	const float Ramp = 1.f + Passive.BeamRampMax * FMath::Clamp(Hero->BeamLockTime / FMath::Max(0.1f, Passive.BeamRampTime), 0.f, 1.f);
+	if (Passive.BeamRampMax > 0.f)
+	{
+		// Foco Crescente as a stack on the target (1-5), visible only to Lume; fades 0.4 s after the beam leaves.
+		const float RampFrac = FMath::Clamp(Hero->BeamLockTime / FMath::Max(0.1f, Passive.BeamRampTime), 0.f, 1.f);
+		Target->SetStack(Hero, TEXT("foco"), TEXT("F"), Hero->GetHeroDefinition() ? Hero->GetHeroDefinition()->ThemeColor : FLinearColor::Yellow,
+			FMath::Max(1, FMath::CeilToInt(RampFrac * 5.f)), 0.4f);
+	}
 	auto Affect = [&](AValdoriaHeroCharacter* T, float Scale)
 	{
 		if (Hero->IsEnemy(T))
@@ -1013,5 +1225,86 @@ void UValdoriaGA_Portal::ActivateAbility(const FGameplayAbilitySpecHandle Handle
 		PendingUntil = Now + 10.f;
 		Hero->StartCooldown(GetSlot(), 0.4f);
 	}
+	VALDORIA_END();
+}
+
+// ================================================================ Kay and Ariel (turn 45)
+
+UValdoriaGA_Devastation::UValdoriaGA_Devastation()
+{
+	bIsUltimate = true;
+	DefaultCooldown = 1.f;
+	DefaultMagnitude = 150.f;
+	DefaultRadius = 900.f;
+	DefaultDuration = 2.f;
+	DefaultSecondary = 0.5f;
+	DefaultDamageType = EValdoriaDamageType::Magical;
+}
+
+void UValdoriaGA_Devastation::ActivateAbility(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo,
+	const FGameplayAbilityActivationInfo ActivationInfo, const FGameplayEventData* TriggerEventData)
+{
+	VALDORIA_BEGIN();
+	StartCooldownAndCost();
+	const FVector Center = Hero->GetActorLocation();
+	const int32 Element = Hero->GetCurrentElement();
+	const FLinearColor Color = GetThemeColor();
+	Hero->PlayAreaEffect(Center, GetRadius(), Color);
+	Hero->PlayAreaEffect(Center, GetRadius() * 0.5f, Color);
+	if (Hero->HasAuthority())
+	{
+		if (Element == 0)
+		{
+			// Fire: the ground keeps burning.
+			FActorSpawnParameters SpawnParams;
+			SpawnParams.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
+			if (AValdoriaZone* Zone = Hero->GetWorld()->SpawnActor<AValdoriaZone>(AValdoriaZone::StaticClass(),
+				Center - FVector(0, 0, 90.f), FRotator::ZeroRotator, SpawnParams))
+			{
+				Zone->Setup(Hero, GetRadius(), FMath::Max(GetDuration(), 3.f), 0.f, GetMagnitude() * 0.15f, GetDamageType(), 0.f, Color); // 15% of the burst per second
+			}
+		}
+		for (TActorIterator<AValdoriaHeroCharacter> It(Hero->GetWorld()); It; ++It)
+		{
+			AValdoriaHeroCharacter* Other = *It;
+			if (!Hero->IsEnemy(Other) || FVector::Dist(Other->GetActorLocation(), Center) > GetRadius())
+			{
+				continue;
+			}
+			ApplyDamageTo(Other, GetMagnitude());
+			switch (Element)
+			{
+			case 1: Other->ApplyStatus(EValdoriaStatus::Stunned, GetDuration()); break;           // earth
+			case 2: Other->ApplySlow(FMath::Clamp(GetSecondary(), 0.f, 0.9f), GetDuration()); break; // water
+			case 3:                                                                                 // air
+			{
+				const FVector Away = (Other->GetActorLocation() - Center).GetSafeNormal2D();
+				Other->LaunchCharacter(Away * 500.f + FVector(0.f, 0.f, 1100.f), true, true);
+				break;
+			}
+			default: break;
+			}
+		}
+	}
+	VALDORIA_END();
+}
+
+UValdoriaGA_FormSwap::UValdoriaGA_FormSwap()
+{
+	DefaultCooldown = 4.f;
+}
+
+void UValdoriaGA_FormSwap::ActivateAbility(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo,
+	const FGameplayAbilityActivationInfo ActivationInfo, const FGameplayEventData* TriggerEventData)
+{
+	VALDORIA_BEGIN();
+	const UValdoriaHeroDefinition* Def = Hero->GetHeroDefinition();
+	if (!Def || Def->AlternateFormId.IsNone())
+	{
+		VALDORIA_END();
+		return;
+	}
+	StartCooldownAndCost();
+	Hero->SwapToForm(Def->AlternateFormId);
 	VALDORIA_END();
 }

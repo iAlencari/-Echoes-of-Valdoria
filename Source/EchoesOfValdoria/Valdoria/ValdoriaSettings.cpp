@@ -38,6 +38,8 @@ void FValdoriaOptions::Load()
 	GConfig->GetInt(Section, TEXT("KeyScheme"), KeyScheme, Ini);
 	GConfig->GetInt(Section, TEXT("BackgroundFpsLimit"), BackgroundFpsLimit, Ini);
 	GConfig->GetInt(Section, TEXT("EffectsQuality"), EffectsQuality, Ini);
+	GConfig->GetInt(Section, TEXT("DlssMode"), DlssMode, Ini);
+	GConfig->GetInt(Section, TEXT("FrameGeneration"), FrameGeneration, Ini);
 	GConfig->GetFloat(Section, TEXT("CrosshairSize"), CrosshairSize, Ini);
 	GConfig->GetInt(Section, TEXT("CrosshairColor"), CrosshairColor, Ini);
 }
@@ -60,6 +62,8 @@ void FValdoriaOptions::Save() const
 	GConfig->SetInt(Section, TEXT("KeyScheme"), KeyScheme, Ini);
 	GConfig->SetInt(Section, TEXT("BackgroundFpsLimit"), BackgroundFpsLimit, Ini);
 	GConfig->SetInt(Section, TEXT("EffectsQuality"), EffectsQuality, Ini);
+	GConfig->SetInt(Section, TEXT("DlssMode"), DlssMode, Ini);
+	GConfig->SetInt(Section, TEXT("FrameGeneration"), FrameGeneration, Ini);
 	GConfig->SetFloat(Section, TEXT("CrosshairSize"), CrosshairSize, Ini);
 	GConfig->SetInt(Section, TEXT("CrosshairColor"), CrosshairColor, Ini);
 	GConfig->Flush(false, Ini);
@@ -73,10 +77,29 @@ static void SetCVar(const TCHAR* Name, int32 Value)
 	}
 }
 
+bool FValdoriaOptions::IsDlssAvailable()
+{
+	return IConsoleManager::Get().FindConsoleVariable(TEXT("r.NGX.DLSS.Enable")) != nullptr;
+}
+
+bool FValdoriaOptions::IsFrameGenerationAvailable()
+{
+	return IConsoleManager::Get().FindConsoleVariable(TEXT("r.Streamline.DLSSG.Enable")) != nullptr;
+}
+
 void FValdoriaOptions::Apply() const
 {
-	SetCVar(TEXT("r.ScreenPercentage"), FMath::Clamp(ResolutionScale, 50, 100));
-	SetCVar(TEXT("r.AntiAliasingMethod"), AntiAliasing);
+	// DLSS replaces TSR as the upscaler: its mode sets the render resolution (DLAA = native).
+	const bool bDlss = DlssMode > 0 && IsDlssAvailable();
+	static const int32 DlssPercent[] = { 100, 100, 67, 58, 50, 33 };
+	SetCVar(TEXT("r.NGX.DLSS.Enable"), bDlss ? 1 : 0);
+	SetCVar(TEXT("r.ScreenPercentage"), bDlss ? DlssPercent[FMath::Clamp(DlssMode, 0, 5)] : FMath::Clamp(ResolutionScale, 50, 100));
+	SetCVar(TEXT("r.AntiAliasingMethod"), bDlss && AntiAliasing < 2 ? 4 : AntiAliasing);
+	if (IsFrameGenerationAvailable())
+	{
+		SetCVar(TEXT("r.Streamline.DLSSG.Enable"), FrameGeneration > 0 ? 1 : 0);
+		SetCVar(TEXT("r.Streamline.DLSSG.FramesToGenerate"), FMath::Clamp(FrameGeneration, 1, 3));
+	}
 	// Lumen ligado = iluminação global e reflexos dinâmicos; desligado = mais leve.
 	SetCVar(TEXT("r.DynamicGlobalIlluminationMethod"), bLumen ? 1 : 0);
 	SetCVar(TEXT("r.ReflectionMethod"), bLumen ? 1 : 2);
@@ -106,15 +129,17 @@ FLinearColor FValdoriaOptions::GetCrosshairColor() const
 
 FKey FValdoriaOptions::GetSlotKey(EValdoriaAbilitySlot Slot) const
 {
-	const bool bValorant = KeyScheme == 1;
+	// Owner (turn 44): one layout for every hero, no exceptions. Basic attack on the LEFT mouse button, ability 5 on
+	// the RIGHT one, abilities on 1/2/3, ultimate on 4, optional extra ability on C. (KeyScheme is no longer used.)
 	switch (Slot)
 	{
 	case EValdoriaAbilitySlot::PrimaryFire: return EKeys::LeftMouseButton;
 	case EValdoriaAbilitySlot::SecondaryFire: return EKeys::RightMouseButton;
-	case EValdoriaAbilitySlot::Ability1: return bValorant ? EKeys::Q : EKeys::F;
-	case EValdoriaAbilitySlot::Ability2: return EKeys::E;
-	case EValdoriaAbilitySlot::Ability3: return EKeys::C;
-	case EValdoriaAbilitySlot::Ultimate: return bValorant ? EKeys::X : EKeys::Q;
+	case EValdoriaAbilitySlot::Ability1: return EKeys::One;
+	case EValdoriaAbilitySlot::Ability2: return EKeys::Two;
+	case EValdoriaAbilitySlot::Ability3: return EKeys::Three;
+	case EValdoriaAbilitySlot::Ultimate: return EKeys::Four;
+	case EValdoriaAbilitySlot::AbilityExtra: return EKeys::C;
 	default: return EKeys::Invalid;
 	}
 }
@@ -124,7 +149,12 @@ FString FValdoriaOptions::GetSlotKeyLabel(EValdoriaAbilitySlot Slot) const
 	switch (Slot)
 	{
 	case EValdoriaAbilitySlot::PrimaryFire: return TEXT("ESQ.");
-	case EValdoriaAbilitySlot::SecondaryFire: return TEXT("BD");
+	case EValdoriaAbilitySlot::SecondaryFire: return TEXT("DIR.");
+	case EValdoriaAbilitySlot::Ability1: return TEXT("1");
+	case EValdoriaAbilitySlot::Ability2: return TEXT("2");
+	case EValdoriaAbilitySlot::Ability3: return TEXT("3");
+	case EValdoriaAbilitySlot::Ultimate: return TEXT("4");
+	case EValdoriaAbilitySlot::AbilityExtra: return TEXT("C");
 	default: return GetSlotKey(Slot).GetDisplayName().ToString();
 	}
 }

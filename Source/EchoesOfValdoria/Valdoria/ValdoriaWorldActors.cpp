@@ -314,6 +314,159 @@ void AValdoriaProjectile::Explode(const FVector& Where, AActor* DirectHit)
 	Destroy();
 }
 
+// ------------------------------------------------------------------ adaga telecinética (Vex)
+
+AValdoriaTelekinesisDagger::AValdoriaTelekinesisDagger()
+{
+	PrimaryActorTick.bCanEverTick = true;
+	bReplicates = true;
+	SetReplicatingMovement(true);
+	Visual = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("Visual"));
+	RootComponent = Visual;
+	Visual->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+	Visual->SetCastShadow(false);
+}
+
+AValdoriaTelekinesisDagger* AValdoriaTelekinesisDagger::Throw(AValdoriaHeroCharacter* Src, UStaticMesh* Mesh, const FVector& Start, const FVector& Direction,
+	float Damage, float ReturnDamage, EValdoriaDamageType DamageType, float InSpeed, float InRange, FLinearColor Color)
+{
+	if (!Src || !Src->HasAuthority())
+	{
+		return nullptr;
+	}
+	FActorSpawnParameters SpawnParams;
+	SpawnParams.Owner = Src;
+	SpawnParams.Instigator = Src;
+	SpawnParams.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
+	AValdoriaTelekinesisDagger* D = Src->GetWorld()->SpawnActor<AValdoriaTelekinesisDagger>(AValdoriaTelekinesisDagger::StaticClass(), Start, Direction.Rotation(), SpawnParams);
+	if (!D)
+	{
+		return nullptr;
+	}
+	D->OwnerHero = Src;
+	D->Visual->SetStaticMesh(Mesh ? Mesh : LoadShape(TEXT("Cone")));
+	D->Visual->SetRelativeScale3D(FVector(Mesh ? 1.6f : 0.15f));
+	if (!Mesh)
+	{
+		D->Visual->SetMaterial(0, ValdoriaMakeGlowMaterial(D, Color, 0.9f));
+	}
+	D->Velocity = Direction.GetSafeNormal() * InSpeed;
+	D->OutDamage = Damage;
+	D->BackDamage = ReturnDamage;
+	D->Type = DamageType;
+	D->Speed = InSpeed;
+	D->Range = InRange;
+	return D;
+}
+
+void AValdoriaTelekinesisDagger::Recall()
+{
+	if (State != EState::Returning)
+	{
+		State = EState::Returning;
+		StuckIn = nullptr;
+		HitOnReturn.Reset();
+	}
+}
+
+void AValdoriaTelekinesisDagger::HitAlong(const FVector& From, const FVector& To, float Damage)
+{
+	AValdoriaHeroCharacter* Src = OwnerHero.Get();
+	if (!Src || !HasAuthority())
+	{
+		return;
+	}
+	for (TActorIterator<AValdoriaHeroCharacter> It(GetWorld()); It; ++It)
+	{
+		AValdoriaHeroCharacter* Other = *It;
+		if (Other == Src || Other->IsDead() || !Src->IsEnemy(Other) || HitOnReturn.Contains(Other))
+		{
+			continue;
+		}
+		const FVector C = Other->GetActorLocation();
+		const FVector Closest = FMath::ClosestPointOnSegment(C, From, To);
+		const float R = Other->GetCapsuleComponent()->GetScaledCapsuleRadius() + 25.f;
+		const float H = Other->GetCapsuleComponent()->GetScaledCapsuleHalfHeight();
+		if (FVector::Dist2D(Closest, C) <= R && FMath::Abs(Closest.Z - C.Z) <= H)
+		{
+			HitOnReturn.Add(Other);
+			Src->DealTypedDamage(Other, Damage, Type, 0.5f, false);
+			ValdoriaAudio::PlayAt(this, ValdoriaAudio::Load(TEXT("Impacts"), TEXT("impactPunch_medium_002")), Closest, 0.6f);
+			if (State == EState::Outgoing)
+			{
+				// Sticks in the first enemy it hits and waits there for the recall.
+				State = EState::Waiting;
+				StuckIn = Other;
+				StuckOffset = Closest - C;
+				return;
+			}
+		}
+	}
+}
+
+void AValdoriaTelekinesisDagger::Tick(float DeltaSeconds)
+{
+	Super::Tick(DeltaSeconds);
+	AValdoriaHeroCharacter* Src = OwnerHero.Get();
+	if (!Src || Src->IsDead())
+	{
+		Destroy();
+		return;
+	}
+	const FVector P = GetActorLocation();
+	if (State == EState::Outgoing)
+	{
+		const FVector Next = P + Velocity * DeltaSeconds;
+		FHitResult Wall;
+		FCollisionQueryParams Params(SCENE_QUERY_STAT(ValdoriaDagger), false, Src);
+		const bool bWall = GetWorld()->LineTraceSingleByChannel(Wall, P, Next, ECC_WorldStatic, Params);
+		const FVector End = bWall ? Wall.ImpactPoint : Next;
+		HitAlong(P, End, OutDamage);
+		if (State == EState::Outgoing)
+		{
+			SetActorLocation(End);
+			Travelled += FVector::Dist(P, End);
+			if (bWall || Travelled >= Range)
+			{
+				State = EState::Waiting; // stuck in the wall / hovering at max range
+			}
+		}
+	}
+	else if (State == EState::Waiting)
+	{
+		WaitTime += DeltaSeconds;
+		if (AActor* Target = StuckIn.Get())
+		{
+			SetActorLocation(Target->GetActorLocation() + StuckOffset);
+		}
+		if (WaitTime > 4.f)
+		{
+			Recall(); // comes back by itself after a while
+		}
+	}
+	else
+	{
+		// Returning: flies to Vex's chest, hitting every enemy once on the way.
+		const FVector Home = Src->GetActorLocation() + FVector(0.f, 0.f, 40.f);
+		const FVector ToHome = Home - P;
+		const float Step = Speed * 1.2f * DeltaSeconds;
+		if (ToHome.Size() <= Step + 30.f)
+		{
+			Destroy(); // back on her back (the floating daggers there are the idle look)
+			return;
+		}
+		const FVector Next = P + ToHome.GetSafeNormal() * Step;
+		HitAlong(P, Next, BackDamage);
+		SetActorLocation(Next);
+		SetActorRotation((-ToHome).Rotation()); // tip comes back first: reads as a pull
+		return;
+	}
+	if (!Velocity.IsNearlyZero())
+	{
+		SetActorRotation(Velocity.Rotation());
+	}
+}
+
 // ------------------------------------------------------------------ barreira
 
 AValdoriaBarrier::AValdoriaBarrier()
@@ -353,6 +506,18 @@ void AValdoriaBarrier::Setup(AValdoriaHeroCharacter* InOwner, float InHealth, fl
 	}
 }
 
+void AValdoriaBarrier::MakeRound()
+{
+	const FVector Scale = Wall->GetComponentScale();
+	Wall->SetStaticMesh(LoadShape(TEXT("Sphere")));
+	Wall->SetWorldScale3D(FVector(0.15f, Scale.Y, Scale.Z)); // flattened sphere = rounded disc
+	if (Material)
+	{
+		Wall->SetMaterial(0, Material);
+	}
+	bRound = true;
+}
+
 void AValdoriaBarrier::AbsorbDamage(float Amount)
 {
 	Health -= Amount;
@@ -383,6 +548,10 @@ void AValdoriaBarrier::Tick(float DeltaSeconds)
 		Material->SetScalarParameterValue(TEXT("Opacidade"), FlashTime > 0.f ? 0.6f : 0.12f + 0.25f * Life);
 	}
 #if ENABLE_DRAW_DEBUG
+	if (bRound)
+	{
+		return; // the round shield has no hexagonal frame
+	}
 	// Moldura hexagonal desenhada na borda.
 	const FVector C = GetActorLocation();
 	const FVector R = GetActorRightVector() * Wall->GetComponentScale().Y * 50.f;

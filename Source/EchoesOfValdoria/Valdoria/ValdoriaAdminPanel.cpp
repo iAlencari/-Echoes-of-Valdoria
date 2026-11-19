@@ -31,6 +31,7 @@
 #include "Widgets/Layout/SBox.h"
 #include "Widgets/Layout/SScrollBox.h"
 #include "Widgets/Layout/SWrapBox.h"
+#include "Widgets/Layout/SWidgetSwitcher.h"
 #include "Widgets/SBoxPanel.h"
 #include "Widgets/Text/STextBlock.h"
 
@@ -91,6 +92,7 @@ namespace ValdoriaAdminUI
 					SNew(SSpinBox<float>)
 					.MinValue(Min).MaxValue(Max).Delta(Delta)
 					.Value_Lambda([Get]() { return Get(); })
+					.OnValueChanged_Lambda([Set](float V) { Set(V); }) // applies while dragging, not only on Enter
 					.OnValueCommitted_Lambda([Set](float V, ETextCommit::Type) { Set(V); })
 				]
 			];
@@ -137,7 +139,7 @@ AValdoriaHeroCharacter* AValdoriaPlayerController::PickAimedCharacter() const
 	}
 	// 2) Senão, o personagem mais alinhado com a mira (cone de ~10°).
 	AValdoriaHeroCharacter* Best = nullptr;
-	float BestDot = FMath::Cos(FMath::DegreesToRadians(10.f));
+	float BestDot = FMath::Cos(FMath::DegreesToRadians(20.f)); // forgiving cone (third-person camera is offset)
 	for (TActorIterator<AValdoriaHeroCharacter> It(GetWorld()); It; ++It)
 	{
 		if (*It == GetPawn())
@@ -186,6 +188,89 @@ void AValdoriaPlayerController::AdminSetTargetAttribute(int32 Which, float Value
 	{
 		Target->AdminRestoreAll();
 	}
+}
+
+// ------------------------------------------------------------------ test helpers (-ValdoriaAdminTest)
+
+static void CollectAdminControls(const TSharedRef<SWidget>& W, TSharedPtr<SWidget> Owner, TArray<TPair<FString, TSharedPtr<SWidget>>>& Out)
+{
+	const FName Type = W->GetType();
+	if (Type == TEXT("SButton") || Type == TEXT("SCheckBox"))
+	{
+		Owner = W;
+	}
+	else if (Type == TEXT("STextBlock") && Owner.IsValid())
+	{
+		Out.Emplace(StaticCastSharedRef<STextBlock>(W)->GetText().ToString(), Owner);
+		return;
+	}
+	// A widget switcher only reports its active page; walk every tab.
+	FChildren* Children = Type == TEXT("SWidgetSwitcher") ? StaticCastSharedRef<SWidgetSwitcher>(W)->GetAllChildren() : W->GetChildren();
+	for (int32 i = 0; Children && i < Children->Num(); ++i)
+	{
+		CollectAdminControls(Children->GetChildAt(i), Owner, Out);
+	}
+}
+
+TArray<FString> AValdoriaPlayerController::DebugListAdminControls() const
+{
+	TArray<FString> Labels;
+	TSharedPtr<SWidgetSwitcher> Pages = AdminPages.Pin();
+	if (AdminWidget.IsValid() && Pages.IsValid())
+	{
+		const int32 Was = Pages->GetActiveWidgetIndex();
+		for (int32 Page = 0; Page < Pages->GetNumWidgets(); ++Page)
+		{
+			Pages->SetActiveWidgetIndex(Page); // the switcher only exposes the active tab
+			TArray<TPair<FString, TSharedPtr<SWidget>>> Found;
+			CollectAdminControls(AdminWidget.ToSharedRef(), nullptr, Found);
+			for (const TPair<FString, TSharedPtr<SWidget>>& F : Found)
+			{
+				Labels.AddUnique(F.Key);
+			}
+		}
+		Pages->SetActiveWidgetIndex(Was);
+	}
+	return Labels;
+}
+
+bool AValdoriaPlayerController::DebugClickAdmin(const FString& Label)
+{
+	if (!AdminWidget.IsValid())
+	{
+		return false;
+	}
+	TSharedPtr<SWidgetSwitcher> Pages = AdminPages.Pin();
+	const int32 NumPages = Pages.IsValid() ? Pages->GetNumWidgets() : 1;
+	const int32 Was = Pages.IsValid() ? Pages->GetActiveWidgetIndex() : 0;
+	TArray<TPair<FString, TSharedPtr<SWidget>>> Found;
+	for (int32 Page = 0; Page < NumPages && Found.Num() == 0; ++Page)
+	{
+		// Try the current tab first, then the others (like a player opening that tab).
+		if (Pages.IsValid()) { Pages->SetActiveWidgetIndex(Page == 0 ? Was : (Page == Was ? 0 : Page)); }
+		TArray<TPair<FString, TSharedPtr<SWidget>>> All;
+		CollectAdminControls(AdminWidget.ToSharedRef(), nullptr, All);
+		for (const TPair<FString, TSharedPtr<SWidget>>& F : All)
+		{
+			if (F.Key == Label) { Found.Add(F); break; }
+		}
+	}
+	for (const TPair<FString, TSharedPtr<SWidget>>& F : Found)
+	{
+		if (F.Key == Label && F.Value.IsValid())
+		{
+			if (F.Value->GetType() == TEXT("SButton"))
+			{
+				StaticCastSharedPtr<SButton>(F.Value)->SimulateClick();
+			}
+			else
+			{
+				StaticCastSharedPtr<SCheckBox>(F.Value)->ToggleCheckedState();
+			}
+			return true;
+		}
+	}
+	return false;
 }
 
 // ------------------------------------------------------------------ abrir / fechar
@@ -268,6 +353,32 @@ TSharedRef<SWidget> AValdoriaPlayerController::BuildAdminPanel()
 	auto Target = [WeakThis]() -> AValdoriaHeroCharacter* { return WeakThis.IsValid() ? WeakThis->AdminTarget.Get() : nullptr; };
 
 	TSharedRef<SVerticalBox> Box = SNew(SVerticalBox);
+	const TSharedRef<SVerticalBox> Header = Box;
+
+	// Owner's preferred menu style (Valorant-like): horizontal tabs on top, the tab's options below.
+	static int32 LastAdminTab = 0;
+	TSharedRef<SWidgetSwitcher> Pages = SNew(SWidgetSwitcher);
+	AdminPages = Pages;
+	TSharedRef<SWrapBox> Tabs = SNew(SWrapBox).PreferredSize(640.f);
+	auto NewPage = [Pages, Tabs](const FText& Name) -> TSharedRef<SVerticalBox>
+	{
+		TSharedRef<SVerticalBox> Page = SNew(SVerticalBox);
+		const int32 Index = Pages->GetNumWidgets();
+		Pages->AddSlot()[SNew(SScrollBox) + SScrollBox::Slot()[Page]];
+		Tabs->AddSlot().Padding(2.f)
+		[
+			SNew(SButton)
+			.OnClicked_Lambda([Pages, Index]() { Pages->SetActiveWidgetIndex(Index); LastAdminTab = Index; return FReply::Handled(); })
+			[
+				SNew(STextBlock).Text(Name).Font(ValdoriaAdminUI::Font(11, true))
+				.ColorAndOpacity_Lambda([Pages, Index]()
+				{
+					return FSlateColor(Pages->GetActiveWidgetIndex() == Index ? FLinearColor(1.f, 0.62f, 0.4f) : FLinearColor(0.7f, 0.72f, 0.78f));
+				})
+			]
+		];
+		return Page;
+	};
 
 	Box->AddSlot().AutoHeight()
 	[
@@ -279,13 +390,13 @@ TSharedRef<SWidget> AValdoriaPlayerController::BuildAdminPanel()
 	];
 
 	// --- Herói
-	Box->AddSlot().AutoHeight()[Title(LOCTEXT("HeroTitle", "HERÓI"))];
+	Box = NewPage(LOCTEXT("HeroTitle", "HERÓI"));
 	{
-		TSharedRef<SWrapBox> Heroes = SNew(SWrapBox).UseAllottedSize(true);
+		TSharedRef<SWrapBox> Heroes = SNew(SWrapBox).PreferredSize(640.f);
 		Heroes->AddSlot()[Button(LOCTEXT("Recruit", "Recruta (teste)"), [Hero]() { if (AValdoriaHeroCharacter* H = Hero()) { H->SetHeroDefinition(nullptr); } })];
-		for (const TWeakObjectPtr<UValdoriaHeroDefinition>& Def : AdminHeroList)
+		for (UValdoriaHeroDefinition* Def : AdminHeroList)
 		{
-			if (!Def.IsValid())
+			if (!Def)
 			{
 				continue;
 			}
@@ -304,7 +415,7 @@ TSharedRef<SWidget> AValdoriaPlayerController::BuildAdminPanel()
 	Box->AddSlot().AutoHeight()[Number(LOCTEXT("SpeedMult", "Multiplicador de velocidade"), 0.1f, 5.f, 0.1f,
 		[Hero]() { return Hero() ? Hero()->AdminSpeedMultiplier : 1.f; }, [Hero](float V) { if (Hero()) Hero()->AdminSetSpeedMultiplier(V); })];
 	{
-		TSharedRef<SWrapBox> Row = SNew(SWrapBox).UseAllottedSize(true);
+		TSharedRef<SWrapBox> Row = SNew(SWrapBox).PreferredSize(640.f);
 		Row->AddSlot()[Button(LOCTEXT("FillUlt", "Ultimate cheia"), [Hero]() { if (Hero()) Hero()->AdminFillUltimate(); })];
 		Row->AddSlot()[Button(LOCTEXT("Restore", "Vida cheia"), [Hero]() { if (Hero()) Hero()->AdminRestoreAll(); })];
 		Row->AddSlot()[Button(LOCTEXT("ResetCd", "Zerar recargas"), [Hero]() { if (Hero()) Hero()->ResetCombatState(); })];
@@ -313,16 +424,18 @@ TSharedRef<SWidget> AValdoriaPlayerController::BuildAdminPanel()
 	}
 
 	// --- Arma
-	Box->AddSlot().AutoHeight()[Title(LOCTEXT("WeaponTitle", "ARMA (modelos 3D prontos)"))];
+	Box = NewPage(LOCTEXT("WeaponTitle", "ARMA (modelos 3D prontos)"));
 	{
-		TSharedRef<SWrapBox> Row = SNew(SWrapBox).UseAllottedSize(true);
+		TSharedRef<SWrapBox> Row = SNew(SWrapBox).PreferredSize(640.f);
 		IAssetRegistry& Reg = FModuleManager::LoadModuleChecked<FAssetRegistryModule>("AssetRegistry").Get();
 		TArray<FAssetData> Weapons;
 		Reg.GetAssetsByPath(FName(TEXT("/Game/Valdoria/Weapons/Merged")), Weapons, false);
+		Reg.GetAssetsByPath(FName(TEXT("/Game/Valdoria/Weapons/Fantasy")), Weapons, false); // Fab: +100 Fantasy Weapons
+		Weapons.RemoveAll([](const FAssetData& A) { return A.AssetClassPath.GetAssetName() != TEXT("StaticMesh"); });
 		Row->AddSlot()[Button(LOCTEXT("NoWeapon", "Sem arma"), [Hero]() { if (Hero()) Hero()->SetWeaponMesh(nullptr); })];
 		for (const FAssetData& W : Weapons)
 		{
-			const FString Name = W.AssetName.ToString().Replace(TEXT("SM_Arma_"), TEXT(""));
+			const FString Name = W.AssetName.ToString().Replace(TEXT("SM_Arma_"), TEXT("")).Replace(TEXT("SM_"), TEXT("")).Replace(TEXT("_"), TEXT(" "));
 			if (Name == TEXT("Extras"))
 			{
 				continue;
@@ -337,7 +450,7 @@ TSharedRef<SWidget> AValdoriaPlayerController::BuildAdminPanel()
 	}
 
 	// --- Alvo mirado
-	Box->AddSlot().AutoHeight()[Title(LOCTEXT("TargetTitle", "ALVO NA MIRA"))];
+	Box = NewPage(LOCTEXT("TargetTitle", "ALVO NA MIRA"));
 	Box->AddSlot().AutoHeight()
 	[
 		SNew(STextBlock).Font(Font(12, true)).ColorAndOpacity(FLinearColor(1.f, 0.85f, 0.6f))
@@ -356,7 +469,7 @@ TSharedRef<SWidget> AValdoriaPlayerController::BuildAdminPanel()
 		})
 	];
 	{
-		TSharedRef<SWrapBox> Row = SNew(SWrapBox).UseAllottedSize(true);
+		TSharedRef<SWrapBox> Row = SNew(SWrapBox).PreferredSize(640.f);
 		Row->AddSlot()[Button(LOCTEXT("Pick", "Pegar alvo da mira"), [WeakThis]() { if (WeakThis.IsValid()) WeakThis->AdminTarget = WeakThis->PickAimedCharacter(); })];
 		Row->AddSlot()[Button(LOCTEXT("Kill", "Matar"), [Target]()
 		{
@@ -395,7 +508,7 @@ TSharedRef<SWidget> AValdoriaPlayerController::BuildAdminPanel()
 	const TCHAR* AttrNames[] = { TEXT("Vida"), TEXT("Vida máxima"), TEXT("Armadura"), TEXT("Armadura máxima"), TEXT("Escudo"), TEXT("Escudo máximo") };
 	for (int32 i = 0; i < 6; ++i)
 	{
-		Box->AddSlot().AutoHeight()[Number(FText::FromString(AttrNames[i]), 0.f, 5000.f, 5.f,
+		Box->AddSlot().AutoHeight()[Number(FText::FromString(AttrNames[i]), 0.f, 100000.f, 5.f,
 			[Target, i]() -> float
 			{
 				AValdoriaHeroCharacter* T = Target();
@@ -414,9 +527,9 @@ TSharedRef<SWidget> AValdoriaPlayerController::BuildAdminPanel()
 	}
 
 	// --- Inimigos
-	Box->AddSlot().AutoHeight()[Title(LOCTEXT("EnemiesTitle", "INIMIGOS E BONECOS"))];
+	Box = NewPage(LOCTEXT("EnemiesTitle", "INIMIGOS E BONECOS"));
 	{
-		TSharedRef<SWrapBox> Row = SNew(SWrapBox).UseAllottedSize(true);
+		TSharedRef<SWrapBox> Row = SNew(SWrapBox).PreferredSize(640.f);
 		Row->AddSlot()[Button(LOCTEXT("KillAll", "Matar todos"), [WeakThis]()
 		{
 			if (!WeakThis.IsValid()) return;
@@ -444,7 +557,7 @@ TSharedRef<SWidget> AValdoriaPlayerController::BuildAdminPanel()
 				{
 					const FVector Where = WeakThis->GetAimPoint() + FVector(0.f, 0.f, 100.f);
 					const FRotator Facing = WeakThis->GetPawn() ? (WeakThis->GetPawn()->GetActorLocation() - Where).GetSafeNormal2D().Rotation() : FRotator::ZeroRotator;
-					GM->SpawnDummyAt(Where, Facing, K);
+					if (AActor* D = GM->SpawnDummyAt(Where, Facing, K)) { D->Tags.Add(TEXT("AdminSpawned")); }
 				}
 			})];
 		}
@@ -452,16 +565,17 @@ TSharedRef<SWidget> AValdoriaPlayerController::BuildAdminPanel()
 	}
 
 	// --- Movimento e física (herói)
-	Box->AddSlot().AutoHeight()[Title(LOCTEXT("MoveTitle", "MOVIMENTO E FÍSICA"))];
-	Box->AddSlot().AutoHeight()[Check(LOCTEXT("Noclip", "Voar e atravessar paredes (noclip)"), [Hero]() { return Hero() && Hero()->IsNoclip(); }, [Hero](bool b) { if (Hero()) Hero()->SetNoclip(b); })];
+	Box = NewPage(LOCTEXT("MoveTitle", "MOVIMENTO E FÍSICA"));
+	// Noclip removed (owner, turn 44): it fell through the floor. Normal infinite flight instead, any hero.
+	Box->AddSlot().AutoHeight()[Check(LOCTEXT("AdminFly", "Voar normal e infinito (Espaço sobe, Ctrl desce)"), [Hero]() { return Hero() && Hero()->bAdminFlight; }, [Hero](bool b) { if (Hero()) Hero()->bAdminFlight = b; })];
 	Box->AddSlot().AutoHeight()[Number(LOCTEXT("Gravity", "Gravidade (1 = normal)"), 0.f, 5.f, 0.05f,
 		[Hero]() { return Hero() ? Hero()->GetCharacterMovement()->GravityScale : 1.f; }, [Hero](float V) { if (Hero()) Hero()->GetCharacterMovement()->GravityScale = V; })];
 	Box->AddSlot().AutoHeight()[Number(LOCTEXT("Jump", "Força do pulo"), 0.f, 3000.f, 10.f,
 		[Hero]() { return Hero() ? Hero()->GetCharacterMovement()->JumpZVelocity : 520.f; }, [Hero](float V) { if (Hero()) Hero()->GetCharacterMovement()->JumpZVelocity = V; })];
 	Box->AddSlot().AutoHeight()[Number(LOCTEXT("AirCtrl", "Controle no ar (0 a 1)"), 0.f, 1.f, 0.05f,
-		[Hero]() { return Hero() ? Hero()->GetCharacterMovement()->AirControl : 0.4f; }, [Hero](float V) { if (Hero()) Hero()->GetCharacterMovement()->AirControl = V; })];
+		[Hero]() { return Hero() ? Hero()->GetCharacterMovement()->AirControl : 0.4f; }, [Hero](float V) { if (Hero()) { Hero()->AdminAirControl = V; Hero()->GetCharacterMovement()->AirControl = V; } })];
 	{
-		TSharedRef<SWrapBox> Row = SNew(SWrapBox).UseAllottedSize(true);
+		TSharedRef<SWrapBox> Row = SNew(SWrapBox).PreferredSize(640.f);
 		for (int32 Slot = 0; Slot < 3; ++Slot)
 		{
 			Row->AddSlot()[Button(FText::FromString(FString::Printf(TEXT("Salvar posição %d"), Slot + 1)), [WeakThis, Slot]()
@@ -486,10 +600,10 @@ TSharedRef<SWidget> AValdoriaPlayerController::BuildAdminPanel()
 	}
 
 	// --- Bots e treino de mira
-	Box->AddSlot().AutoHeight()[Title(LOCTEXT("BotsTitle", "BOTS E TREINO DE MIRA"))];
+	Box = NewPage(LOCTEXT("BotsTitle", "BOTS E TREINO DE MIRA"));
 	{
 		const TArray<FText> Levels = { LOCTEXT("B0", "Parados (só alvo)"), LOCTEXT("B1", "Fácil"), LOCTEXT("B2", "Médio"), LOCTEXT("B3", "Difícil") };
-		TSharedRef<SWrapBox> Row = SNew(SWrapBox).UseAllottedSize(true);
+		TSharedRef<SWrapBox> Row = SNew(SWrapBox).PreferredSize(640.f);
 		for (int32 L = 0; L < 4; ++L)
 		{
 			Row->AddSlot()[Button(FText::Format(LOCTEXT("BotLevel", "Bots atiram: {0}"), Levels[L]), [WeakThis, L]()
@@ -514,7 +628,7 @@ TSharedRef<SWidget> AValdoriaPlayerController::BuildAdminPanel()
 		})
 	];
 	{
-		TSharedRef<SWrapBox> Row = SNew(SWrapBox).UseAllottedSize(true);
+		TSharedRef<SWrapBox> Row = SNew(SWrapBox).PreferredSize(640.f);
 		Row->AddSlot()[Button(LOCTEXT("MoveAll", "Todos andando de lado"), [WeakThis]()
 		{
 			if (!WeakThis.IsValid()) return;
@@ -538,6 +652,7 @@ TSharedRef<SWidget> AValdoriaPlayerController::BuildAdminPanel()
 			const FVector Where = WeakThis->GetAimPoint() + FVector(0.f, 0.f, 100.f);
 			if (AValdoriaTrainingDummy* D = Cast<AValdoriaTrainingDummy>(GM->SpawnDummyAt(Where, (Hero()->GetActorLocation() - Where).GetSafeNormal2D().Rotation(), 0)))
 			{
+				D->Tags.Add(TEXT("AdminSpawned"));
 				D->TeamId = Hero()->TeamId;
 				D->bNoAutoHeal = true;
 				if (UAbilitySystemComponent* ASC = D->GetAbilitySystemComponent())
@@ -560,6 +675,7 @@ TSharedRef<SWidget> AValdoriaPlayerController::BuildAdminPanel()
 				if (AValdoriaTrainingDummy* D = Cast<AValdoriaTrainingDummy>(GM->SpawnDummyAt(Where, (-Fwd).Rotation(), 3)))
 				{
 					D->bForceStrafe = true;
+					D->Tags.Add(TEXT("AdminSpawned"));
 				}
 			}
 		})];
@@ -569,13 +685,13 @@ TSharedRef<SWidget> AValdoriaPlayerController::BuildAdminPanel()
 			int32 Index = 0;
 			for (TActorIterator<AValdoriaTrainingDummy> It(WeakThis->GetWorld()); It; ++It)
 			{
-				if (Index++ >= 4) { It->Destroy(); } // mantém os 4 originais
+				if (It->ActorHasTag(TEXT("AdminSpawned"))) { It->Destroy(); ++Index; } // only what the panel created (keeps bots, guardians, originals)
 			}
 		})];
 		Box->AddSlot().AutoHeight()[Row];
 	}
 	{
-		TSharedRef<SWrapBox> Row = SNew(SWrapBox).UseAllottedSize(true);
+		TSharedRef<SWrapBox> Row = SNew(SWrapBox).PreferredSize(640.f);
 		Row->AddSlot()[Button(LOCTEXT("TeamSwap", "Alvo: trocar time (aliado/inimigo)"), [Target, Hero]()
 		{
 			if (AValdoriaHeroCharacter* T = Target())
@@ -588,12 +704,12 @@ TSharedRef<SWidget> AValdoriaPlayerController::BuildAdminPanel()
 	}
 
 	// --- Depuração
-	Box->AddSlot().AutoHeight()[Title(LOCTEXT("DebugTitle", "DEPURAÇÃO"))];
+	Box = NewPage(LOCTEXT("DebugTitle", "DEPURAÇÃO"));
 	Box->AddSlot().AutoHeight()[Check(LOCTEXT("Meter", "Medidor de dano (DPS)"),
 		[WeakThis]() { const AValdoriaHUD* H = WeakThis.IsValid() ? Cast<AValdoriaHUD>(WeakThis->GetHUD()) : nullptr; return H && H->bShowDamageMeter; },
 		[WeakThis](bool b) { if (AValdoriaHUD* H = WeakThis.IsValid() ? Cast<AValdoriaHUD>(WeakThis->GetHUD()) : nullptr) { H->bShowDamageMeter = b; H->ResetDamageMeter(); } })];
 	{
-		TSharedRef<SWrapBox> Row = SNew(SWrapBox).UseAllottedSize(true);
+		TSharedRef<SWrapBox> Row = SNew(SWrapBox).PreferredSize(640.f);
 		Row->AddSlot()[Button(LOCTEXT("ResetMeter", "Zerar medidor"), [WeakThis]() { if (AValdoriaHUD* H = WeakThis.IsValid() ? Cast<AValdoriaHUD>(WeakThis->GetHUD()) : nullptr) H->ResetDamageMeter(); })];
 		Row->AddSlot()[Button(LOCTEXT("Collision", "Mostrar colisões (hitboxes)"), [WeakThis]() { if (WeakThis.IsValid()) WeakThis->ConsoleCommand(TEXT("show collision")); })];
 		Row->AddSlot()[Button(LOCTEXT("FreeCam", "Câmera livre (liga/desliga)"), [WeakThis]() { if (WeakThis.IsValid()) WeakThis->ConsoleCommand(TEXT("ToggleDebugCamera")); })];
@@ -602,9 +718,10 @@ TSharedRef<SWidget> AValdoriaPlayerController::BuildAdminPanel()
 		Box->AddSlot().AutoHeight()[Row];
 	}
 
-	// --- Mapa	Box->AddSlot().AutoHeight()[Title(LOCTEXT("MapTitle", "MAPA"))];
+	// --- Mapa
+	Box = NewPage(LOCTEXT("MapTitle", "MAPA"));
 	{
-		TSharedRef<SWrapBox> Row = SNew(SWrapBox).UseAllottedSize(true);
+		TSharedRef<SWrapBox> Row = SNew(SWrapBox).PreferredSize(640.f);
 		Row->AddSlot()[Button(LOCTEXT("TpAim", "Teleportar para a mira"), [WeakThis]() { if (WeakThis.IsValid()) WeakThis->AdminTeleport(WeakThis->GetAimPoint()); })];
 		Row->AddSlot()[Button(LOCTEXT("TpStart", "Voltar ao início"), [WeakThis]()
 		{
@@ -630,7 +747,7 @@ TSharedRef<SWidget> AValdoriaPlayerController::BuildAdminPanel()
 	}
 
 	// --- Jogo
-	Box->AddSlot().AutoHeight()[Title(LOCTEXT("GameTitle", "JOGO"))];
+	Box = NewPage(LOCTEXT("GameTitle", "JOGO"));
 	Box->AddSlot().AutoHeight()[Number(LOCTEXT("TimeScale", "Velocidade do jogo (1 = normal)"), 0.05f, 3.f, 0.05f,
 		[WeakThis]() { return WeakThis.IsValid() ? UGameplayStatics::GetGlobalTimeDilation(WeakThis.Get()) : 1.f; },
 		[WeakThis](float V) { if (WeakThis.IsValid()) UGameplayStatics::SetGlobalTimeDilation(WeakThis.Get(), FMath::Clamp(V, 0.05f, 3.f)); })];
@@ -638,21 +755,25 @@ TSharedRef<SWidget> AValdoriaPlayerController::BuildAdminPanel()
 		[WeakThis]() { const AValdoriaHUD* H = WeakThis.IsValid() ? Cast<AValdoriaHUD>(WeakThis->GetHUD()) : nullptr; return H && H->bShowStats; },
 		[WeakThis](bool b) { if (AValdoriaHUD* H = WeakThis.IsValid() ? Cast<AValdoriaHUD>(WeakThis->GetHUD()) : nullptr) H->bShowStats = b; })];
 
-	Box->AddSlot().AutoHeight().Padding(0.f, 12.f, 0.f, 0.f)[Button(LOCTEXT("Close", "Fechar (F10)"), [WeakThis]() { if (WeakThis.IsValid()) WeakThis->CloseAdminPanel(); })];
+	Tabs->AddSlot().Padding(2.f)[Button(LOCTEXT("Close", "Fechar (F10)"), [WeakThis]() { if (WeakThis.IsValid()) WeakThis->CloseAdminPanel(); })];
+	Pages->SetActiveWidgetIndex(FMath::Clamp(LastAdminTab, 0, Pages->GetNumWidgets() - 1));
 
 	return SNew(SBox)
 		.HAlign(HAlign_Left)
 		.VAlign(VAlign_Fill)
 		.Padding(FMargin(16.f, 40.f, 0.f, 40.f))
 		[
-			SNew(SBox).WidthOverride(560.f)
+			SNew(SBox).WidthOverride(680.f)
 			[
 				SNew(SBorder)
 				.BorderImage(FCoreStyle::Get().GetBrush("WhiteBrush"))
 				.BorderBackgroundColor(FLinearColor(0.02f, 0.025f, 0.04f, 0.9f))
 				.Padding(14.f)
 				[
-					SNew(SScrollBox) + SScrollBox::Slot()[Box]
+					SNew(SVerticalBox)
+					+ SVerticalBox::Slot().AutoHeight()[Header]
+					+ SVerticalBox::Slot().AutoHeight().Padding(0.f, 8.f)[Tabs]
+					+ SVerticalBox::Slot().FillHeight(1.f)[Pages]
 				]
 			]
 		];

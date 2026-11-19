@@ -1,0 +1,516 @@
+<title>Atlas de Valdoria</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@500;600;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;600&display=swap">
+<style>
+/* Layout: a field atlas. Narrow reading column for notes, wide plates for the top-down maps (1 SVG unit = 1 metre). */
+:root {
+  --bg: #f1f0f5; --panel: #ffffff; --fg: #1d1f29; --muted: #5d6175; --line: #d6d5e0;
+  --gold: #a87a1c; --ally: #0e8fb0; --enemy: #c63b47; --neon: #8b4fd8;
+  --ground: #e4e3ec; --block: #b9b8c9; --block-hi: #9c9bb2; --road: #f7f6fa; --route: #a87a1c; --green: #2f9d6a;
+  --font-display: "Chakra Petch", "Segoe UI", system-ui, sans-serif;
+  --font-body: "Inter", "Segoe UI", system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, Consolas, monospace;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --bg: #0f1117; --panel: #171a23; --fg: #e9e8f0; --muted: #9a9db0; --line: #2a2e3c;
+  --gold: #e8c47c; --ally: #38c8e8; --enemy: #ef5a66; --neon: #b07cff;
+  --ground: #1b1f2a; --block: #333a4c; --block-hi: #48506a; --road: #242a38; --route: #e8c47c; --green: #4fcf93; color-scheme: dark } }
+:root[data-theme="dark"] {
+  --bg: #0f1117; --panel: #171a23; --fg: #e9e8f0; --muted: #9a9db0; --line: #2a2e3c;
+  --gold: #e8c47c; --ally: #38c8e8; --enemy: #ef5a66; --neon: #b07cff;
+  --ground: #1b1f2a; --block: #333a4c; --block-hi: #48506a; --road: #242a38; --route: #e8c47c; --green: #4fcf93; color-scheme: dark }
+body { background: var(--bg); color: var(--fg); font-family: var(--font-body); font-size: 15px; line-height: 1.55;
+  padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); padding-block: 28px 64px; }
+.wrap { max-width: 1120px; margin: 0 auto; display: grid; gap: 48px; }
+header h1 { font-family: var(--font-display); font-weight: 700; font-size: clamp(30px, 5vw, 46px); letter-spacing: .02em; margin: 0; text-wrap: balance; }
+header p { color: var(--muted); max-width: 68ch; margin: 8px 0 0; }
+.eyebrow { font-family: var(--font-mono); font-size: 12px; letter-spacing: .14em; text-transform: uppercase; color: var(--gold); }
+h2 { font-family: var(--font-display); font-weight: 600; font-size: 26px; margin: 4px 0 6px; text-wrap: balance; }
+h3 { font-family: var(--font-display); font-weight: 600; font-size: 19px; margin: 0; }
+p { margin: 0; }
+.note { color: var(--muted); max-width: 70ch; }
+section { display: grid; gap: 18px; }
+nav { display: flex; flex-wrap: wrap; gap: 8px; }
+nav a { font-family: var(--font-mono); font-size: 12px; color: var(--fg); text-decoration: none; border: 1px solid var(--line); padding: 5px 10px; border-radius: 4px; }
+nav a:hover, nav a:focus-visible { border-color: var(--gold); outline: none; }
+
+/* scale ruler */
+.ruler { overflow-x: auto; }
+.ruler svg { min-width: 680px; width: 100%; height: auto; display: block; }
+table { border-collapse: collapse; width: 100%; font-size: 14px; }
+.tablewrap { overflow-x: auto; }
+th, td { text-align: left; padding: 8px 10px; border-bottom: 1px solid var(--line); vertical-align: top; }
+th { font-family: var(--font-mono); font-size: 11px; letter-spacing: .1em; text-transform: uppercase; color: var(--muted); font-weight: 600; }
+td.num { font-family: var(--font-mono); font-variant-numeric: tabular-nums; white-space: nowrap; }
+
+/* map plates */
+.plate { display: grid; grid-template-columns: minmax(0, 1.7fr) minmax(0, 1fr); gap: 22px; align-items: start; }
+@media (max-width: 860px) { .plate { grid-template-columns: 1fr; } }
+.map { background: var(--panel); border: 1px solid var(--line); border-radius: 6px; padding: 10px; overflow-x: auto; }
+.map svg { width: 100%; min-width: 520px; height: auto; display: block; }
+.spec { display: grid; gap: 12px; min-width: 0; }
+.spec dl { display: grid; grid-template-columns: auto 1fr; gap: 4px 14px; margin: 0; font-size: 14px; }
+.spec dt { font-family: var(--font-mono); font-size: 11px; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); padding-top: 3px; }
+.spec dd { margin: 0; }
+.spec ul { margin: 0; padding-left: 18px; display: grid; gap: 4px; }
+.tag { display: inline-block; font-family: var(--font-mono); font-size: 11px; padding: 2px 7px; border-radius: 3px; border: 1px solid var(--line); color: var(--muted); }
+
+/* SVG ink, all from tokens */
+.g-ground { fill: var(--ground); } .g-road { fill: var(--road); } .g-block { fill: var(--block); } .g-hi { fill: var(--block-hi); }
+.g-route { fill: none; stroke: var(--route); stroke-width: 2.2; stroke-dasharray: 5 3; }
+.g-flank { fill: none; stroke: var(--neon); stroke-width: 1.4; stroke-dasharray: 2 2; }
+.g-lane { fill: none; stroke: var(--road); stroke-width: 12; stroke-linecap: round; }
+.g-bifrost-a { fill: none; stroke: var(--ally); stroke-width: 1.2; stroke-dasharray: 4 2; opacity: .9; }
+.g-bifrost-b { fill: none; stroke: var(--enemy); stroke-width: 1.2; stroke-dasharray: 4 2; opacity: .9; }
+.g-ally { fill: var(--ally); } .g-enemy { fill: var(--enemy); } .g-gold { fill: var(--gold); } .g-green { fill: var(--green); } .g-neon { fill: var(--neon); }
+.g-ally-o { fill: none; stroke: var(--ally); stroke-width: 1.4; } .g-enemy-o { fill: none; stroke: var(--enemy); stroke-width: 1.4; }
+.g-gold-o { fill: none; stroke: var(--gold); stroke-width: 1.4; } .g-neon-o { fill: none; stroke: var(--neon); stroke-width: 1.2; }
+.g-elev { fill: none; stroke: var(--block-hi); stroke-width: 5; stroke-linecap: round; opacity: .85; }
+.g-label { fill: var(--fg); font-family: var(--font-display); font-weight: 600; font-size: 5px; }
+.g-small { fill: var(--muted); font-family: var(--font-mono); font-size: 3.2px; }
+.g-arrow { fill: var(--fg); }
+
+/* legend */
+.legend { display: flex; flex-wrap: wrap; gap: 10px 18px; font-size: 13px; color: var(--muted); }
+.legend span { display: inline-flex; align-items: center; gap: 6px; }
+.sw { width: 18px; height: 10px; border-radius: 2px; display: inline-block; }
+
+/* icons */
+.icons { display: grid; grid-template-columns: repeat(auto-fill, minmax(118px, 1fr)); gap: 12px; }
+.icon { background: var(--panel); border: 1px solid var(--line); border-radius: 6px; padding: 12px 8px 10px; display: grid; justify-items: center; gap: 8px; text-align: center; }
+.icon svg { width: 52px; height: 52px; }
+.icon b { font-family: var(--font-display); font-weight: 600; font-size: 13px; }
+.icon small { color: var(--muted); font-size: 11px; line-height: 1.3; }
+.i-frame { fill: none; stroke: var(--gold); stroke-width: 1.5; }
+.i-ink { fill: none; stroke: var(--fg); stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+.i-fill { fill: var(--fg); } .i-accent { fill: var(--neon); } .i-accent-o { fill: none; stroke: var(--neon); stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+.i-ally { fill: var(--ally); } .i-enemy { fill: var(--enemy); } .i-gold { fill: var(--gold); }
+
+/* lobby mock */
+.flow { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; font-family: var(--font-mono); font-size: 12px; }
+.flow span.step { border: 1px solid var(--line); background: var(--panel); padding: 6px 10px; border-radius: 4px; }
+.flow span.step.now { border-color: var(--gold); color: var(--gold); }
+.flow i { color: var(--muted); font-style: normal; }
+.lobby { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 16px; display: grid; gap: 14px; }
+.lobby-top { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 10px; align-items: baseline; }
+.lobby-top h3 { font-size: 22px; }
+.timer { font-family: var(--font-mono); font-size: 22px; color: var(--gold); font-variant-numeric: tabular-nums; }
+.lobby-grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.6fr) minmax(0, 1fr); gap: 14px; }
+@media (max-width: 860px) { .lobby-grid { grid-template-columns: 1fr; } }
+.team { display: grid; gap: 6px; align-content: start; }
+.team h4, .col h4 { font-family: var(--font-mono); font-size: 11px; letter-spacing: .1em; text-transform: uppercase; color: var(--muted); margin: 0 0 4px; font-weight: 600; }
+.slot { display: grid; grid-template-columns: 30px 1fr auto; gap: 8px; align-items: center; padding: 6px 8px; border-radius: 4px; border: 1px solid var(--line); font-size: 13px; }
+.slot .av { width: 30px; height: 30px; border-radius: 4px; background: var(--ground); display: grid; place-items: center; font-family: var(--font-display); font-weight: 700; font-size: 13px; }
+.slot.ally .av { color: var(--ally); } .slot.enemy .av { color: var(--enemy); }
+.slot .st { font-family: var(--font-mono); font-size: 11px; color: var(--muted); }
+.slot .st.ok { color: var(--green); }
+.roles { display: flex; flex-wrap: wrap; gap: 6px; }
+.roles button { font: 600 12px var(--font-display); background: var(--ground); color: var(--fg); border: 1px solid var(--line); border-radius: 4px; padding: 5px 10px; cursor: pointer; }
+.roles button[aria-pressed="true"] { border-color: var(--gold); color: var(--gold); }
+.roles button:focus-visible { outline: 2px solid var(--gold); outline-offset: 1px; }
+.heroes { display: grid; grid-template-columns: repeat(auto-fill, minmax(84px, 1fr)); gap: 8px; }
+.hero { border: 1px solid var(--line); border-radius: 6px; padding: 8px 6px; display: grid; justify-items: center; gap: 4px; background: var(--ground); cursor: pointer; font: inherit; color: var(--fg); }
+.hero:focus-visible { outline: 2px solid var(--gold); }
+.hero .face { width: 44px; height: 44px; border-radius: 50%; display: grid; place-items: center; font: 700 18px var(--font-display); color: var(--bg); }
+.hero b { font: 600 13px var(--font-display); }
+.hero small { font-size: 10px; color: var(--muted); }
+.hero[aria-pressed="true"] { border-color: var(--gold); box-shadow: inset 0 0 0 1px var(--gold); }
+.hero[hidden] { display: none; }
+.pick { display: grid; gap: 4px; border-top: 1px solid var(--line); padding-top: 10px; font-size: 13px; }
+.pick b { font-family: var(--font-display); font-size: 16px; }
+.col { display: grid; gap: 8px; align-content: start; }
+.vote { display: grid; grid-template-columns: 1fr auto; gap: 6px; align-items: center; border: 1px solid var(--line); border-radius: 4px; padding: 7px 9px; font-size: 13px; }
+.vote .bar { grid-column: 1 / -1; height: 4px; background: var(--ground); border-radius: 2px; overflow: hidden; }
+.vote .bar i { display: block; height: 100%; background: var(--gold); }
+.ready { font: 700 15px var(--font-display); letter-spacing: .06em; background: var(--gold); color: var(--bg); border: 0; border-radius: 6px; padding: 12px; cursor: pointer; }
+.ready:focus-visible { outline: 2px solid var(--fg); outline-offset: 2px; }
+.ready[aria-pressed="true"] { background: var(--green); }
+.chat { font-size: 12px; color: var(--muted); border: 1px solid var(--line); border-radius: 4px; padding: 8px; display: grid; gap: 3px; }
+.chat b { color: var(--fg); font-weight: 600; }
+.cols2 { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 14px; }
+.box { background: var(--panel); border: 1px solid var(--line); border-radius: 6px; padding: 14px 16px; display: grid; gap: 8px; min-width: 0; }
+.box ul, .box ol { margin: 0; padding-left: 18px; display: grid; gap: 4px; }
+code { font-family: var(--font-mono); font-size: 13px; }
+footer { color: var(--muted); font-size: 13px; }
+@media (prefers-reduced-motion: no-preference) { .hero, .roles button, .ready { transition: border-color .15s, background .15s; } }
+</style>
+
+<div class="wrap">
+<header>
+  <div class="eyebrow">Echoes of Valdoria · conceitos de mapa, HUD e lobby · turno 44</div>
+  <h1>Atlas de Valdoria</h1>
+  <p>Plantas vistas de cima, desenhadas em metros reais (1 unidade = 1 m), a partir das artes da Nova Paulicéia e das lições de Overwatch, Marvel Rivals, Paladins, Smite, Deadlock e Valorant. Nada é cópia: só escala, ritmo e regras de gênero.</p>
+  <nav aria-label="Seções">
+    <a href="#escala">Escala</a><a href="#escolta">Escolta</a><a href="#arena">Arena</a><a href="#moba">MOBA</a><a href="#fabrica">Fábrica (tático)</a><a href="#icones">Ícones</a><a href="#lobby">Lobby</a><a href="#carregamento">Carregamento</a>
+  </nav>
+</header>
+
+<section id="escala">
+  <div class="eyebrow">Régua</div>
+  <h2>Quanto mede um mapa de cada gênero</h2>
+  <p class="note">Nenhum desses jogos publica medidas oficiais; os números abaixo são estimativas pela velocidade dos heróis. Nossos heróis andam a 5,4–6 m/s, quase como no Overwatch, então <b>15 s de caminhada ≈ 85 m</b>. É a régua que uso nas plantas.</p>
+  <div class="map ruler">
+    <svg viewBox="0 0 700 120" role="img" aria-label="Comparação de distâncias: 85 metros, 120 metros, 220 metros, 300 metros">
+      <line x1="20" y1="70" x2="680" y2="70" stroke="currentColor" stroke-width="1" opacity=".35"/>
+      <g font-family="JetBrains Mono, monospace" font-size="11" fill="currentColor">
+        <!-- 1 m = 2 px -->
+        <rect x="20" y="24" width="170" height="10" class="g-gold" rx="2"/><text x="20" y="18">85 m · 15 s a pé · do spawn à 1ª luta</text>
+        <rect x="20" y="44" width="240" height="10" class="g-neon" rx="2"/><text x="270" y="53">120 m · de ponta a ponta num mapa tático (tipo Valorant)</text>
+        <rect x="20" y="78" width="440" height="10" class="g-ally" rx="2"/><text x="20" y="104">220 m · rota completa de escolta (3 checkpoints)</text>
+        <rect x="20" y="94" width="600" height="0" />
+        <rect x="470" y="78" width="0" height="10"/>
+      </g>
+      <g font-family="JetBrains Mono, monospace" font-size="11" fill="currentColor">
+        <rect x="20" y="110" width="600" height="6" class="g-enemy" rx="2"/><text x="628" y="117">300 m · lane do MOBA</text>
+      </g>
+    </svg>
+  </div>
+  <div class="tablewrap"><table>
+    <thead><tr><th>Gênero (referências)</th><th>Tamanho alvo</th><th>Regra de ritmo</th><th>No nosso jogo</th></tr></thead>
+    <tbody>
+      <tr><td>Hero shooter de objetivo (Overwatch, Marvel Rivals, Paladins)</td><td class="num">rota ≈ 200–250 m</td><td>spawn até a 1ª luta em 10–15 s; 3 trechos com chokepoint e terreno alto para quem defende</td><td>Escolta na Nova Paulicéia (abaixo)</td></tr>
+      <tr><td>Arena / mata-mata</td><td class="num">≈ 80 × 80 m</td><td>ninguém fica mais de 5 s sem ver um inimigo; 2 andares e 3 entradas por sala</td><td>Arena do Viaduto</td></tr>
+      <tr><td>FPS tático 5v5 (Valorant)</td><td class="num">≈ 120 × 110 m</td><td>2 bombsites, 3 rotas (A, meio, B); da base de ataque ao site em ~20 s</td><td>Fábrica Abandonada (pacote Overgrown Factory)</td></tr>
+      <tr><td>MOBA 3D (Smite, Deadlock)</td><td class="num">lanes ≈ 250–300 m</td><td>lane longa compensada por mobilidade (tirolesa no Deadlock; aqui, a Bifrost)</td><td>NP_Moba (2,6×) com Guardian Spots</td></tr>
+    </tbody>
+  </table></div>
+</section>
+
+<section id="escolta">
+  <div class="eyebrow">Hero shooter · Overwatch / Rivals / Paladins</div>
+  <h2>Nova Paulicéia — Escolta</h2>
+  <div class="plate">
+    <div class="map">
+      <svg viewBox="0 0 240 150" role="img" aria-label="Planta da escolta: metrô à esquerda, rota pela avenida até a praça, viaduto e torre à direita">
+        <rect class="g-ground" x="0" y="0" width="240" height="150"/>
+        <!-- avenues -->
+        <rect class="g-road" x="30" y="62" width="200" height="16"/>
+        <rect class="g-road" x="104" y="20" width="14" height="115"/>
+        <rect class="g-road" x="150" y="40" width="12" height="80"/>
+        <!-- Minhocão (elevated) -->
+        <path class="g-elev" d="M48 34 H188"/>
+        <text class="g-small" x="60" y="29">MINHOCÃO (elevado, 6 m) · terreno alto</text>
+        <!-- blocks -->
+        <g class="g-block">
+          <rect x="44" y="40" width="22" height="18"/><rect x="72" y="40" width="26" height="18"/><rect x="124" y="42" width="22" height="16"/>
+          <rect x="44" y="84" width="24" height="20"/><rect x="74" y="84" width="24" height="26"/><rect x="124" y="84" width="22" height="18"/>
+          <rect x="168" y="84" width="22" height="22"/><rect x="168" y="44" width="20" height="14"/><rect x="196" y="40" width="16" height="16"/>
+        </g>
+        <rect class="g-hi" x="126" y="104" width="20" height="16"/><text class="g-small" x="127" y="125">arranha-céu</text>
+        <!-- market (flank) -->
+        <rect class="g-hi" x="56" y="112" width="44" height="22" opacity=".6"/>
+        <text class="g-small" x="58" y="130">MERCADO coberto · flanco</text>
+        <!-- metro spawn -->
+        <rect class="g-ally-o" x="6" y="52" width="26" height="36" rx="2"/>
+        <text class="g-label" x="7" y="49" style="fill:var(--ally)">METRÔ</text>
+        <text class="g-small" x="7" y="94">ataque</text>
+        <!-- three exits -->
+        <path class="g-arrow" d="M32 70 l4 -2 v4z"/><path class="g-arrow" d="M20 52 l-2 -4 h4z"/><path class="g-arrow" d="M20 88 l-2 4 h4z"/>
+        <text class="g-small" x="34" y="60">3 saídas</text>
+        <!-- tower spawn -->
+        <rect class="g-enemy-o" x="208" y="58" width="26" height="30" rx="2"/>
+        <text class="g-label" x="207" y="54" style="fill:var(--enemy)">TORRE</text>
+        <text class="g-small" x="210" y="94">defesa</text>
+        <!-- payload route -->
+        <path class="g-route" d="M34 70 H104 Q111 70 111 62 V56 Q111 48 120 48 H156 V70 Q156 78 164 78 H206"/>
+        <!-- checkpoints -->
+        <circle class="g-gold" cx="111" cy="66" r="4"/><text class="g-label" x="116" y="70" style="font-size:4.4px">1 · PRAÇA</text>
+        <circle class="g-gold" cx="156" cy="56" r="4"/><text class="g-label" x="160" y="60" style="font-size:4.4px">2 · VIADUTO</text>
+        <circle class="g-gold" cx="200" cy="78" r="4"/><text class="g-label" x="178" y="116" style="font-size:4.4px">3 · ENTREGA</text>
+        <path d="M195 112 L200 83" stroke="currentColor" stroke-width=".4" opacity=".5"/>
+        <!-- flank routes -->
+        <path class="g-flank" d="M36 82 Q50 120 102 122 Q118 122 124 104"/>
+        <path class="g-flank" d="M66 34 H150 Q160 34 160 42"/>
+        <!-- scale -->
+        <g transform="translate(8 140)"><rect width="50" height="2" fill="currentColor" opacity=".7"/><text class="g-small" x="0" y="-2">50 m</text></g>
+      </svg>
+    </div>
+    <div class="spec">
+      <dl>
+        <dt>Tamanho</dt><dd>240 × 150 m · rota ≈ 220 m</dd>
+        <dt>Times</dt><dd>6 × 6 · ataque escolta, defesa segura</dd>
+        <dt>Tempo</dt><dd>metrô → praça ≈ 13 s a pé</dd>
+      </dl>
+      <ul>
+        <li><b>Metrô com 3 saídas</b> (escada larga + 2 laterais), como na arte de rua: acaba o “funil” que prendia todos no playtest.</li>
+        <li>Cada checkpoint tem <b>um chokepoint e um ponto alto para a defesa</b>: praça ↔ Minhocão, viaduto ↔ telhados, entrega ↔ torre.</li>
+        <li>Rotas de flanco (roxo) pelo mercado coberto e por cima do elevado — servem para Vex e para quem voa, com teto do mapa limitando a altura.</li>
+        <li>A carga anda a ~1,5 m/s: entre 2 e 3 minutos por trecho se ninguém contestar.</li>
+      </ul>
+      <div class="legend">
+        <span><i class="sw" style="background:var(--route)"></i>rota da carga</span>
+        <span><i class="sw" style="background:var(--neon)"></i>flanco</span>
+        <span><i class="sw" style="background:var(--block-hi)"></i>terreno alto</span>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section id="arena">
+  <div class="eyebrow">Mata-mata · arena</div>
+  <h2>Arena do Viaduto</h2>
+  <div class="plate">
+    <div class="map">
+      <svg viewBox="0 0 100 100" role="img" aria-label="Arena quadrada de 80 metros com praça central sob um viaduto e quatro prédios nos cantos">
+        <rect class="g-ground" x="0" y="0" width="100" height="100"/>
+        <rect class="g-road" x="10" y="10" width="80" height="80"/>
+        <!-- viaduct crossing -->
+        <path class="g-elev" d="M6 30 Q50 44 94 30" style="stroke-width:7"/>
+        <text class="g-small" x="60" y="30">viaduto (2º andar)</text>
+        <!-- corner buildings with interiors -->
+        <g class="g-block"><rect x="12" y="62" width="20" height="26"/><rect x="68" y="62" width="20" height="26"/><rect x="12" y="12" width="16" height="14"/><rect x="72" y="12" width="16" height="14"/></g>
+        <g fill="var(--road)"><rect x="17" y="66" width="10" height="18"/><rect x="73" y="66" width="10" height="18"/></g>
+        <!-- central plaza -->
+        <circle class="g-gold-o" cx="50" cy="56" r="12"/><circle class="g-gold" cx="50" cy="56" r="2.2"/>
+        <text class="g-label" x="40" y="74" style="font-size:4px">PRAÇA</text>
+        <!-- cover -->
+        <g class="g-hi"><rect x="36" y="48" width="6" height="2"/><rect x="58" y="62" width="6" height="2"/><rect x="47" y="40" width="2" height="5"/><rect x="47" y="68" width="2" height="5"/></g>
+        <!-- spread spawns -->
+        <g class="g-green"><circle cx="14" cy="46" r="1.6"/><circle cx="86" cy="46" r="1.6"/><circle cx="50" cy="88" r="1.6"/><circle cx="50" cy="16" r="1.6"/><circle cx="30" cy="56" r="1.6"/><circle cx="70" cy="56" r="1.6"/></g>
+        <text class="g-small" x="11" y="52">spawn</text>
+        <g transform="translate(10 96)"><rect width="20" height="1.2" fill="currentColor" opacity=".7"/><text class="g-small" x="0" y="-1.2">20 m</text></g>
+      </svg>
+    </div>
+    <div class="spec">
+      <dl><dt>Tamanho</dt><dd>80 × 80 m</dd><dt>Modo</dt><dd>todos contra todos, 6–8 jogadores</dd></dl>
+      <ul>
+        <li>Spawns espalhados (verde) longe de quem está vivo — é o que o código novo já faz na Nova Paulicéia.</li>
+        <li>Viaduto cruza a arena: briga em dois níveis, saltos e planar da Lume valem.</li>
+        <li>Prédios dos cantos com interior: luta curta para Brasa e Vex; praça aberta para Kael.</li>
+      </ul>
+      <div class="legend"><span><i class="sw" style="background:var(--green)"></i>spawn</span><span><i class="sw" style="background:var(--gold)"></i>ponto de interesse (cura/objetivo)</span></div>
+    </div>
+  </div>
+</section>
+
+<section id="moba">
+  <div class="eyebrow">MOBA 3D · Smite / Deadlock</div>
+  <h2>Nova Paulicéia — Guardian Spots 6v6</h2>
+  <div class="plate">
+    <div class="map">
+      <svg viewBox="0 0 300 200" role="img" aria-label="MOBA com três avenidas entre duas bases, três spots por lane, guardião final atrás de cada base e trilhas Bifrost">
+        <rect class="g-ground" x="0" y="0" width="300" height="200"/>
+        <!-- lanes -->
+        <path class="g-lane" d="M34 100 Q40 30 110 28 H190 Q260 30 266 100"/>
+        <path class="g-lane" d="M34 100 H266"/>
+        <path class="g-lane" d="M34 100 Q40 170 110 172 H190 Q260 170 266 100"/>
+        <text class="g-small" x="130" y="22">AV. IPIRANGA</text><text class="g-small" x="132" y="94">AV. PAULISTA</text><text class="g-small" x="130" y="184">AV. REBOUÇAS</text>
+        <!-- jungle blocks (proposal) -->
+        <g class="g-block" opacity=".9"><rect x="78" y="48" width="40" height="34" rx="2"/><rect x="182" y="48" width="40" height="34" rx="2"/><rect x="78" y="118" width="40" height="34" rx="2"/><rect x="182" y="118" width="40" height="34" rx="2"/></g>
+        <g class="g-neon"><circle cx="98" cy="65" r="2.4"/><circle cx="202" cy="65" r="2.4"/><circle cx="98" cy="135" r="2.4"/><circle cx="202" cy="135" r="2.4"/></g>
+        <text class="g-small" x="80" y="45">selva · campos</text>
+        <!-- center objective -->
+        <circle class="g-gold-o" cx="150" cy="100" r="9"/><text class="g-label" x="140" y="114" style="font-size:4px">PRAÇA</text>
+        <!-- bases -->
+        <rect class="g-ally-o" x="14" y="86" width="20" height="28" rx="2"/><text class="g-label" x="8" y="82" style="fill:var(--ally)">METRÔ</text>
+        <rect class="g-enemy-o" x="266" y="86" width="20" height="28" rx="2"/><text class="g-label" x="262" y="82" style="fill:var(--enemy)">TORRE</text>
+        <!-- final guardians -->
+        <circle class="g-ally" cx="9" cy="100" r="4.5"/><text class="g-small" x="3" y="124">GF</text>
+        <circle class="g-enemy" cx="291" cy="100" r="4.5"/><text class="g-small" x="287" y="124">GF</text>
+        <!-- spots: side lanes far from base, close together; mid closer to base, wider spacing -->
+        <g class="g-ally"><circle cx="62" cy="40" r="3"/><circle cx="80" cy="31" r="3"/><circle cx="99" cy="28" r="3.6"/>
+          <circle cx="62" cy="160" r="3"/><circle cx="80" cy="169" r="3"/><circle cx="99" cy="172" r="3.6"/>
+          <circle cx="58" cy="100" r="3"/><circle cx="90" cy="100" r="3"/><circle cx="122" cy="100" r="3.6"/></g>
+        <g class="g-enemy"><circle cx="238" cy="40" r="3"/><circle cx="220" cy="31" r="3"/><circle cx="201" cy="28" r="3.6"/>
+          <circle cx="238" cy="160" r="3"/><circle cx="220" cy="169" r="3"/><circle cx="201" cy="172" r="3.6"/>
+          <circle cx="242" cy="100" r="3"/><circle cx="210" cy="100" r="3"/><circle cx="178" cy="100" r="3.6"/></g>
+        <!-- Bifrost -->
+        <path class="g-bifrost-a" d="M24 90 Q34 40 110 34 H150"/><path class="g-bifrost-a" d="M24 98 H150"/><path class="g-bifrost-a" d="M24 110 Q34 160 110 166 H150"/>
+        <path class="g-bifrost-b" d="M276 90 Q266 40 190 34 H150"/><path class="g-bifrost-b" d="M276 102 H150"/><path class="g-bifrost-b" d="M276 110 Q266 160 190 166 H150"/>
+        <g transform="translate(12 192)"><rect width="50" height="1.6" fill="currentColor" opacity=".7"/><text class="g-small" x="0" y="-1.6">50 m</text></g>
+      </svg>
+    </div>
+    <div class="spec">
+      <dl><dt>Tamanho</dt><dd>300 × 200 m (NP_Moba, 2,6×)</dd><dt>Lane</dt><dd>≈ 260 m base a base · 45 s a pé, 15 s de Bifrost</dd></dl>
+      <ul>
+        <li>Spots seguem a sua regra: laterais longe da base e próximos entre si; o meio perto da base e espaçado. O último spot de cada lane tem 2 guardiões (círculo maior).</li>
+        <li><b>Guardião Final imune</b> até cair o último spot de uma lane (feito no código, falta compilar).</li>
+        <li>Proposta: 4 áreas de selva com campos neutros (roxo) entre as lanes — dão créditos e um buff curto, motivo para rotacionar, como em Smite/Deadlock.</li>
+        <li>Bifrost de cada base até o meio; cresce com o avanço quando houver minions.</li>
+      </ul>
+      <div class="legend"><span><i class="sw" style="background:var(--ally)"></i>seu time</span><span><i class="sw" style="background:var(--enemy)"></i>inimigo</span><span><i class="sw" style="background:var(--neon)"></i>campo da selva</span></div>
+    </div>
+  </div>
+</section>
+
+<section id="fabrica">
+  <div class="eyebrow">FPS tático · Valorant</div>
+  <h2>Fábrica Abandonada</h2>
+  <div class="plate">
+    <div class="map">
+      <svg viewBox="0 0 130 120" role="img" aria-label="Mapa tático com dois sites, A à esquerda e B à direita, pátio no meio, ataque embaixo e defesa em cima">
+        <rect class="g-ground" x="0" y="0" width="130" height="120"/>
+        <!-- outer walls / sheds -->
+        <g class="g-block"><rect x="6" y="6" width="118" height="6"/><rect x="6" y="108" width="118" height="6"/><rect x="6" y="6" width="6" height="108"/><rect x="118" y="6" width="6" height="108"/>
+          <rect x="40" y="30" width="14" height="40"/><rect x="76" y="30" width="14" height="40"/><rect x="12" y="74" width="28" height="8"/><rect x="90" y="74" width="28" height="8"/></g>
+        <!-- sites -->
+        <rect class="g-gold-o" x="14" y="16" width="24" height="22" rx="2"/><text class="g-label" x="22" y="30" style="fill:var(--gold)">A</text>
+        <rect class="g-gold-o" x="92" y="16" width="24" height="22" rx="2"/><text class="g-label" x="101" y="30" style="fill:var(--gold)">B</text>
+        <text class="g-small" x="14" y="44">galpão de cargas</text><text class="g-small" x="92" y="44">caldeiras</text>
+        <!-- mid -->
+        <rect class="g-road" x="56" y="40" width="18" height="34"/><text class="g-small" x="57" y="58">PÁTIO</text>
+        <!-- spawns -->
+        <rect class="g-ally-o" x="44" y="94" width="42" height="12" rx="2"/><text class="g-small" x="52" y="102">ATAQUE</text>
+        <rect class="g-enemy-o" x="50" y="14" width="30" height="10" rx="2"/><text class="g-small" x="55" y="21">DEFESA</text>
+        <!-- routes -->
+        <path class="g-route" d="M50 94 Q26 92 24 74 V40"/><path class="g-route" d="M65 94 V74"/><path class="g-route" d="M80 94 Q104 92 106 74 V40"/>
+        <path class="g-flank" d="M65 40 Q60 30 40 26"/><path class="g-flank" d="M65 40 Q70 30 92 26"/>
+        <text class="g-small" x="16" y="88">A principal</text><text class="g-small" x="96" y="88">B principal</text>
+        <g transform="translate(10 117)"><rect width="20" height="1.2" fill="currentColor" opacity=".7"/><text class="g-small" x="0" y="-1.2">20 m</text></g>
+      </svg>
+    </div>
+    <div class="spec">
+      <dl><dt>Tamanho</dt><dd>≈ 120 × 110 m</dd><dt>Modo</dt><dd>5 × 5 por rodadas · ataque planta um núcleo de eco num site</dd><dt>Visão</dt><dd>primeira pessoa (tecla V já existe)</dd></dl>
+      <ul>
+        <li>Três rotas clássicas (A, pátio, B); o pátio conecta aos dois sites por janelas (roxo) — rotação rápida e risco.</li>
+        <li>Monta com o pacote <b>Overgrown Factory</b> que você já tem: galpões, escadas industriais, janelas e vegetação.</li>
+        <li>Habilidades com cargas e sem ultimate por tempo, para caber no ritmo de rodada.</li>
+      </ul>
+      <div class="legend"><span><i class="sw" style="background:var(--route)"></i>rotas principais</span><span><i class="sw" style="background:var(--neon)"></i>janelas do meio</span></div>
+    </div>
+  </div>
+</section>
+
+<section id="icones">
+  <div class="eyebrow">HUD</div>
+  <h2>Ícones</h2>
+  <p class="note">Traço único, moldura dourada hexagonal (o formato do escudo da Brasa e das barras da referência) e uma cor de destaque por herói. Desenhados em vetor: viram texturas sem perder nitidez.</p>
+  <div class="icons">
+    <div class="icon"><svg viewBox="0 0 48 48" aria-hidden="true"><path class="i-frame" d="M24 3 43 14v20L24 45 5 34V14z"/><path class="i-ink" d="M24 34s-9-5.5-9-12a5 5 0 0 1 9-3 5 5 0 0 1 9 3c0 6.5-9 12-9 12z"/></svg><b>Vida</b><small>barra segmentada</small></div>
+    <div class="icon"><svg viewBox="0 0 48 48" aria-hidden="true"><path class="i-frame" d="M24 3 43 14v20L24 45 5 34V14z"/><path class="i-ink" d="M16 15h16v9c0 6-8 10-8 10s-8-4-8-10z"/><path class="i-ink" d="M24 15v19"/></svg><b>Armadura</b><small>reduz cada acerto</small></div>
+    <div class="icon"><svg viewBox="0 0 48 48" aria-hidden="true"><path class="i-frame" d="M24 3 43 14v20L24 45 5 34V14z"/><circle class="i-ink" cx="24" cy="24" r="10"/><path class="i-accent-o" d="M17 20a10 10 0 0 1 14 0"/></svg><b>Escudo</b><small>regenera fora de luta</small></div>
+    <div class="icon"><svg viewBox="0 0 48 48" aria-hidden="true"><path class="i-frame" d="M24 3 43 14v20L24 45 5 34V14z"/><path class="i-gold" d="m24 12 3.5 8 8.5.8-6.4 5.6 1.9 8.4L24 30.5 16.5 34.8l1.9-8.4L12 20.8l8.5-.8z"/></svg><b>Ultimate</b><small>pronta = pulsa</small></div>
+    <div class="icon"><svg viewBox="0 0 48 48" aria-hidden="true"><path class="i-frame" d="M24 3 43 14v20L24 45 5 34V14z"/><path class="i-ink" d="m24 13 9 11-9 11-9-11z"/><path class="i-ink" d="M15 24h18"/></svg><b>Créditos</b><small>loja (B)</small></div>
+    <div class="icon"><svg viewBox="0 0 48 48" aria-hidden="true"><path class="i-frame" d="M24 3 43 14v20L24 45 5 34V14z"/><path class="i-ink" d="M12 30h10M12 24h14M12 18h10"/><path class="i-ink" d="m28 15 9 9-9 9"/></svg><b>Impulso</b><small>cargas do Shift</small></div>
+    <div class="icon"><svg viewBox="0 0 48 48" aria-hidden="true"><path class="i-frame" d="M24 3 43 14v20L24 45 5 34V14z"/><path class="i-ink" d="M24 12v16"/><path class="i-ink" d="m17 20 7-8 7 8"/><path class="i-ink" d="M15 33c3 2 15 2 18 0"/></svg><b>Voo</b><small>combustível / ilimitado</small></div>
+    <div class="icon"><svg viewBox="0 0 48 48" aria-hidden="true"><path class="i-frame" d="M24 3 43 14v20L24 45 5 34V14z"/><circle class="i-ally" cx="24" cy="24" r="7"/><circle class="i-ink" cx="24" cy="24" r="11"/></svg><b>Spot aliado</b><small>guardião de pé</small></div>
+    <div class="icon"><svg viewBox="0 0 48 48" aria-hidden="true"><path class="i-frame" d="M24 3 43 14v20L24 45 5 34V14z"/><circle class="i-ink" cx="24" cy="24" r="11" stroke-dasharray="4 3"/><path class="i-ink" d="M20 24h8M24 20v8"/></svg><b>Semi-selado</b><small>segure G</small></div>
+    <div class="icon"><svg viewBox="0 0 48 48" aria-hidden="true"><path class="i-frame" d="M24 3 43 14v20L24 45 5 34V14z"/><circle class="i-enemy" cx="24" cy="24" r="11"/><path d="m18 18 12 12M30 18 18 30" stroke="var(--bg)" stroke-width="2.4" stroke-linecap="round"/></svg><b>Selado</b><small>perdido para sempre</small></div>
+    <div class="icon"><svg viewBox="0 0 48 48" aria-hidden="true"><path class="i-frame" d="M24 3 43 14v20L24 45 5 34V14z"/><path class="i-ink" d="M14 34 34 14"/><path class="i-accent-o" d="M14 30 30 14M18 34 34 18"/></svg><b>Bifrost</b><small>segure Espaço olhando</small></div>
+    <div class="icon"><svg viewBox="0 0 48 48" aria-hidden="true"><path class="i-frame" d="M24 3 43 14v20L24 45 5 34V14z"/><path class="i-ink" d="M17 33V19l7-6 7 6v14"/><path class="i-gold" d="M21 25h6v8h-6z"/></svg><b>Guardião Final</b><small>imune até a lane cair</small></div>
+    <div class="icon"><svg viewBox="0 0 48 48" aria-hidden="true"><path class="i-frame" d="M24 3 43 14v20L24 45 5 34V14z"/><path class="i-accent" d="M30 13c-3 4-9 11-12 20l3 1c3-8 9-14 11-19z"/><path class="i-ink" d="M20 34c-2 1-4 1-5 0"/><path class="i-accent-o" d="M14 20c4-1 6 1 7 3"/></svg><b>Vex · ataque</b><small>adaga telecinética</small></div>
+    <div class="icon"><svg viewBox="0 0 48 48" aria-hidden="true"><path class="i-frame" d="M24 3 43 14v20L24 45 5 34V14z"/><path class="i-accent-o" d="M11 30 37 18"/><path class="i-ink" d="M11 25 37 13M11 35 37 23"/></svg><b>Vex · corte</b><small>linha que atravessa</small></div>
+    <div class="icon"><svg viewBox="0 0 48 48" aria-hidden="true"><path class="i-frame" d="M24 3 43 14v20L24 45 5 34V14z"/><circle class="i-ink" cx="21" cy="24" r="5"/><path class="i-accent-o" d="M28 24h10m-4-4 4 4-4 4"/><path class="i-ink" d="M10 18c-2 4-2 8 0 12" opacity=".6"/></svg><b>Vex · salto</b><small>voa até o alvo</small></div>
+    <div class="icon"><svg viewBox="0 0 48 48" aria-hidden="true"><path class="i-frame" d="M24 3 43 14v20L24 45 5 34V14z"/><g class="i-accent-o"><path d="M24 24 24 11"/><path d="M24 24 36 20"/><path d="M24 24 32 35"/><path d="M24 24 16 35"/><path d="M24 24 12 20"/></g><circle class="i-fill" cx="24" cy="24" r="2.5"/></svg><b>Vex · ultimate</b><small>5 adagas de uma vez</small></div>
+    <div class="icon"><svg viewBox="0 0 48 48" aria-hidden="true"><path class="i-frame" d="M24 3 43 14v20L24 45 5 34V14z"/><ellipse class="i-accent-o" cx="18" cy="33" rx="6" ry="1.8"/><ellipse class="i-accent-o" cx="30" cy="33" rx="6" ry="1.8"/><path class="i-ink" d="M18 29v-9M30 29v-9" opacity=".7"/></svg><b>Vex · passiva</b><small>pisos silenciosos</small></div>
+  </div>
+</section>
+
+<section id="lobby">
+  <div class="eyebrow">Fluxo novo</div>
+  <h2>Lobby antes da partida</h2>
+  <div class="flow" aria-label="Fluxo do jogador">
+    <span class="step">Menu</span><i>→</i><span class="step">Jogar: modo</span><i>→</i><span class="step now">Lobby: herói e mapa</span><i>→</i><span class="step">Carregamento</span><i>→</i><span class="step">Partida</span><i>→</i><span class="step">Resultado</span><i>→</i><span class="step">Lobby</span>
+  </div>
+  <p class="note">Hoje o jogo entra direto no mapa. O lobby junta o que já existe espalhado (escolha de herói no Esc, troca de mapa no chat) num lugar só, antes de carregar. Experimente: os botões abaixo funcionam como no jogo.</p>
+
+  <div class="lobby">
+    <div class="lobby-top"><h3>MOBA 6v6 · Guardian Spots</h3><div class="timer" id="timer" aria-live="polite">0:45</div></div>
+    <div class="lobby-grid">
+      <div class="team">
+        <h4>Seu time</h4>
+        <div class="slot ally"><div class="av" id="mySlotAv">?</div><span id="mySlotName">Você · escolhendo</span><span class="st" id="mySlotSt">—</span></div>
+        <div class="slot ally"><div class="av">B</div><span>Brasa · bot</span><span class="st ok">pronto</span></div>
+        <div class="slot ally"><div class="av">I</div><span>Iara · bot</span><span class="st ok">pronto</span></div>
+        <div class="slot ally"><div class="av">K</div><span>Kael · bot</span><span class="st">escolhendo</span></div>
+        <div class="slot ally"><div class="av">L</div><span>Lume · bot</span><span class="st ok">pronto</span></div>
+        <div class="slot ally"><div class="av">+</div><span>Vaga livre</span><span class="st">convidar</span></div>
+      </div>
+      <div class="col">
+        <h4>Heróis</h4>
+        <div class="roles" role="group" aria-label="Filtrar por função">
+          <button type="button" data-role="all" aria-pressed="true">Todos</button>
+          <button type="button" data-role="vanguarda" aria-pressed="false">Vanguarda</button>
+          <button type="button" data-role="guerreiro" aria-pressed="false">Guerreiro</button>
+          <button type="button" data-role="retaguarda" aria-pressed="false">Retaguarda</button>
+          <button type="button" data-role="flanqueador" aria-pressed="false">Flanqueador</button>
+        </div>
+        <div class="heroes" id="heroes">
+          <button type="button" class="hero" data-roles="vanguarda" data-name="Brasa" data-desc="Martelo e escudo; protege o time e absorve parte do dano dos aliados por perto." aria-pressed="false"><span class="face" style="background:#d9782f">B</span><b>Brasa</b><small>Vanguarda</small></button>
+          <button type="button" class="hero" data-roles="guerreiro" data-name="Kael Rook" data-desc="Rifle com recuo; parado ou agachado fica mais preciso." aria-pressed="false"><span class="face" style="background:#2fa59a">K</span><b>Kael</b><small>Guerreiro</small></button>
+          <button type="button" class="hero" data-roles="retaguarda" data-name="Iara" data-desc="Orbes que curam aliados e ferem inimigos; anda sobre um disco de água." aria-pressed="false"><span class="face" style="background:#33c0c9">I</span><b>Iara</b><small>Retaguarda</small></button>
+          <button type="button" class="hero" data-roles="flanqueador" data-name="Vex" data-desc="Telecinese: adagas que vão e voltam, salto até o alvo e voo silencioso." aria-pressed="false"><span class="face" style="background:#8b4fd8">V</span><b>Vex</b><small>Flanqueadora</small></button>
+          <button type="button" class="hero" data-roles="retaguarda guerreiro" data-name="Lume" data-desc="Feixe de luz que trava no alvo: queima inimigos ou cura aliados." aria-pressed="false"><span class="face" style="background:#e3b33f">L</span><b>Lume</b><small>Retaguarda · Guerreiro</small></button>
+        </div>
+        <div class="pick"><b id="pickName">Escolha um herói</b><span id="pickDesc" class="note">A descrição, a passiva e as habilidades aparecem aqui (as mesmas da tela K).</span></div>
+      </div>
+      <div class="col">
+        <h4>Votação de mapa</h4>
+        <div class="vote"><span>Nova Paulicéia</span><b>4</b><span class="bar"><i style="width:66%"></i></span></div>
+        <div class="vote"><span>Fábrica Abandonada</span><b>1</b><span class="bar"><i style="width:17%"></i></span></div>
+        <div class="vote"><span>Arena do Viaduto</span><b>1</b><span class="bar"><i style="width:17%"></i></span></div>
+        <button type="button" class="ready" id="ready" aria-pressed="false">PRONTO</button>
+        <div class="chat" aria-label="Chat do lobby"><span><b>Iara:</b> vou de suporte</span><span><b>Brasa:</b> eu seguro o meio</span><span id="chatMe" hidden><b>Você:</b> pronto!</span></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="cols2">
+    <div class="box"><h3>O que o lobby faz</h3><ul>
+      <li>Modo escolhido antes (Treino, Mata-mata, MOBA, Escolta, Tático).</li>
+      <li>Times com vagas; bots preenchem o que faltar.</li>
+      <li>Escolha de herói com filtro por função e aviso de time sem Vanguarda ou sem Retaguarda.</li>
+      <li>Votação de mapa, botão Pronto e contagem regressiva; a partida carrega quando todos estão prontos ou o tempo acaba.</li>
+      <li>Depois da partida: placar, abates, dano, cura, spots selados, e volta ao lobby.</li>
+    </ul></div>
+    <div class="box"><h3>Como fazer no projeto</h3><ul>
+      <li>Um mapa vazio <code>Lvl_Lobby</code> com câmera fixa e os heróis em fila (o teste de “lado a lado” já faz isso).</li>
+      <li>Interface em Slate, igual ao menu de pausa e ao painel admin.</li>
+      <li>As escolhas vão na URL do mapa (<code>?game=…?hero=vex</code>), que o modo de jogo já sabe ler.</li>
+      <li>Mais tarde, com servidor: o mesmo lobby vira a sala online.</li>
+    </ul></div>
+  </div>
+</section>
+
+<section id="carregamento">
+  <div class="eyebrow">Diagnóstico</div>
+  <h2>Por que a tela de carregamento atrasava</h2>
+  <div class="cols2">
+    <div class="box"><h3>Causas</h3><ol>
+      <li>O tocador de carregamento da Unreal reage ao aviso de “vai carregar mapa” e às vezes chegava antes do nosso código; a tela não estava pronta e aquele carregamento passava sem ela.</li>
+      <li>Ao abrir o jogo, a tela “CARREGANDO” só aparecia depois que o mapa já tinha carregado.</li>
+      <li>Antes de qualquer código do jogo rodar (janela, shaders), nada nosso pode desenhar.</li>
+    </ol></div>
+    <div class="box"><h3>Correção (escrita, compila com o resto)</h3><ol>
+      <li>A tela agora fica <b>armada antes</b>: na inicialização e logo após cada mapa, pronta para a próxima troca.</li>
+      <li><b>Vídeo de abertura</b> com a arte da Nova Paulicéia, tocado pelo próprio motor enquanto ele inicia (configurado; o vídeo é gerado na próxima janela livre do PC).</li>
+      <li>Com o lobby, o carregamento passa a ser sempre a etapa entre lobby e partida — a primeira coisa que aparece depois do “Pronto”.</li>
+    </ol></div>
+  </div>
+</section>
+
+<footer>Desenhos conceituais para discussão. Escalas estimadas pela velocidade dos heróis; jogos citados só como referência de gênero.</footer>
+</div>
+
+<script>
+(function () {
+  const roleButtons = document.querySelectorAll('.roles button');
+  const heroes = document.querySelectorAll('.hero');
+  roleButtons.forEach(b => b.addEventListener('click', () => {
+    roleButtons.forEach(x => x.setAttribute('aria-pressed', String(x === b)));
+    const role = b.dataset.role;
+    heroes.forEach(h => { h.hidden = role !== 'all' && !h.dataset.roles.split(' ').includes(role); });
+  }));
+  const pickName = document.getElementById('pickName'), pickDesc = document.getElementById('pickDesc');
+  const av = document.getElementById('mySlotAv'), nm = document.getElementById('mySlotName'), st = document.getElementById('mySlotSt');
+  heroes.forEach(h => h.addEventListener('click', () => {
+    heroes.forEach(x => x.setAttribute('aria-pressed', String(x === h)));
+    pickName.textContent = h.dataset.name;
+    pickDesc.textContent = h.dataset.desc;
+    av.textContent = h.dataset.name.charAt(0);
+    nm.textContent = 'Você · ' + h.dataset.name;
+  }));
+  const ready = document.getElementById('ready'), chatMe = document.getElementById('chatMe');
+  ready.addEventListener('click', () => {
+    const on = ready.getAttribute('aria-pressed') !== 'true';
+    ready.setAttribute('aria-pressed', String(on));
+    ready.textContent = on ? 'PRONTO ✓' : 'PRONTO';
+    st.textContent = on ? 'pronto' : '—';
+    st.classList.toggle('ok', on);
+    chatMe.hidden = !on;
+  });
+  let t = 45; const timer = document.getElementById('timer');
+  setInterval(() => { t = t > 0 ? t - 1 : 45; timer.textContent = '0:' + String(t).padStart(2, '0'); }, 1000);
+})();
+</script>

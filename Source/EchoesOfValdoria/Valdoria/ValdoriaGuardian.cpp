@@ -8,6 +8,8 @@
 #include "ValdoriaHeroDefinition.h"
 #include "ValdoriaWorldActors.h"
 #include "ValdoriaAudio.h"
+#include "ValdoriaPlayerController.h"
+#include "Engine/World.h"
 #include "Materials/MaterialInstanceDynamic.h"
 #include "UObject/ConstructorHelpers.h"
 #include "Engine/StaticMesh.h"
@@ -19,7 +21,7 @@ AValdoriaGuardian::AValdoriaGuardian()
 	ShieldSphere->SetupAttachment(RootComponent);
 	ShieldSphere->SetCollisionEnabled(ECollisionEnabled::NoCollision);
 	ShieldSphere->SetCastShadow(false);
-	ShieldSphere->SetRelativeScale3D(FVector(3.2f));
+	ShieldSphere->SetRelativeScale3D(FVector(3.2f * 2.f)); // turn 45: guardians are twice as big
 	ShieldSphere->SetVisibility(false);
 	LinkLine = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("LinkLine"));
 	LinkLine->SetupAttachment(RootComponent);
@@ -42,8 +44,17 @@ void AValdoriaGuardian::BeginPlay()
 	Super::BeginPlay();
 	TeamId = GuardTeam;
 	// Big and tough: Brasa's kit (hammer, slam), larger body, lots of health.
-	SetHeroDefinition(UValdoriaHeroDefinition::CreatePreset(this, TEXT("brasa")));
-	GetMesh()->SetRelativeScale3D(GetMesh()->GetRelativeScale3D() * 1.5f);
+	// Turn 45 (owner): twice the old size (was 1.5x Brasa, now 3x) so guardians read as bosses; the hitbox and the
+	// hammer reach grow with the body. The definition is a private copy, safe to edit.
+	if (UValdoriaHeroDefinition* Def = UValdoriaHeroDefinition::CreatePreset(this, TEXT("brasa")))
+	{
+		Def->MeshScale *= GuardianScale;
+		Def->CapsuleRadius *= GuardianScale;
+		Def->CapsuleHalfHeight *= GuardianScale;
+		Def->Weapon.Range *= FMath::Sqrt(GuardianScale) * 1.4f;
+		Def->DisplayName = NSLOCTEXT("Valdoria", "GuardianName", "Guardião");
+		SetHeroDefinition(Def);
+	}
 	if (HasAuthority())
 	{
 		AbilitySystem->SetNumericAttributeBase(UValdoriaAttributeSet::GetMaxHealthAttribute(), GuardianHealth);
@@ -86,17 +97,22 @@ void AValdoriaGuardian::Tick(float DeltaSeconds)
 	if (HasAuthority() && !IsDead() && State == EValdoriaSpotState::Normal)
 	{
 		StrikeRiders();
-		if (bSupportMage)
+		if (bSupportMage || bInheritedMage)
 		{
 			TickMage();
 		}
 	}
 	BuffTimer += DeltaSeconds;
-	if (!HasAuthority() || IsDead() || State != EValdoriaSpotState::Normal || bFinalGuardian || BuffTimer < 0.5f)
+	if (!HasAuthority() || IsDead() || State != EValdoriaSpotState::Normal || BuffTimer < 0.5f)
 	{
 		return;
 	}
 	BuffTimer = 0.f;
+	if (bFinalGuardian)
+	{
+		TickInherited();
+		return;
+	}
 	// The buff lasts 1 s on each ally and is refreshed while the guardian lives.
 	const float Value = GetCurrentBuff();
 	for (TActorIterator<AValdoriaHeroCharacter> It(GetWorld()); It; ++It)
@@ -137,10 +153,12 @@ void AValdoriaGuardian::StrikeRiders()
 			continue;
 		}
 		NextRiderStrike = Now + 2.5f;
+		// A final guardian takes turns with the styles inherited from its linked spots.
+		const EValdoriaGuardianStyle Use = (bFinalGuardian && InheritedStyles.Num() > 0) ? InheritedStyles[RiderStrikeCount++ % InheritedStyles.Num()] : Style;
 		AValdoriaFx::Beam(GetWorld(), GetActorLocation() + FVector(0, 0, 80.f), Rider->GetActorLocation(), FLinearColor(1.f, 0.3f, 0.2f), 8.f, 0.3f);
 		Rider->StopRiding();
-		DealTypedDamage(Rider, 40.f, Style == EValdoriaGuardianStyle::Mage ? EValdoriaDamageType::Magical : EValdoriaDamageType::Physical);
-		switch (Style)
+		DealTypedDamage(Rider, 40.f, Use == EValdoriaGuardianStyle::Mage ? EValdoriaDamageType::Magical : EValdoriaDamageType::Physical);
+		switch (Use)
 		{
 		case EValdoriaGuardianStyle::Melee:
 			LaunchCharacter(FVector(0.f, 0.f, 900.f), false, true); // quick charged leap
@@ -161,6 +179,33 @@ void AValdoriaGuardian::StrikeRiders()
 		return;
 	}
 }
+void AValdoriaGuardian::TickInherited()
+{
+	// Final guardian: inherits the kit of every spot guardian of its team that is still standing
+	// (owner's design). Rider-strike styles, the support mage's heal/empower, and a share of each
+	// spot's buff on itself. Each part goes away as soon as that spot is semi-sealed, sealed or gone.
+	InheritedStyles.Reset();
+	bInheritedMage = false;
+	if (!bInheritSpotKits)
+	{
+		return;
+	}
+	for (TActorIterator<AValdoriaGuardian> It(GetWorld()); It; ++It)
+	{
+		AValdoriaGuardian* Spot = *It;
+		if (Spot == this || Spot->bFinalGuardian || Spot->GuardTeam != GuardTeam || Spot->State != EValdoriaSpotState::Normal || Spot->IsDead())
+		{
+			continue;
+		}
+		InheritedStyles.AddUnique(Spot->Style);
+		bInheritedMage |= Spot->bSupportMage;
+		if (InheritBuffShare > 0.f)
+		{
+			ApplyTeamBuff(static_cast<uint8>(Spot->Buff), Spot->GetCurrentBuff() * InheritBuffShare, 1.f);
+		}
+	}
+}
+
 void AValdoriaGuardian::TickMage()
 {
 	const float Now = GetWorld()->GetTimeSeconds();
@@ -235,6 +280,10 @@ void AValdoriaGuardian::HandleDeath(AValdoriaHeroCharacter* Killer)
 		if (State == EValdoriaSpotState::Normal && bRevived)
 		{
 			Roar(false);
+			if (Killer)
+			{
+				GiveTeamCredits(Killer->TeamId, CreditsGone, 0.f);
+			}
 		}
 		State = bFinalGuardian ? State : EValdoriaSpotState::Gone;
 		Super::HandleDeath(Killer);
@@ -247,6 +296,66 @@ void AValdoriaGuardian::HandleDeath(AValdoriaHeroCharacter* Killer)
 	SetAutopilot(false);
 	ApplyStatus(EValdoriaStatus::Stunned, 100000.f);
 	PlayAreaEffect(GetActorLocation(), 300.f, FLinearColor(0.7f, 0.7f, 1.f));
+	if (Killer)
+	{
+		GiveTeamCredits(Killer->TeamId, CreditsSemiSeal, 0.f);
+	}
+}
+
+void AValdoriaGuardian::GiveTeamCredits(uint8 Team, float Near, float Far) const
+{
+	for (FConstPlayerControllerIterator It = GetWorld()->GetPlayerControllerIterator(); It; ++It)
+	{
+		AValdoriaPlayerController* PC = Cast<AValdoriaPlayerController>(It->Get());
+		const AValdoriaHeroCharacter* H = PC ? Cast<AValdoriaHeroCharacter>(PC->GetPawn()) : nullptr;
+		if (!H || H->TeamId != Team)
+		{
+			continue;
+		}
+		const float Amount = FVector::Dist2D(H->GetActorLocation(), StartLocation) <= AreaRadius ? Near : Far;
+		if (Amount > 0.f)
+		{
+			PC->AddCredits(Amount);
+		}
+	}
+}
+
+void AValdoriaGuardian::TickFinalGate()
+{
+	if (!IsFinalGated())
+	{
+		return;
+	}
+	bGodMode = true; // immune (hits show IMMUNE) but keeps fighting
+	// Open when, in any lane of this team, every guardian of the last spot is sealed or gone.
+	TMap<int32, int32> LastSpot;
+	for (TActorIterator<AValdoriaGuardian> It(GetWorld()); It; ++It)
+	{
+		if (!It->bFinalGuardian && It->GuardTeam == GuardTeam)
+		{
+			int32& Max = LastSpot.FindOrAdd(It->LaneIndex, -1);
+			Max = FMath::Max(Max, It->SpotIndex);
+		}
+	}
+	for (const TPair<int32, int32>& Lane : LastSpot)
+	{
+		bool bBroken = true;
+		for (TActorIterator<AValdoriaGuardian> It(GetWorld()); It && bBroken; ++It)
+		{
+			if (!It->bFinalGuardian && It->GuardTeam == GuardTeam && It->LaneIndex == Lane.Key && It->SpotIndex == Lane.Value)
+			{
+				bBroken = It->State == EValdoriaSpotState::Sealed || It->State == EValdoriaSpotState::Gone;
+			}
+		}
+		if (bBroken)
+		{
+			bGateOpen = true;
+			bGodMode = false;
+			Roar(true); // the base is open: heard across the map
+			UE_LOG(LogValdoria, Display, TEXT("MOBA guardiao final do time %d ficou vulneravel (lane %d quebrada)"), GuardTeam, Lane.Key);
+			return;
+		}
+	}
 }
 
 bool AValdoriaGuardian::CanBeChanneledBy(const AValdoriaHeroCharacter* Hero) const
@@ -263,6 +372,10 @@ void AValdoriaGuardian::CompleteSeal(AValdoriaHeroCharacter* By)
 	State = EValdoriaSpotState::Sealed;
 	bGodMode = false;
 	Roar(true);
+	if (By)
+	{
+		GiveTeamCredits(By->TeamId, CreditsSealNear, CreditsSealTeam);
+	}
 	// Seal mark: a red circle on the ground where the guardian stood.
 	FActorSpawnParameters P;
 	P.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
@@ -286,6 +399,7 @@ void AValdoriaGuardian::CompleteRevert(AValdoriaHeroCharacter* By)
 	AbilitySystem->SetNumericAttributeBase(UValdoriaAttributeSet::GetHealthAttribute(), GetMaxHealth() * RevertHealthFraction);
 	SetAutopilot(true, 0.6f);
 	PlayAreaEffect(GetActorLocation(), 400.f, FLinearColor(0.5f, 1.f, 0.7f));
+	GiveTeamCredits(GuardTeam, CreditsRevertNear, CreditsRevertTeam);
 }
 
 void AValdoriaGuardian::Roar(bool bRage)
@@ -318,6 +432,7 @@ void AValdoriaGuardian::TickSpotState(float DeltaSeconds)
 	// Final guardian: stronger for every spot guardian of its team still linked to it.
 	if (bFinalGuardian && HasAuthority() && !IsDead())
 	{
+		TickFinalGate();
 		int32 Linked = 0;
 		for (TActorIterator<AValdoriaGuardian> It(GetWorld()); It; ++It)
 		{
@@ -379,7 +494,8 @@ void AValdoriaGuardian::TickSemiSeal(float DeltaSeconds)
 	}
 
 	// Protection sphere (~30% opaque). Viewer's enemies: amber -> bright red; allies: blue -> bright green.
-	const bool bShow = State == EValdoriaSpotState::SemiSealed || (State == EValdoriaSpotState::Normal && Now < RecoverUntil);
+	// Also shown on a gated (immune) final guardian, so everyone sees it cannot be hurt yet.
+	const bool bShow = State == EValdoriaSpotState::SemiSealed || (State == EValdoriaSpotState::Normal && Now < RecoverUntil) || IsFinalGated();
 	ShieldSphere->SetVisibility(bShow);
 	LinkLine->SetVisibility(bShow && FinalLink.IsValid());
 	if (!bShow)

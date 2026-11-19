@@ -1,7 +1,7 @@
 # Cria (ou atualiza) os arquivos dos heróis prontos e o que eles usam:
 #  - ícones do HUD (recortados da imagem do dono, em RawContent/Icons) -> /Game/Valdoria/UI/Icons
 #  - material de energia translúcido (barreira, zonas, projéteis) -> /Game/Valdoria/Materials
-#  - Data Assets DA_Brasa, DA_Kael, DA_Iara, DA_Vex -> /Game/Valdoria/Heroes
+#  - Data Assets DA_Brasa, DA_Kael, DA_Iara, DA_Vex, DA_Lume, DA_Kay, DA_Ariel, DA_ArielFaisca -> /Game/Valdoria/Heroes
 # Rodar:  UnrealEditor-Cmd.exe EchoesOfValdoria.uproject -run=pythonscript -script="Scripts/create_heroes.py"
 # Se um DA_ já existir ele NÃO é sobrescrito (para não apagar o balanceamento feito no editor),
 # a não ser que a variável de ambiente VALDORIA_RESET_HEROES=1 esteja definida.
@@ -69,21 +69,53 @@ else:
 factory = unreal.DataAssetFactory()
 factory.set_editor_property("data_asset_class", unreal.ValdoriaHeroDefinition)
 reset = os.environ.get("VALDORIA_RESET_HEROES") == "1"
+# Turn 44: reset only some heroes (comma list, e.g. VALDORIA_RESET_HERO=vex) when their kit changed in
+# ValdoriaHeroPresets.cpp; the others keep whatever the owner balanced in the editor.
+reset_some = [h.strip().lower() for h in os.environ.get("VALDORIA_RESET_HERO", "").split(",") if h.strip()]
 eal.make_directory("/Game/Valdoria/Heroes")
-for hero_id, asset_name in (("brasa", "DA_Brasa"), ("kael", "DA_Kael"), ("iara", "DA_Iara"), ("vex", "DA_Vex"), ("lume", "DA_Lume")):
+# Turn 45 (owner): not every hero lies down (X). Edit this table, or override with
+# VALDORIA_NO_PRONE=lume,vex (turn off) / VALDORIA_PRONE=lume (turn on). Applied on every run.
+CAN_PRONE = {"brasa": True, "kael": True, "iara": True, "vex": True, "lume": False,
+             "kay": True, "ariel": True, "ariel_faisca": True}
+for h in os.environ.get("VALDORIA_NO_PRONE", "").split(","):
+    if h.strip():
+        CAN_PRONE[h.strip().lower()] = False
+for h in os.environ.get("VALDORIA_PRONE", "").split(","):
+    if h.strip():
+        CAN_PRONE[h.strip().lower()] = True
+
+
+def apply_prone(asset, hero_id):
+    want = CAN_PRONE.get(hero_id, True)
+    mv = asset.get_editor_property("movement")
+    if mv.get_editor_property("can_prone") != want:
+        mv.set_editor_property("can_prone", want)
+        asset.set_editor_property("movement", mv)
+        lines.append("deitar (X) %s: %s" % (hero_id, want))
+    return asset
+
+
+HEROES = (("brasa", "DA_Brasa"), ("kael", "DA_Kael"), ("iara", "DA_Iara"), ("vex", "DA_Vex"), ("lume", "DA_Lume"),
+          ("kay", "DA_Kay"), ("ariel", "DA_Ariel"), ("ariel_faisca", "DA_ArielFaisca"))
+for hero_id, asset_name in HEROES:
     path = "/Game/Valdoria/Heroes/" + asset_name
-    if eal.does_asset_exist(path) and not reset:
+    if eal.does_asset_exist(path) and not reset and hero_id not in reset_some:
         if os.environ.get("VALDORIA_APPLY_LOOKS") == "1":
             existing = unreal.load_asset(path)
             existing.apply_preset_looks(hero_id)
+            apply_prone(existing, hero_id)
             eal.save_loaded_asset(existing)
             lines.append("aparencia aplicada (animacoes e corpo): " + path)
+        else:
+            existing = apply_prone(unreal.load_asset(path), hero_id)
+            eal.save_loaded_asset(existing)
         lines.append("ja existe (mantido): " + path)
         continue
     asset = unreal.load_asset(path) if eal.does_asset_exist(path) else \
         tools.create_asset(asset_name, "/Game/Valdoria/Heroes", unreal.ValdoriaHeroDefinition, factory)
     ok = asset.apply_preset(hero_id)
     asset.apply_preset_looks(hero_id)
+    apply_prone(asset, hero_id)
     eal.save_loaded_asset(asset)
     lines.append("heroi %s: %s" % (path, ok))
 

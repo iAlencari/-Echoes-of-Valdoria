@@ -23,10 +23,11 @@ public class EchoesOfValdoria : ModuleRules
 			"GameplayAbilities",
 			"GameplayTags",
 			"GameplayTasks",
-			"NetCore"
+			"NetCore",
+			"NavigationSystem" // autopilot pathfinding (turn 44)
 		});
 
-		PrivateDependencyModuleNames.AddRange(new string[] { });
+		PrivateDependencyModuleNames.AddRange(new string[] { "RenderCore" }); // GWhiteTexture for the HUD clock cooldown (turn 45)
 
 		PublicIncludePaths.AddRange(new string[] {
 			"EchoesOfValdoria",

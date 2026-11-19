@@ -6,6 +6,7 @@
 #include "EngineUtils.h"
 #include "ValdoriaHeroDefinition.h"
 #include "ValdoriaAudio.h"
+#include "ValdoriaGameMode.h"
 
 AValdoriaTrainingDummy::AValdoriaTrainingDummy()
 {
@@ -74,12 +75,23 @@ void AValdoriaTrainingDummy::Tick(float DeltaSeconds)
 
 void AValdoriaTrainingDummy::ScheduleRevive()
 {
+	if (bMinion)
+	{
+		SetLifeSpan(2.f); // minions do not come back
+		return;
+	}
 	GetWorldTimerManager().SetTimer(ReviveTimer, this, &AValdoriaTrainingDummy::Revive, 3.f, false);
 }
 
 void AValdoriaTrainingDummy::Revive()
 {
 	ResetCombatState();
+	FVector Spot;
+	AValdoriaGameMode* GM = GetWorld()->GetAuthGameMode<AValdoriaGameMode>();
+	if (bReviveAtSpreadSpot && GM && GM->FindSpreadSpawnPoint(Spot))
+	{
+		StartLocation = Spot;
+	}
 	SetActorLocation(StartLocation, false, nullptr, ETeleportType::TeleportPhysics);
 }
 

@@ -20,6 +20,50 @@
 
 #define LOCTEXT_NAMESPACE "ValdoriaPause"
 
+static void SetAdminMaxLoadout(AValdoriaHeroCharacter* Hero, bool bOn)
+{
+	// Admin mode: any hero starts with no limits (god, no cooldowns, ammo, dashes, flight fuel, speed x3).
+	// Noclip was removed on purpose (it also fell through the floor). Each toggle can be switched off in the
+	// panel and stays as chosen when the hero is switched.
+	Hero->bGodMode = bOn;
+	Hero->bNoCooldowns = bOn;
+	Hero->bInfiniteAmmo = bOn;
+	Hero->bInfiniteDashes = bOn;
+	Hero->bInfiniteFlight = bOn;
+	Hero->AdminSetSpeedMultiplier(bOn ? 3.f : 1.f);
+	if (!bOn)
+	{
+		Hero->bAdminFlight = false;
+		if (Hero->IsNoclip()) { Hero->SetNoclip(false); }
+	}
+	if (bOn)
+	{
+		Hero->AdminRestoreAll();
+		Hero->AdminFillUltimate();
+	}
+}
+
+void AValdoriaPlayerController::PlayerTick(float DeltaTime)
+{
+	Super::PlayerTick(DeltaTime);
+	AValdoriaHeroCharacter* Hero = GetHero();
+	const bool bWant = bAdminMode && Hero && Hero->HasAuthority();
+	if (bWant && AdminMaxHero.Get() != Hero)
+	{
+		if (AdminMaxHero.IsValid())
+		{
+			SetAdminMaxLoadout(AdminMaxHero.Get(), false);
+		}
+		SetAdminMaxLoadout(Hero, true);
+		AdminMaxHero = Hero;
+	}
+	else if (!bWant && AdminMaxHero.IsValid())
+	{
+		SetAdminMaxLoadout(AdminMaxHero.Get(), false);
+		AdminMaxHero.Reset();
+	}
+}
+
 void AValdoriaPlayerController::BeginPlay()
 {
 	Super::BeginPlay();
@@ -29,11 +73,13 @@ void AValdoriaPlayerController::BeginPlay()
 		ApplyOptionsToGame();
 		// Enter abre o chat (capturado antes do Slate, que engolia a tecla).
 		RegisterChatKey();
+		MaybeOpenLobbyAtStart();
 	}
 }
 
 void AValdoriaPlayerController::EndPlay(const EEndPlayReason::Type EndPlayReason)
 {
+	CloseLobby();
 	ClosePauseMenu();
 	CloseAdminPanel();
 	UnregisterChatKey();
@@ -64,7 +110,7 @@ void AValdoriaPlayerController::RefreshInputMode()
 {
 	// Cursor solto só com menus que pedem clique (pausa, configurações, ajuda, chat) ou com Alt.
 	// O painel de admin NÃO prende o mouse: dá para mirar e andar com ele aberto; Alt para clicar nele.
-	if (PauseWidget.IsValid() || HelpWidget.IsValid() || SettingsWidget.IsValid() || ChatWidget.IsValid() || ShopWidget.IsValid() || bAltHeld)
+	if (PauseWidget.IsValid() || LobbyWidget.IsValid() || HelpWidget.IsValid() || SettingsWidget.IsValid() || ChatWidget.IsValid() || ShopWidget.IsValid() || bAltHeld)
 	{
 		ApplyCursorInput();
 	}
@@ -95,6 +141,10 @@ void AValdoriaPlayerController::ApplyCursorInput()
 	else if (PauseWidget.IsValid())
 	{
 		Mode.SetWidgetToFocus(PauseWidget);
+	}
+	else if (LobbyWidget.IsValid())
+	{
+		Mode.SetWidgetToFocus(LobbyWidget);
 	}
 	else if (AdminWidget.IsValid())
 	{
@@ -132,6 +182,10 @@ void AValdoriaPlayerController::TogglePauseMenu()
 	{
 		CloseSettings();
 		return;
+	}
+	if (LobbyWidget.IsValid())
+	{
+		return; // the lobby is the menu: Esc does nothing there
 	}
 	if (PauseWidget.IsValid())
 	{
@@ -176,6 +230,8 @@ void AValdoriaPlayerController::OpenPauseMenu()
 		{ TEXT("iara"), LOCTEXT("PickIara", "Iara"), FLinearColor(0.2f, 0.85f, 0.8f) },
 		{ TEXT("vex"), LOCTEXT("PickVex", "Vex"), FLinearColor(0.6f, 0.25f, 0.95f) },
 		{ TEXT("lume"), LOCTEXT("PickLume", "Lume"), FLinearColor(1.f, 0.8f, 0.3f) },
+		{ TEXT("kay"), LOCTEXT("PickKay", "Kay"), FLinearColor(0.75f, 0.75f, 0.85f) },
+		{ TEXT("ariel"), LOCTEXT("PickAriel", "Ariel"), FLinearColor(0.85f, 0.5f, 0.2f) },
 		{ TEXT("recruta"), LOCTEXT("PickRecruit", "Recruta"), FLinearColor(0.8f, 0.8f, 0.8f) },
 	};
 	for (const FHeroButton& B : HeroButtons)
@@ -236,8 +292,7 @@ void AValdoriaPlayerController::OpenPauseMenu()
 						bAdminMode = !bAdminMode;
 						if (bAdminMode)
 						{
-							ClosePauseMenu();
-							OpenAdminPanel();
+							ClosePauseMenu(); // F10 opens the panel; admin commands work without it
 						}
 						else
 						{
@@ -250,6 +305,10 @@ void AValdoriaPlayerController::OpenPauseMenu()
 						.Text_Lambda([this]() { return bAdminMode ? LOCTEXT("AdminOn", "Modo administrador: LIGADO (F10)") : LOCTEXT("AdminOff", "Modo administrador: desligado"); })
 					]
 				]
+			]
+			+ SVerticalBox::Slot().AutoHeight().Padding(0.f, 6.f)
+			[
+				MakeMenuButton(LOCTEXT("Lobby", "Voltar ao lobby"), FOnClicked::CreateLambda([this]() { ClosePauseMenu(); OpenLobby(); return FReply::Handled(); }))
 			]
 			+ SVerticalBox::Slot().AutoHeight().Padding(0.f, 6.f)
 			[

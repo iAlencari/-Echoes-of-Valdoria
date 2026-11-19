@@ -166,8 +166,8 @@ void AValdoriaPlayerController::RunChatCommand(const FString& Command)
 		bAdminMode = !bAdminMode;
 		if (bAdminMode)
 		{
-			OpenAdminPanel();
-			ChatPrint(TEXT("Modo administrador LIGADO. F10 abre/fecha o painel; segure Alt para clicar nele."), Ok);
+			ChatPrint(TEXT("Modo administrador LIGADO: comandos de admin liberados. F10 abre/fecha o painel (segure Alt para clicar nele)."), Ok);
+			ChatPrint(TEXT("Recruta no modo admin: imortal, sem recarga, munição e impulso infinitos e voo infinito (/voar liga o voo normal em qualquer herói)."), Ok);
 		}
 		else
 		{
@@ -194,7 +194,7 @@ void AValdoriaPlayerController::RunChatCommand(const FString& Command)
 		}
 		else
 		{
-			ChatPrint(TEXT("Heróis: /heroi brasa | kael | iara | vex | lume | recruta"), Bad);
+			ChatPrint(TEXT("Heróis: /heroi brasa | kael | iara | vex | lume | kay | ariel | recruta"), Bad);
 		}
 	}
 	else if (Cmd == TEXT("modo") || Cmd == TEXT("mode"))
@@ -207,8 +207,8 @@ void AValdoriaPlayerController::RunChatCommand(const FString& Command)
 		}
 		else if (Arg == TEXT("moba") || Arg == TEXT("mobabots"))
 		{
-			// MOBA on Nova Paulicéia (the map with the 3 routes).
-			UGameplayStatics::OpenLevel(this, TEXT("/Game/Maps/NP_NovaPauliceia"), true,
+			// MOBA on the bigger Nova Paulicéia version (NP_Moba, same routes, 2.6x).
+			UGameplayStatics::OpenLevel(this, TEXT("/Game/Maps/NP_Moba"), true,
 				Arg == TEXT("mobabots") ? TEXT("game=/Script/EchoesOfValdoria.ValdoriaMobaMode?bots=1") : TEXT("game=/Script/EchoesOfValdoria.ValdoriaMobaMode"));
 		}
 		else if (Arg == TEXT("bots"))
@@ -264,10 +264,10 @@ void AValdoriaPlayerController::RunChatCommand(const FString& Command)
 		Hero->bInfiniteAmmo = !Hero->bInfiniteAmmo;
 		ChatPrint(Hero->bInfiniteAmmo ? TEXT("Munição infinita ligada.") : TEXT("Munição normal."), Ok);
 	}
-	else if (Cmd == TEXT("voar") || Cmd == TEXT("noclip"))
+	else if (Cmd == TEXT("voar"))
 	{
-		Hero->SetNoclip(!Hero->IsNoclip());
-		ChatPrint(Hero->IsNoclip() ? TEXT("Voando (noclip).") : TEXT("Andando normal."), Ok);
+		Hero->bAdminFlight = !Hero->bAdminFlight;
+		ChatPrint(Hero->bAdminFlight ? TEXT("Voo normal infinito ligado (Espaço sobe, Ctrl desce).") : TEXT("Voo normal desligado."), Ok);
 	}
 	else if (Cmd == TEXT("bots"))
 	{

@@ -39,6 +39,10 @@
 #include "ValdoriaGuardian.h"
 #include "Sound/SoundBase.h"
 #include "EngineUtils.h"
+#include "GameFramework/PlayerStart.h"
+#include "Engine/StaticMeshActor.h"
+#include "NavigationSystem.h"
+#include "NavigationPath.h"
 #include "UObject/ConstructorHelpers.h"
 
 DEFINE_LOG_CATEGORY(LogValdoria);
@@ -85,6 +89,10 @@ AValdoriaHeroCharacter::AValdoriaHeroCharacter()
 	WeaponComponent->SetupAttachment(GetMesh());
 	WeaponComponent->SetCollisionEnabled(ECollisionEnabled::NoCollision);
 	WeaponComponent->SetCastShadow(true);
+	OffhandComponent = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("Offhand"));
+	OffhandComponent->SetupAttachment(GetMesh());
+	OffhandComponent->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+	OffhandComponent->SetCastShadow(true);
 
 	RideDisc = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("RideDisc"));
 	RideDisc->SetupAttachment(RootComponent);
@@ -95,6 +103,20 @@ AValdoriaHeroCharacter::AValdoriaHeroCharacter()
 	if (DiscMesh.Succeeded())
 	{
 		RideDisc->SetStaticMesh(DiscMesh.Object);
+	}
+	for (TObjectPtr<UStaticMeshComponent>* Foot : { &FootDiscL, &FootDiscR })
+	{
+		*Foot = CreateDefaultSubobject<UStaticMeshComponent>(Foot == &FootDiscL ? TEXT("FootDiscL") : TEXT("FootDiscR"));
+		(*Foot)->SetupAttachment(RootComponent);
+		(*Foot)->SetUsingAbsoluteLocation(true);
+		(*Foot)->SetUsingAbsoluteRotation(true);
+		(*Foot)->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+		(*Foot)->SetCastShadow(false);
+		(*Foot)->SetVisibility(false);
+		if (DiscMesh.Succeeded())
+		{
+			(*Foot)->SetStaticMesh(DiscMesh.Object);
+		}
 	}
 	AbilitySystem = CreateDefaultSubobject<UAbilitySystemComponent>(TEXT("AbilitySystem"));
 	AbilitySystem->SetIsReplicated(true);
@@ -219,11 +241,33 @@ void AValdoriaHeroCharacter::ApplyHeroDefinition()
 		WeaponComponent->AttachToComponent(GetMesh(), FAttachmentTransformRules::SnapToTargetNotIncludingScale, Def->WeaponSocket);
 		WeaponComponent->SetRelativeTransform(Def->WeaponOffset);
 	}
+	UStaticMesh* Offhand = Def->OffhandMesh.IsNull() ? nullptr : Def->OffhandMesh.LoadSynchronous();
+	OffhandComponent->SetStaticMesh(Offhand);
+	OffhandComponent->SetVisibility(Offhand != nullptr);
+	if (Offhand)
+	{
+		OffhandComponent->AttachToComponent(GetMesh(), FAttachmentTransformRules::SnapToTargetNotIncludingScale, Def->OffhandSocket);
+		OffhandComponent->SetRelativeTransform(Def->OffhandOffset);
+	}
 	GetMesh()->SetRelativeLocation(FVector(0.f, 0.f, -Def->CapsuleHalfHeight + Def->HoverHeight));
 	// Andar sobre efeito: disco brilhante sob os pés, na altura da flutuação.
 	const bool bRide = Def->Locomotion == EValdoriaLocomotion::RideEffect;
-	RideDisc->SetVisibility(bRide);
-	if (bRide)
+	const bool bPerFoot = bRide && Def->bRideEffectPerFoot;
+	RideDisc->SetVisibility(bRide && !bPerFoot);
+	FootDiscAlpha[0] = FootDiscAlpha[1] = 0.f;
+	FootDiscL->SetVisibility(false);
+	FootDiscR->SetVisibility(false);
+	if (bPerFoot)
+	{
+		const FLinearColor FootColor = Def->RideEffectColor.Equals(FLinearColor::Black) ? Def->ThemeColor : Def->RideEffectColor;
+		UStaticMesh* Custom = Def->RideEffectMesh.IsNull() ? nullptr : Def->RideEffectMesh.LoadSynchronous();
+		for (UStaticMeshComponent* Foot : { FootDiscL.Get(), FootDiscR.Get() })
+		{
+			if (Custom) { Foot->SetStaticMesh(Custom); }
+			Foot->SetMaterial(0, ValdoriaMakeGlowMaterial(this, FootColor, 0.55f));
+		}
+	}
+	if (bRide && !bPerFoot)
 	{
 		RideDisc->SetRelativeLocation(FVector(0.f, 0.f, -Def->CapsuleHalfHeight + Def->HoverHeight * 0.5f));
 		if (UStaticMesh* Custom = Def->RideEffectMesh.IsNull() ? nullptr : Def->RideEffectMesh.LoadSynchronous())
@@ -273,7 +317,9 @@ void AValdoriaHeroCharacter::GrantAbilities()
 	{
 		if (Entry.AbilityClass)
 		{
-			FGameplayAbilitySpec Spec(Entry.AbilityClass, 1, static_cast<int32>(Entry.Slot), this);
+			// InputID = slot (+ 16 * (element set + 1) for element-bound abilities, Kay).
+			const int32 Input = static_cast<int32>(Entry.Slot) + (Entry.ElementSet >= 0 ? 16 * (Entry.ElementSet + 1) : 0);
+			FGameplayAbilitySpec Spec(Entry.AbilityClass, 1, Input, this);
 			GrantedAbilities.Add(AbilitySystem->GiveAbility(Spec));
 		}
 	}
@@ -286,7 +332,16 @@ const FValdoriaAbilityEntry* AValdoriaHeroCharacter::FindAbilityEntry(EValdoriaA
 	{
 		return nullptr;
 	}
-	return ActiveDefinition->Abilities.FindByPredicate([Slot](const FValdoriaAbilityEntry& E) { return E.Slot == Slot; });
+	// Element-bound entry of the current element first (Kay), then the slot's always-available one.
+	if (ActiveDefinition->ElementCount > 0)
+	{
+		const int32 Element = CurrentElement;
+		if (const FValdoriaAbilityEntry* E = ActiveDefinition->Abilities.FindByPredicate([Slot, Element](const FValdoriaAbilityEntry& X) { return X.Slot == Slot && X.ElementSet == Element; }))
+		{
+			return E;
+		}
+	}
+	return ActiveDefinition->Abilities.FindByPredicate([Slot](const FValdoriaAbilityEntry& E) { return E.Slot == Slot && E.ElementSet < 0; });
 }
 
 const FValdoriaWeaponStats& AValdoriaHeroCharacter::GetWeaponStats() const
@@ -332,6 +387,7 @@ void AValdoriaHeroCharacter::BuildDefaultInput()
 	Ability1Action = MakeAction(TEXT("IA_Valdoria_Ability1"), EInputActionValueType::Boolean);
 	Ability2Action = MakeAction(TEXT("IA_Valdoria_Ability2"), EInputActionValueType::Boolean);
 	Ability3Action = MakeAction(TEXT("IA_Valdoria_Ability3"), EInputActionValueType::Boolean);
+	AbilityExtraAction = MakeAction(TEXT("IA_Valdoria_AbilityExtra"), EInputActionValueType::Boolean);
 	InteractAction = MakeAction(TEXT("IA_Valdoria_Interact"), EInputActionValueType::Boolean);
 	UltimateAction = MakeAction(TEXT("IA_Valdoria_Ultimate"), EInputActionValueType::Boolean);
 	ReloadAction = MakeAction(TEXT("IA_Valdoria_Reload"), EInputActionValueType::Boolean);
@@ -359,7 +415,6 @@ void AValdoriaHeroCharacter::BuildDefaultInput()
 	DefaultMapping->MapKey(MoveAction, EKeys::D);
 	DefaultMapping->MapKey(LookAction, EKeys::Mouse2D);
 	DefaultMapping->MapKey(JumpAction, EKeys::SpaceBar);
-	DefaultMapping->MapKey(FireAction, EKeys::LeftMouseButton);
 	MapAbilityKeys();
 	DefaultMapping->MapKey(SprintAction, EKeys::LeftShift);
 	DefaultMapping->MapKey(CrouchAction, EKeys::LeftControl);
@@ -371,15 +426,14 @@ void AValdoriaHeroCharacter::MapAbilityKeys()
 {
 	// Teclas das habilidades conforme o esquema escolhido em Configurações > Controles.
 	const FValdoriaOptions& Opt = FValdoriaOptions::Get();
+	DefaultMapping->MapKey(FireAction, Opt.GetSlotKey(EValdoriaAbilitySlot::PrimaryFire));
 	DefaultMapping->MapKey(SecondaryAction, Opt.GetSlotKey(EValdoriaAbilitySlot::SecondaryFire));
 	DefaultMapping->MapKey(Ability1Action, Opt.GetSlotKey(EValdoriaAbilitySlot::Ability1));
 	DefaultMapping->MapKey(Ability2Action, Opt.GetSlotKey(EValdoriaAbilitySlot::Ability2));
 	DefaultMapping->MapKey(Ability3Action, Opt.GetSlotKey(EValdoriaAbilitySlot::Ability3));
 	DefaultMapping->MapKey(UltimateAction, Opt.GetSlotKey(EValdoriaAbilitySlot::Ultimate));
-	if (Opt.KeyScheme != 1)
-	{
-		DefaultMapping->MapKey(ProneAction, EKeys::X); // no estilo Valorant o X é a ultimate
-	}
+	DefaultMapping->MapKey(AbilityExtraAction, Opt.GetSlotKey(EValdoriaAbilitySlot::AbilityExtra));
+	DefaultMapping->MapKey(ProneAction, EKeys::X);
 }
 
 void AValdoriaHeroCharacter::RefreshKeyScheme()
@@ -388,7 +442,7 @@ void AValdoriaHeroCharacter::RefreshKeyScheme()
 	{
 		return;
 	}
-	for (UInputAction* Action : { SecondaryAction.Get(), Ability1Action.Get(), Ability2Action.Get(), Ability3Action.Get(), UltimateAction.Get(), ProneAction.Get() })
+	for (UInputAction* Action : { FireAction.Get(), SecondaryAction.Get(), Ability1Action.Get(), Ability2Action.Get(), Ability3Action.Get(), AbilityExtraAction.Get(), UltimateAction.Get(), ProneAction.Get() })
 	{
 		DefaultMapping->UnmapAllKeysFromAction(Action);
 	}
@@ -440,12 +494,15 @@ void AValdoriaHeroCharacter::SetupPlayerInputComponent(UInputComponent* PlayerIn
 	Input->BindAction(FireAction, ETriggerEvent::Started, this, &AValdoriaHeroCharacter::Input_FirePressed);
 	Input->BindAction(FireAction, ETriggerEvent::Completed, this, &AValdoriaHeroCharacter::Input_FireReleased);
 	Input->BindAction(SecondaryAction, ETriggerEvent::Started, this, &AValdoriaHeroCharacter::Input_Secondary);
+	Input->BindAction(SecondaryAction, ETriggerEvent::Completed, this, &AValdoriaHeroCharacter::Input_SecondaryReleased);
 	Input->BindAction(Ability1Action, ETriggerEvent::Started, this, &AValdoriaHeroCharacter::Input_Ability1);
 	Input->BindAction(Ability2Action, ETriggerEvent::Started, this, &AValdoriaHeroCharacter::Input_Ability2);
 	Input->BindAction(Ability3Action, ETriggerEvent::Started, this, &AValdoriaHeroCharacter::Input_Ability3);
+	Input->BindAction(AbilityExtraAction, ETriggerEvent::Started, this, &AValdoriaHeroCharacter::Input_AbilityExtra);
 	Input->BindAction(InteractAction, ETriggerEvent::Started, this, &AValdoriaHeroCharacter::Input_InteractPressed);
 	Input->BindAction(InteractAction, ETriggerEvent::Completed, this, &AValdoriaHeroCharacter::Input_InteractReleased);
 	Input->BindAction(UltimateAction, ETriggerEvent::Started, this, &AValdoriaHeroCharacter::Input_Ultimate);
+	Input->BindAction(UltimateAction, ETriggerEvent::Completed, this, &AValdoriaHeroCharacter::Input_UltimateReleased);
 	Input->BindAction(ReloadAction, ETriggerEvent::Started, this, &AValdoriaHeroCharacter::Input_Reload);
 }
 
@@ -508,11 +565,186 @@ void AValdoriaHeroCharacter::Input_FirePressed()
 }
 
 void AValdoriaHeroCharacter::Input_FireReleased() { bFireHeld = false; }
-void AValdoriaHeroCharacter::Input_Secondary() { TryActivateSlot(EValdoriaAbilitySlot::SecondaryFire); }
+void AValdoriaHeroCharacter::Input_Secondary() { bSecondaryHeld = true; TryActivateSlot(EValdoriaAbilitySlot::SecondaryFire); }
+void AValdoriaHeroCharacter::Input_SecondaryReleased() { bSecondaryHeld = false; }
 void AValdoriaHeroCharacter::Input_Ability1() { TryActivateSlot(EValdoriaAbilitySlot::Ability1); }
 void AValdoriaHeroCharacter::Input_Ability2() { TryActivateSlot(EValdoriaAbilitySlot::Ability2); }
 void AValdoriaHeroCharacter::Input_Ability3() { TryActivateSlot(EValdoriaAbilitySlot::Ability3); }
-void AValdoriaHeroCharacter::Input_Ultimate() { TryActivateSlot(EValdoriaAbilitySlot::Ultimate); }
+void AValdoriaHeroCharacter::Input_AbilityExtra() { TryActivateSlot(EValdoriaAbilitySlot::AbilityExtra); }
+void AValdoriaHeroCharacter::Input_Ultimate()
+{
+	// Hold-to-cast ultimate (Kay): start counting; a quick tap switches element instead (see Input_UltimateReleased).
+	if (ActiveDefinition && ActiveDefinition->UltimateHoldSeconds > 0.f)
+	{
+		UltHoldStart = GetWorld()->GetTimeSeconds();
+		return;
+	}
+	TryActivateSlot(EValdoriaAbilitySlot::Ultimate);
+}
+
+void AValdoriaHeroCharacter::Input_UltimateReleased()
+{
+	if (UltHoldStart < 0.f || !ActiveDefinition)
+	{
+		return;
+	}
+	const float Held = GetWorld()->GetTimeSeconds() - UltHoldStart;
+	UltHoldStart = -1.f;
+	if (Held < 0.3f)
+	{
+		SwitchElement(); // quick tap
+	}
+	else if (IsUltimateReady() && GetCooldownRemaining(EValdoriaAbilitySlot::Ultimate) <= 0.f)
+	{
+		// Released before the charge completed: cancelled, short cooldown (owner: 3 s).
+		StartCooldown(EValdoriaAbilitySlot::Ultimate, ActiveDefinition->UltimateCancelCooldown);
+	}
+}
+
+void AValdoriaHeroCharacter::TickUltimateHold()
+{
+	if (UltHoldStart < 0.f || !ActiveDefinition || ActiveDefinition->UltimateHoldSeconds <= 0.f)
+	{
+		return;
+	}
+	if (bIsDead || !IsUltimateReady() || GetCooldownRemaining(EValdoriaAbilitySlot::Ultimate) > 0.f)
+	{
+		return; // holding without a full charge does nothing (a tap still switches element)
+	}
+	if (GetWorld()->GetTimeSeconds() - UltHoldStart >= ActiveDefinition->UltimateHoldSeconds)
+	{
+		UltHoldStart = -1.f;
+		TryActivateSlot(EValdoriaAbilitySlot::Ultimate);
+	}
+}
+
+float AValdoriaHeroCharacter::GetUltimateHoldProgress() const
+{
+	if (UltHoldStart < 0.f || !ActiveDefinition || ActiveDefinition->UltimateHoldSeconds <= 0.f || !IsUltimateReady())
+	{
+		return -1.f;
+	}
+	return FMath::Clamp((GetWorld()->GetTimeSeconds() - UltHoldStart) / ActiveDefinition->UltimateHoldSeconds, 0.f, 1.f);
+}
+
+void AValdoriaHeroCharacter::SwitchElement()
+{
+	if (!ActiveDefinition || ActiveDefinition->ElementCount <= 1 || bIsDead)
+	{
+		return;
+	}
+	const float Now = GetWorld()->GetTimeSeconds();
+	if (Now < ElementSwitchReadyTime && !bNoCooldowns)
+	{
+		return;
+	}
+	CurrentElement = (CurrentElement + 1) % ActiveDefinition->ElementCount;
+	ElementSwitchReadyTime = Now + ActiveDefinition->ElementSwitchCooldown;
+	PlayAreaEffect(GetActorLocation(), 160.f, GetElementColor());
+}
+
+float AValdoriaHeroCharacter::GetElementSwitchRemaining() const
+{
+	return FMath::Max(0.f, ElementSwitchReadyTime - GetWorld()->GetTimeSeconds());
+}
+
+FLinearColor AValdoriaHeroCharacter::GetElementColor() const
+{
+	if (ActiveDefinition && ActiveDefinition->ElementColors.IsValidIndex(CurrentElement))
+	{
+		return ActiveDefinition->ElementColors[CurrentElement];
+	}
+	return ActiveDefinition ? ActiveDefinition->ThemeColor : FLinearColor::White;
+}
+
+FText AValdoriaHeroCharacter::GetElementName() const
+{
+	return ActiveDefinition && ActiveDefinition->ElementNames.IsValidIndex(CurrentElement) ? ActiveDefinition->ElementNames[CurrentElement] : FText::GetEmpty();
+}
+
+EValdoriaDamageType AValdoriaHeroCharacter::GetElementDamageType(EValdoriaDamageType Fallback) const
+{
+	return ActiveDefinition && ActiveDefinition->ElementDamageTypes.IsValidIndex(CurrentElement) ? ActiveDefinition->ElementDamageTypes[CurrentElement] : Fallback;
+}
+
+void AValdoriaHeroCharacter::SwapToForm(FName FormId)
+{
+	if (FormId.IsNone() || !HasAuthority())
+	{
+		return;
+	}
+	// Next tick: the ability that asked for the swap is still running and its spec is about to be cleared.
+	TWeakObjectPtr<AValdoriaHeroCharacter> WeakThis(this);
+	GetWorldTimerManager().SetTimerForNextTick(FTimerDelegate::CreateLambda([WeakThis, FormId]()
+	{
+		AValdoriaHeroCharacter* Self = WeakThis.Get();
+		if (!Self || Self->IsDead())
+		{
+			return;
+		}
+		const FString Id = FormId.ToString().ToLower();
+		FString Asset = TEXT("DA_");
+		TArray<FString> Parts;
+		Id.ParseIntoArray(Parts, TEXT("_"));
+		for (const FString& Part : Parts) { Asset += Part.Left(1).ToUpper() + Part.Mid(1); }
+		UValdoriaHeroDefinition* Def = LoadObject<UValdoriaHeroDefinition>(nullptr, *FString::Printf(TEXT("/Game/Valdoria/Heroes/%s.%s"), *Asset, *Asset), nullptr, LOAD_NoWarn | LOAD_Quiet);
+		if (!Def)
+		{
+			Def = UValdoriaHeroDefinition::CreatePreset(Self, FormId);
+		}
+		if (!Def)
+		{
+			return;
+		}
+		const float HealthFrac = Self->GetHealth() / FMath::Max(1.f, Self->GetMaxHealth());
+		const float Ult = Self->GetUltimatePercent();
+		const TMap<EValdoriaAbilitySlot, float> Cooldowns = Self->CooldownEndTimes;
+		Self->SetHeroDefinition(Def);
+		Self->AbilitySystem->SetNumericAttributeBase(UValdoriaAttributeSet::GetHealthAttribute(), FMath::Max(1.f, Self->GetMaxHealth() * HealthFrac));
+		Self->AbilitySystem->SetNumericAttributeBase(UValdoriaAttributeSet::GetUltimateChargeAttribute(), Def->UltimateCost * Ult);
+		Self->CooldownEndTimes = Cooldowns;
+		// Ariel passive (turn 45): a bonus on arriving in the new form, from that form's swap entry.
+		if (const FValdoriaAbilityEntry* Swap = Self->FindAbilityEntry(EValdoriaAbilitySlot::AbilityExtra))
+		{
+			if (Swap->Magnitude > 0.f) { Self->AddOverheal(Swap->Magnitude, Swap->Magnitude, Swap->Magnitude / 6.f); }
+			if (Swap->SecondaryMagnitude > 0.f) { Self->ApplySpeedBuff(Swap->SecondaryMagnitude, 2.f); }
+		}
+		Self->PlayAreaEffect(Self->GetActorLocation(), 220.f, Def->ThemeColor);
+	}));
+}
+
+float AValdoriaHeroCharacter::GetVigorPercent() const
+{
+	const FValdoriaMovementRules& Rules = GetMovementRules();
+	return !Rules.bUsesVigor ? -1.f : FMath::Clamp((Vigor < 0.f ? Rules.VigorMax : Vigor) / FMath::Max(1.f, Rules.VigorMax), 0.f, 1.f);
+}
+
+void AValdoriaHeroCharacter::TickVigor(float DeltaSeconds)
+{
+	const FValdoriaMovementRules& Rules = GetMovementRules();
+	if (!Rules.bUsesVigor)
+	{
+		return;
+	}
+	if (Vigor < 0.f)
+	{
+		Vigor = Rules.VigorMax;
+	}
+	const float Now = GetWorld()->GetTimeSeconds();
+	if (bIsSprinting && GetVelocity().Size2D() > 50.f && !bInfiniteDashes)
+	{
+		Vigor = FMath::Max(0.f, Vigor - Rules.VigorSprintPerSecond * DeltaSeconds);
+		VigorLastSpend = Now;
+		if (Vigor <= 0.f)
+		{
+			SetSprinting(false); // out of breath
+		}
+	}
+	else if (Now - VigorLastSpend >= Rules.VigorRegenDelay)
+	{
+		Vigor = FMath::Min(Rules.VigorMax, Vigor + Rules.VigorRegenPerSecond * DeltaSeconds);
+	}
+}
 void AValdoriaHeroCharacter::Input_Reload() { StartReload(); }
 
 void AValdoriaHeroCharacter::TryActivateSlot(EValdoriaAbilitySlot Slot)
@@ -530,9 +762,14 @@ void AValdoriaHeroCharacter::TryActivateSlot(EValdoriaAbilitySlot Slot)
 	{
 		BreakStealth();
 	}
+	// Element-bound ability of the current element first (Kay), then the slot's always-available one.
+	const int32 ElementInput = static_cast<int32>(Slot) + 16 * (CurrentElement + 1);
+	const bool bElemental = ActiveDefinition && ActiveDefinition->ElementCount > 0;
+	const bool bHasElemental = bElemental && AbilitySystem->GetActivatableAbilities().ContainsByPredicate([ElementInput](const FGameplayAbilitySpec& S) { return S.InputID == ElementInput; });
+	const int32 WantedInput = bHasElemental ? ElementInput : static_cast<int32>(Slot);
 	for (const FGameplayAbilitySpec& Spec : AbilitySystem->GetActivatableAbilities())
 	{
-		if (Spec.InputID == static_cast<int32>(Slot))
+		if (Spec.InputID == WantedInput)
 		{
 			if (AbilitySystem->TryActivateAbility(Spec.Handle))
 			{
@@ -819,6 +1056,7 @@ float AValdoriaHeroCharacter::DealTypedDamage(AActor* Target, float BaseDamage, 
 	if (ShopBonus.AntiHeal > 0.f)
 	{
 		Victim->ApplyAntiHeal(ShopBonus.AntiHeal, 3.f); // shop: cuts the target's healing for 3 s
+		Victim->SetStack(this, TEXT("antiheal"), TEXT("AC"), FLinearColor(0.75f, 0.2f, 0.25f), FMath::RoundToInt(ShopBonus.AntiHeal * 100.f), 3.f); // Bitter Edge: % of healing cut
 	}
 	// Absorver: parte do dano some e vira carga de ultimate.
 	if (Victim->IsAbsorbing() && Total > 0.f)
@@ -847,16 +1085,33 @@ float AValdoriaHeroCharacter::DealTypedDamage(AActor* Target, float BaseDamage, 
 		DealDamageTo(Guard, Shared);
 		break;
 	}
+	// Overheal on the victim soaks damage first.
+	if (Victim->Overheal > 0.f)
+	{
+		const float Soaked = FMath::Min(Victim->Overheal, Total);
+		Victim->Overheal -= Soaked;
+		Total -= Soaked;
+	}
 	LastCombatTime = GetWorld()->GetTimeSeconds();
-	DealDamageTo(Victim, Total, bHeadshot);
+	if (Total > 0.f)
+	{
+		DealDamageTo(Victim, Total, bHeadshot);
+	}
+	// Life steal (weapon): part of the damage heals the attacker (can overheal).
+	if (GetWeaponStats().LifeSteal > 0.f)
+	{
+		HealTarget(this, (Total + 0.f) * GetWeaponStats().LifeSteal);
+	}
 	return Total;
 }
 
 void AValdoriaHeroCharacter::HealTarget(AActor* Target, float Amount)
 {
 	UAbilitySystemComponent* TargetASC = UAbilitySystemBlueprintLibrary::GetAbilitySystemComponent(Target);
-	const AValdoriaHeroCharacter* Other = Cast<AValdoriaHeroCharacter>(Target);
-	if (!HasAuthority() || !TargetASC || Amount <= 0.f || !Other || Other->IsDead() || Other->GetHealth() >= Other->GetMaxHealth())
+	AValdoriaHeroCharacter* Other = Cast<AValdoriaHeroCharacter>(Target);
+	const FValdoriaWeaponStats& MyWeapon = GetWeaponStats();
+	if (!HasAuthority() || !TargetASC || Amount <= 0.f || !Other || Other->IsDead()
+		|| (Other->GetHealth() >= Other->GetMaxHealth() && MyWeapon.OverhealMax <= 0.f))
 	{
 		return;
 	}
@@ -864,13 +1119,26 @@ void AValdoriaHeroCharacter::HealTarget(AActor* Target, float Amount)
 	if (Spec.IsValid())
 	{
 		const float Received = Other->GetHealingReceivedMultiplier();
-		Spec.Data->SetSetByCallerMagnitude(ValdoriaTags::Data_Heal, Amount * (1.f + ShopBonus.HealingPower) * Received);
+		const float Healed = Amount * (1.f + ShopBonus.HealingPower) * Received;
+		// Healing past full health becomes overheal (decaying shield) when this hero's weapon allows it.
+		const float Missing = FMath::Max(0.f, Other->GetMaxHealth() - Other->GetHealth());
+		if (MyWeapon.OverhealMax > 0.f && Healed > Missing)
+		{
+			Other->AddOverheal(Healed - Missing, Other->GetMaxHealth() * MyWeapon.OverhealMax, MyWeapon.OverhealDecay);
+		}
+		Spec.Data->SetSetByCallerMagnitude(ValdoriaTags::Data_Heal, Healed);
 		if (Target != this)
 		{
 			LastCombatTime = GetWorld()->GetTimeSeconds(); // healing others counts as general combat
 		}
 		AbilitySystem->ApplyGameplayEffectSpecToTarget(*Spec.Data.Get(), TargetASC);
 	}
+}
+
+void AValdoriaHeroCharacter::AddOverheal(float Amount, float Cap, float DecayPerSecond)
+{
+	Overheal = FMath::Min(FMath::Max(Overheal, 0.f) + Amount, FMath::Max(Cap, Overheal));
+	OverhealDecayRate = DecayPerSecond;
 }
 
 void AValdoriaHeroCharacter::ApplySlow(float Fraction, float Seconds)
@@ -916,6 +1184,7 @@ void AValdoriaHeroCharacter::UpdateStealthVisibility()
 	const bool bStealthHidden = IsHiddenByStealth();
 	GetMesh()->SetOnlyOwnerSee(bStealthHidden);
 	WeaponComponent->SetOnlyOwnerSee(bStealthHidden);
+	OffhandComponent->SetOnlyOwnerSee(bStealthHidden);
 }
 
 void AValdoriaHeroCharacter::SetWeaponOverride(const FValdoriaWeaponStats& Stats, float Seconds)
@@ -971,6 +1240,12 @@ void AValdoriaHeroCharacter::ApplyRecoil(float Degrees)
 	{
 		return;
 	}
+	// Braced posture also tames the kick (same posture multipliers as the spread, softened: sqrt).
+	if (!GetCharacterMovement()->IsFalling() && (bIsProne || bIsCrouched))
+	{
+		const FValdoriaWeaponStats& Weapon = GetWeaponStats();
+		Degrees *= FMath::Sqrt(bIsProne ? Weapon.ProneSpreadMultiplier : Weapon.CrouchSpreadMultiplier);
+	}
 	FRotator Rot = Controller->GetControlRotation();
 	Rot.Pitch += Degrees;
 	Rot.Yaw += FMath::FRandRange(-0.3f, 0.3f) * Degrees;
@@ -979,12 +1254,25 @@ void AValdoriaHeroCharacter::ApplyRecoil(float Degrees)
 
 float AValdoriaHeroCharacter::GetSpreadMultiplier() const
 {
-	const float Still = GetPassive().StillSpreadMultiplier;
-	if (Still < 1.f && (bIsCrouched || GetVelocity().Size2D() < 50.f) && !GetCharacterMovement()->IsFalling())
+	// Posture (owner, turn 44): crouching tightens the spread, lying down tightens it even more.
+	const FValdoriaWeaponStats& Weapon = GetWeaponStats();
+	const bool bGrounded = !GetCharacterMovement()->IsFalling();
+	float Mult = 1.f;
+	if (bGrounded && bIsProne)
 	{
-		return Still;
+		Mult = Weapon.ProneSpreadMultiplier;
 	}
-	return 1.f;
+	else if (bGrounded && bIsCrouched)
+	{
+		Mult = Weapon.CrouchSpreadMultiplier;
+	}
+	// Passives (Kael: standing still or crouched) stack on top.
+	const float Still = GetPassive().StillSpreadMultiplier;
+	if (Still < 1.f && (bIsCrouched || bIsProne || GetVelocity().Size2D() < 50.f) && bGrounded)
+	{
+		Mult *= Still;
+	}
+	return Mult;
 }
 
 void AValdoriaHeroCharacter::IgnoreFriendlyBarriers(FCollisionQueryParams& Params) const
@@ -1193,14 +1481,212 @@ void AValdoriaHeroCharacter::ResetCombatState()
 	CooldownEndTimes.Reset();
 }
 
+void AValdoriaHeroCharacter::TickFallOutOfMap()
+{
+	// Owner (turn 44): falling out of the map kills the hero (normal respawn) and is logged.
+	if (!HasAuthority() || bIsDead || IsRiding())
+	{
+		return;
+	}
+	if (FallKillZ == TNumericLimits<float>::Lowest())
+	{
+		// 30 m below the lowest player start of this map.
+		float Lowest = GetActorLocation().Z;
+		for (TActorIterator<APlayerStart> It(GetWorld()); It; ++It)
+		{
+			Lowest = FMath::Min(Lowest, It->GetActorLocation().Z);
+		}
+		FallKillZ = Lowest - 3000.f;
+	}
+	const FVector P = GetActorLocation();
+	if (P.Z >= FallKillZ)
+	{
+		return;
+	}
+	UE_LOG(LogValdoria, Warning, TEXT("PLAYTEST PROBLEMA caiu do mapa: %s (%s) em (%.0f,%.0f,%.0f)"), *GetName(),
+		ActiveDefinition ? *ActiveDefinition->GetName() : TEXT("-"), P.X, P.Y, P.Z);
+	if (bGodMode)
+	{
+		// Immortal (admin): back to the spawn instead of dying.
+		for (TActorIterator<APlayerStart> It(GetWorld()); It; ++It)
+		{
+			TeleportTo(It->GetActorLocation(), GetActorRotation());
+			GetCharacterMovement()->Velocity = FVector::ZeroVector;
+			break;
+		}
+		return;
+	}
+	HandleDeath(nullptr);
+}
+
+void AValdoriaHeroCharacter::StartTelekineticDash(AValdoriaHeroCharacter* Target, float Speed, float Damage, float Push, AActor* Shield)
+{
+	if (!Target || bIsDead)
+	{
+		return;
+	}
+	TkDashTarget = Target;
+	TkDashShield = Shield;
+	TkDashSpeed = FMath::Max(800.f, Speed);
+	TkDashDamage = Damage;
+	TkDashPush = Push;
+	TkDashEnd = GetWorld()->GetTimeSeconds() + 1.5f;
+	GetCharacterMovement()->SetMovementMode(MOVE_Flying); // no gravity while she flies to the target
+}
+
+void AValdoriaHeroCharacter::TickTelekineticDash()
+{
+	AValdoriaHeroCharacter* Target = TkDashTarget.Get();
+	if (!Target)
+	{
+		return;
+	}
+	UCharacterMovementComponent* Move = GetCharacterMovement();
+	auto Finish = [this, Move]()
+	{
+		if (AActor* Shield = TkDashShield.Get())
+		{
+			Shield->Destroy(); // the shield lasts until she arrives
+		}
+		TkDashTarget = nullptr;
+		TkDashShield = nullptr;
+		Move->Velocity *= 0.15f;
+		if (!bFlying && !bNoclip && Move->MovementMode == MOVE_Flying)
+		{
+			Move->SetMovementMode(MOVE_Falling);
+		}
+	};
+	if (bIsDead || Target->IsDead() || GetWorld()->GetTimeSeconds() > TkDashEnd || HasStatus(EValdoriaStatus::Stunned) || HasStatus(EValdoriaStatus::Rooted))
+	{
+		Finish();
+		return;
+	}
+	const FVector To = Target->GetActorLocation() - GetActorLocation();
+	const float Reach = GetCapsuleComponent()->GetScaledCapsuleRadius() + Target->GetCapsuleComponent()->GetScaledCapsuleRadius() + 60.f;
+	if (To.Size() <= Reach)
+	{
+		if (HasAuthority() && IsEnemy(Target))
+		{
+			// Arrives with a telekinetic shove: damage, pushed away and briefly off balance.
+			DealTypedDamage(Target, TkDashDamage, EValdoriaDamageType::Physical, 0.5f, false);
+			Target->LaunchCharacter(To.GetSafeNormal2D() * TkDashPush + FVector(0.f, 0.f, 250.f), true, true);
+			Target->ApplyStatus(EValdoriaStatus::Stunned, 0.4f);
+			PlayAreaEffect(Target->GetActorLocation(), 150.f, ActiveDefinition ? ActiveDefinition->ThemeColor : FLinearColor::White);
+		}
+		Finish();
+		return;
+	}
+	Move->Velocity = To.GetSafeNormal() * TkDashSpeed;
+	SetActorRotation(FRotator(0.f, To.Rotation().Yaw, 0.f));
+}
+
+void AValdoriaHeroCharacter::TickMapBounds()
+{
+	if (bIsDead || IsRiding())
+	{
+		return; // the Bifrost flies above the roofs on purpose
+	}
+	if (!bMapBoundsReady)
+	{
+		bMapBoundsReady = true;
+		FBox Geometry(ForceInit);
+		for (TActorIterator<AStaticMeshActor> It(GetWorld()); It; ++It)
+		{
+			const UStaticMeshComponent* C = It->GetStaticMeshComponent();
+			if (!C || C->GetCollisionEnabled() == ECollisionEnabled::NoCollision)
+			{
+				continue;
+			}
+			const FBox B = C->Bounds.GetBox();
+			if (B.IsValid && B.GetExtent().GetMax() < 100000.f) // skip sky domes / giant helper meshes
+			{
+				Geometry += B;
+			}
+		}
+		// Turn 45: the side limits follow the GROUND (large flat pieces near street level), a little inside its edge,
+		// instead of 5 m past every mesh: heroes could glide over the border walls or walk off the floor edge and fall.
+		FBox Ground(ForceInit);
+		for (TActorIterator<AStaticMeshActor> It(GetWorld()); It; ++It)
+		{
+			const UStaticMeshComponent* C = It->GetStaticMeshComponent();
+			if (!C || C->GetCollisionEnabled() == ECollisionEnabled::NoCollision)
+			{
+				continue;
+			}
+			const FBox B = C->Bounds.GetBox();
+			const FVector E = B.GetExtent();
+			if (B.IsValid && E.GetMax() < 100000.f && E.Z < 120.f && FMath::Max(E.X, E.Y) >= 400.f && B.Max.Z < 200.f)
+			{
+				Ground += B; // floors, streets, platforms (thin and wide)
+			}
+		}
+		if (Geometry.IsValid)
+		{
+			MapBounds = Geometry.ExpandBy(FVector(MapBoundsPadding, MapBoundsPadding, 0.f));
+			MapCeilingZ = Geometry.Max.Z + MapCeilingAbove;
+		}
+		if (Ground.IsValid && Geometry.IsValid)
+		{
+			const FBox Inner = Ground.ExpandBy(FVector(-MapGroundInset, -MapGroundInset, 0.f));
+			MapBounds = FBox(FVector(Inner.Min.X, Inner.Min.Y, MapBounds.Min.Z), FVector(Inner.Max.X, Inner.Max.Y, MapBounds.Max.Z));
+		}
+	}
+	if (!MapBounds.IsValid)
+	{
+		return;
+	}
+	UCharacterMovementComponent* Move = GetCharacterMovement();
+	FVector P = GetActorLocation();
+	bool bClamped = false;
+	// Sides: invisible walls (stop the outward speed, keep sliding along the wall).
+	for (int32 Axis = 0; Axis < 2; ++Axis)
+	{
+		if (P[Axis] < MapBounds.Min[Axis]) { P[Axis] = MapBounds.Min[Axis]; Move->Velocity[Axis] = FMath::Max(0.f, Move->Velocity[Axis]); bClamped = true; }
+		if (P[Axis] > MapBounds.Max[Axis]) { P[Axis] = MapBounds.Max[Axis]; Move->Velocity[Axis] = FMath::Min(0.f, Move->Velocity[Axis]); bClamped = true; }
+	}
+	// Sky: soft ceiling. Upward speed is capped lower and lower inside the band, reaching 0 at the limit.
+	if (Move->Velocity.Z > 0.f && P.Z > MapCeilingZ - MapCeilingSoft)
+	{
+		const float Alpha = FMath::Clamp((MapCeilingZ - P.Z) / MapCeilingSoft, 0.f, 1.f);
+		Move->Velocity.Z = FMath::Min(Move->Velocity.Z, 1500.f * Alpha);
+	}
+	if (P.Z > MapCeilingZ)
+	{
+		P.Z = MapCeilingZ;
+		Move->Velocity.Z = FMath::Min(0.f, Move->Velocity.Z);
+		bClamped = true;
+	}
+	if (bClamped)
+	{
+		SetActorLocation(P, false, nullptr, ETeleportType::None);
+	}
+}
+
 void AValdoriaHeroCharacter::Tick(float DeltaSeconds)
 {
 	Super::Tick(DeltaSeconds);
+	if (Overheal > 0.f)
+	{
+		Overheal = FMath::Max(0.f, Overheal - OverhealDecayRate * DeltaSeconds);
+	}
+	TickFallOutOfMap();
+	TickTelekineticDash();
+	TickUltimateHold();
+	TickVigor(DeltaSeconds);
+	TickMapBounds();
 	TickMovementFeatures(DeltaSeconds);
 	TickStatusEffects(DeltaSeconds);
 	TickHover(DeltaSeconds);
+	TickFootDiscs(DeltaSeconds);
 	TickFootsteps(DeltaSeconds);
 	TickFlightPose(DeltaSeconds);
+	// Telekinetic weapons (Vex): they bob gently around their socket, out of phase, as if held by the mind.
+	if (ActiveDefinition && ActiveDefinition->bWeaponsFloat && !IsRiding())
+	{
+		const float T = GetWorld()->GetTimeSeconds();
+		WeaponComponent->SetRelativeLocation(ActiveDefinition->WeaponOffset.GetLocation() + FVector(FMath::Sin(T * 2.1f) * 3.f, 0.f, FMath::Sin(T * 1.7f) * 2.f));
+		OffhandComponent->SetRelativeLocation(ActiveDefinition->OffhandOffset.GetLocation() + FVector(FMath::Sin(T * 2.1f + 1.6f) * 3.f, 0.f, FMath::Sin(T * 1.7f + 1.1f) * 2.f));
+	}
 	TickAutopilot(DeltaSeconds);
 	TickRiding(DeltaSeconds);
 	TickChannel(DeltaSeconds);
@@ -1269,6 +1755,7 @@ void AValdoriaHeroCharacter::SetFirstPerson(bool bEnable)
 	}
 	GetMesh()->SetOwnerNoSee(bEnable);
 	WeaponComponent->SetOwnerNoSee(bEnable);
+	OffhandComponent->SetOwnerNoSee(bEnable);
 }
 
 void AValdoriaHeroCharacter::SetNoclip(bool bEnable)
@@ -1279,7 +1766,7 @@ void AValdoriaHeroCharacter::SetNoclip(bool bEnable)
 	if (bEnable)
 	{
 		Move->SetMovementMode(MOVE_Flying);
-		Move->MaxFlySpeed = 1500.f;
+		Move->MaxFlySpeed = 1500.f * FMath::Max(1.f, AdminSpeedMultiplier);
 		Move->BrakingDecelerationFlying = 4000.f;
 	}
 	else
@@ -1444,7 +1931,8 @@ void AValdoriaHeroCharacter::SetSprinting(bool bNewSprinting)
 {
 	const EValdoriaShiftMode Mode = GetMovementRules().ShiftMode;
 	const bool bAllowed = Mode == EValdoriaShiftMode::Sprint || Mode == EValdoriaShiftMode::SprintAndDash;
-	bNewSprinting = bNewSprinting && bAllowed && !bIsDead;
+	const bool bOutOfVigor = GetMovementRules().bUsesVigor && Vigor >= 0.f && Vigor < 5.f; // Lume: needs breath to run
+	bNewSprinting = bNewSprinting && bAllowed && !bIsDead && !bOutOfVigor;
 	if (bNewSprinting)
 	{
 		if (bIsProne)
@@ -1512,6 +2000,11 @@ void AValdoriaHeroCharacter::TryDash()
 	{
 		return;
 	}
+	const FValdoriaMovementRules& DashRules = GetMovementRules();
+	if (DashRules.bUsesVigor && !bInfiniteDashes && Vigor >= 0.f && Vigor < DashRules.VigorDashCost)
+	{
+		return; // Lume: not enough vigor for a dash
+	}
 	FVector Direction = GetLastMovementInputVector().GetSafeNormal2D();
 	if (Direction.IsNearlyZero())
 	{
@@ -1541,6 +2034,11 @@ void AValdoriaHeroCharacter::PerformDash(const FVector& Direction)
 	if (!bInfiniteDashes)
 	{
 		--DashChargesLeft;
+		if (GetMovementRules().bUsesVigor)
+		{
+			Vigor = FMath::Max(0.f, (Vigor < 0.f ? GetMovementRules().VigorMax : Vigor) - GetMovementRules().VigorDashCost);
+			VigorLastSpend = GetWorld()->GetTimeSeconds();
+		}
 	}
 	PlayDashAnimation(Direction);
 	const bool bGrounded = GetCharacterMovement()->IsMovingOnGround();
@@ -1663,6 +2161,16 @@ void AValdoriaHeroCharacter::OnRep_IsProne()
 	const FValdoriaMovementRules& Rules = GetMovementRules();
 	GetCharacterMovement()->SetCrouchedHalfHeight(bIsProne ? Rules.ProneHalfHeight : Rules.CrouchHalfHeight);
 	UpdateMovementSpeed();
+	// Lie-down / get-up transition clip (plays once, full body, a bit faster than the clip's own pace).
+	if (ActiveDefinition && !bIsDead)
+	{
+		const TSoftObjectPtr<UAnimSequenceBase>& Trans = bIsProne ? ActiveDefinition->Animations.ProneEnter : ActiveDefinition->Animations.ProneExit;
+		UValdoriaAnimInstance* TransAnim = GetMesh() ? Cast<UValdoriaAnimInstance>(GetMesh()->GetAnimInstance()) : nullptr;
+		if (TransAnim && !Trans.IsNull())
+		{
+			TransAnim->PlayAction(Trans.LoadSynchronous(), 1.8f, true);
+		}
+	}
 	if (bIsCrouched)
 	{
 		UnCrouch();
@@ -1882,23 +2390,25 @@ void AValdoriaHeroCharacter::TickMovementFeatures(float DeltaSeconds)
 
 	// --- Voar e planar (regras do Data Asset)
 	const float Now = GetWorld()->GetTimeSeconds();
-	if (FlightFuel < 0.f)
+	// Admin flight (any hero): behaves like the fuel mode with infinite fuel, and keeps collision (no noclip).
+	const float FuelSeconds = bAdminFlight ? FMath::Max(Rules.FlightFuelSeconds, 10.f) : Rules.FlightFuelSeconds;
+	if (FlightFuel < 0.f || bInfiniteFlight || bAdminFlight || Rules.bUnlimitedFlight)
 	{
-		FlightFuel = Rules.FlightFuelSeconds;
+		FlightFuel = FuelSeconds;
 	}
 	if (Move->IsMovingOnGround())
 	{
-		FlightFuel = FMath::Min(Rules.FlightFuelSeconds, FlightFuel + Rules.FlightFuelRegen * DeltaSeconds);
+		FlightFuel = FMath::Min(FuelSeconds, FlightFuel + Rules.FlightFuelRegen * DeltaSeconds);
 	}
 	const bool bAbilityFlight = Rules.FlightMode == EValdoriaFlightMode::Ability && Now < AbilityFlightEnd;
-	const bool bFuelFlight = Rules.FlightMode == EValdoriaFlightMode::Fuel && bJumpHeld && (Move->IsFalling() || bFlying) && FlightFuel > 0.f && !IsFacingWall(45.f);
+	const bool bFuelFlight = (Rules.FlightMode == EValdoriaFlightMode::Fuel || bAdminFlight) && bJumpHeld && (Move->IsFalling() || bFlying) && FlightFuel > 0.f && !IsFacingWall(45.f);
 	if (bAbilityFlight || bFuelFlight)
 	{
 		if (!bFlying)
 		{
 			bFlying = true;
 			Move->SetMovementMode(MOVE_Flying);
-			Move->MaxFlySpeed = Rules.FlightSpeed;
+			Move->MaxFlySpeed = bAdminFlight ? FMath::Max(Rules.FlightSpeed, 900.f) : Rules.FlightSpeed;
 			Move->BrakingDecelerationFlying = 1500.f;
 		}
 		if (bFuelFlight)
@@ -1931,7 +2441,13 @@ void AValdoriaHeroCharacter::TickMovementFeatures(float DeltaSeconds)
 	}
 	else if (ActiveDefinition)
 	{
-		Move->AirControl = ActiveDefinition->AirControl;
+		Move->AirControl = AdminAirControl >= 0.f ? AdminAirControl : ActiveDefinition->AirControl;
+	}
+	// Aim glide (Recruit): aiming or shooting while falling slows the fall, no Space needed.
+	bAimGliding = !bGliding && Rules.bAimGlide && (bSecondaryHeld || bFireHeld) && Move->IsFalling() && Move->Velocity.Z < -Rules.AimGlideFallSpeed;
+	if (bAimGliding)
+	{
+		Move->Velocity.Z = -Rules.AimGlideFallSpeed;
 	}
 
 	// Escalar parede: segurar Espaço no ar, de frente para uma parede.
@@ -2004,9 +2520,27 @@ UAnimSequenceBase* AValdoriaHeroCharacter::PickMovementAnimation(bool& bOutLoop)
 	{
 		return Load(Set.WallClimb);
 	}
-	if (IsRiding() && !Set.FallLoop.IsNull())
+	if (IsRiding() && bRideVertical && !Set.RideVerticalPose.IsNull())
 	{
-		return Load(Set.FallLoop); // knees slightly bent, arms relaxed back
+		return Load(Set.RideVerticalPose); // rising upright at the spawn
+	}
+	if (IsRiding() && (!Set.RidePose.IsNull() || !Set.FallLoop.IsNull()))
+	{
+		return Load(!Set.RidePose.IsNull() ? Set.RidePose : Set.FallLoop); // leaning forward, arms back
+	}
+	if (bGliding && !Set.Glide.IsNull()) // aim glide keeps the aiming pose
+	{
+		const float GFwd = FVector::DotProduct(Velocity, GetActorForwardVector());
+		const float GRight = FVector::DotProduct(Velocity, GetActorRightVector());
+		if (Speed > 150.f && FMath::Abs(GRight) > FMath::Abs(GFwd) * 0.8f)
+		{
+			const TSoftObjectPtr<UAnimSequenceBase>& Side = GRight >= 0.f ? Set.GlideRight : Set.GlideLeft;
+			if (!Side.IsNull())
+			{
+				return Load(Side);
+			}
+		}
+		return Load(Set.Glide);
 	}
 	if (IsSkating() && GetCharacterMovement()->IsMovingOnGround() && !Set.CrouchIdle.IsNull())
 	{
@@ -2015,10 +2549,32 @@ UAnimSequenceBase* AValdoriaHeroCharacter::PickMovementAnimation(bool& bOutLoop)
 	if (bFlying)
 	{
 		// Levitate: calm upright pose (owner reference video), superhero: flying loop.
-		const TSoftObjectPtr<UAnimSequenceBase>& FlyClip = Set.FlightStyle == EValdoriaFlightStyle::Levitate && !Set.Hover.IsNull() ? Set.Hover : Set.Fly;
+		const bool bLevitate = Set.FlightStyle == EValdoriaFlightStyle::Levitate && !Set.Hover.IsNull();
+		if (!bLevitate)
+		{
+			// Turn 45 (owner: more flight poses for the Recruit): diving, moving and hovering differ.
+			if (Velocity.Z < -350.f && !Set.FlyDown.IsNull())
+			{
+				return Load(Set.FlyDown);
+			}
+			if (Speed > 250.f && !Set.FlyMove.IsNull())
+			{
+				return Load(Set.FlyMove);
+			}
+		}
+		const TSoftObjectPtr<UAnimSequenceBase>& FlyClip = bLevitate ? Set.Hover : Set.Fly;
 		if (!FlyClip.IsNull())
 		{
 			return Load(FlyClip);
+		}
+	}
+	// In the air after a jump: rising / falling poses (Lume was stiff in the air, turn 45).
+	if (GetCharacterMovement()->IsFalling() && !bFlying)
+	{
+		const TSoftObjectPtr<UAnimSequenceBase>& AirClip = Velocity.Z > 60.f ? Set.AirRise : Set.AirFall;
+		if (!AirClip.IsNull())
+		{
+			return Load(AirClip);
 		}
 	}
 	// Flutuar: pairando sem passos (qualquer velocidade), a não ser agachado.
@@ -2028,8 +2584,27 @@ UAnimSequenceBase* AValdoriaHeroCharacter::PickMovementAnimation(bool& bOutLoop)
 	}
 	if (bIsProne)
 	{
-		UAnimSequenceBase* Crawl = Load(Set.ProneCrawl);
-		return (Speed > 20.f && Crawl) ? Crawl : Load(Set.ProneIdle);
+		if (Speed > 20.f && !Set.ProneCrawl.IsNull())
+		{
+			// Crawl in the direction of travel (backwards / sideways clips are optional).
+			const float PFwd = FVector::DotProduct(Velocity, GetActorForwardVector());
+			const float PRight = FVector::DotProduct(Velocity, GetActorRightVector());
+			const TSoftObjectPtr<UAnimSequenceBase>* Pick = &Set.ProneCrawl;
+			if (FMath::Abs(PFwd) >= FMath::Abs(PRight) * 0.8f)
+			{
+				if (PFwd < 0.f && !Set.ProneCrawlBackward.IsNull()) { Pick = &Set.ProneCrawlBackward; }
+			}
+			else if (PRight >= 0.f)
+			{
+				if (!Set.ProneCrawlRight.IsNull()) { Pick = &Set.ProneCrawlRight; }
+			}
+			else if (!Set.ProneCrawlLeft.IsNull())
+			{
+				Pick = &Set.ProneCrawlLeft;
+			}
+			return Load(*Pick);
+		}
+		return Load(Set.ProneIdle);
 	}
 	if (bSliding)
 	{
@@ -2168,6 +2743,10 @@ bool AValdoriaHeroCharacter::CanUseSlot(EValdoriaAbilitySlot Slot) const
 	{
 		return false;
 	}
+	if (bFlying && GetMovementRules().bFlightBlocksActions)
+	{
+		return false; // Vex: flying takes all her telekinesis
+	}
 	if (Slot == EValdoriaAbilitySlot::PrimaryFire)
 	{
 		return !HasStatus(EValdoriaStatus::CannotAttack);
@@ -2193,6 +2772,11 @@ UAnimSequenceBase* AValdoriaHeroCharacter::PickBaseAnimation(bool& bOutLoop, flo
 	{
 		bOutLoop = true;
 		return nullptr;
+	}
+	if (!DebugBaseAnim.IsNull())
+	{
+		bOutLoop = true;
+		return DebugBaseAnim.LoadSynchronous(); // pose gallery test
 	}
 	// Movimentos especiais (agachar, deslizar, subir, escalar, voar, flutuar) primeiro.
 	if (UAnimSequenceBase* Special = PickMovementAnimation(bOutLoop))
@@ -2290,6 +2874,54 @@ void AValdoriaHeroCharacter::TickHover(float DeltaSeconds)
 	GetMesh()->SetRelativeLocationAndRotation(Base + FVector(0.f, 0.f, Bob), FQuat::Slerp(Current, Target, FMath::Min(1.f, DeltaSeconds * 6.f)));
 }
 
+void AValdoriaHeroCharacter::TickFootDiscs(float DeltaSeconds)
+{
+	if (!ActiveDefinition || !ActiveDefinition->bRideEffectPerFoot || ActiveDefinition->Locomotion != EValdoriaLocomotion::RideEffect)
+	{
+		return;
+	}
+	// Owner (turn 45, Vex): a small telekinetic disc under each foot, created just before the foot lands
+	// and fading after it lifts. The disc stays where it was made (absolute location), like a stepping stone.
+	const bool bGrounded = !bIsDead && GetCharacterMovement()->IsMovingOnGround() && !bFlying;
+	const float Sole = GetActorLocation().Z - GetCapsuleComponent()->GetScaledCapsuleHalfHeight();
+	const float DiscZ = Sole + ActiveDefinition->HoverHeight * 0.5f;
+	static const FName Bones[2] = { TEXT("foot_l"), TEXT("foot_r") };
+	UStaticMeshComponent* Discs[2] = { FootDiscL.Get(), FootDiscR.Get() };
+	for (int32 i = 0; i < 2; ++i)
+	{
+		UStaticMeshComponent* Disc = Discs[i];
+		if (!Disc)
+		{
+			continue;
+		}
+		const FVector Foot = GetMesh()->GetSocketLocation(Bones[i]);
+		// The ankle bone sits ~10 cm above the sole: "low" = the foot is landing or planted.
+		const bool bLow = bGrounded && Foot.Z - (Sole + ActiveDefinition->HoverHeight) < 22.f;
+		float& Alpha = FootDiscAlpha[i];
+		if (bLow)
+		{
+			const FVector Target(Foot.X, Foot.Y, DiscZ);
+			// New step: appear right under the foot; while planted, follow it a little (turning in place).
+			const FVector Where = Alpha < 0.05f ? Target : FMath::VInterpTo(Disc->GetComponentLocation(), Target, DeltaSeconds, 10.f);
+			Disc->SetWorldLocation(Where);
+			Alpha = FMath::Min(1.f, Alpha + DeltaSeconds * 14.f);
+		}
+		else
+		{
+			Alpha = FMath::Max(0.f, Alpha - DeltaSeconds * (bGrounded ? 5.f : 9.f));
+		}
+		const bool bShow = Alpha > 0.02f;
+		Disc->SetVisibility(bShow);
+		if (bShow)
+		{
+			const FVector Base = ActiveDefinition->RideEffectScale;
+			const float Grow = 0.55f + 0.45f * Alpha;
+			Disc->SetWorldScale3D(FVector(Base.X * Grow, Base.Y * Grow, Base.Z));
+			Disc->SetWorldRotation(FRotator(0.f, GetActorRotation().Yaw, 0.f));
+		}
+	}
+}
+
 // ------------------------------------------------------------------ sons
 
 void AValdoriaHeroCharacter::PlaySlotSound(EValdoriaAbilitySlot Slot)
@@ -2323,7 +2955,7 @@ void AValdoriaHeroCharacter::PlaySlotSound(EValdoriaAbilitySlot Slot)
 
 void AValdoriaHeroCharacter::TickFootsteps(float DeltaSeconds)
 {
-	if (!ActiveDefinition || bIsDead || ActiveDefinition->FootstepVolume <= 0.f
+	if (!ActiveDefinition || bIsDead || ActiveDefinition->FootstepVolume <= 0.f || ActiveDefinition->bSilentMovement
 		|| ActiveDefinition->Locomotion == EValdoriaLocomotion::Float || !GetCharacterMovement()->IsMovingOnGround())
 	{
 		return;
@@ -2404,6 +3036,13 @@ void AValdoriaHeroCharacter::TickFlightPose(float DeltaSeconds)
 	}
 	if (!bFlying)
 	{
+		// Holding the primary fire: upper-body channel pose (Lume's draining beam).
+		const bool bHold = !bSkating && !IsRiding() && bFireHeld && !Set.FireHoldPose.IsNull();
+		if (Anim && (bHold || bWasFireHold))
+		{
+			Anim->SetUpperPose(bHold ? Load(Set.FireHoldPose) : nullptr, Set.FireHoldPoseTime, bHold ? 1.f : 0.f);
+		}
+		bWasFireHold = bHold;
 		return;
 	}
 
@@ -2441,6 +3080,34 @@ void AValdoriaHeroCharacter::SetAutopilot(bool bEnable, float Skill)
 	bFireHeld = false;
 }
 
+FVector AValdoriaHeroCharacter::AutopilotNavDirection(const FVector& Goal)
+{
+	const float Now = GetWorld()->GetTimeSeconds();
+	const FVector P = GetActorLocation();
+	if (Now >= NavRepathTime || FVector::DistSquared(Goal, NavGoal) > FMath::Square(400.f))
+	{
+		NavRepathTime = Now + NavRepathInterval;
+		NavGoal = Goal;
+		NavPath.Reset();
+		NavPathIndex = 0;
+		if (UNavigationPath* Path = UNavigationSystemV1::FindPathToLocationSynchronously(GetWorld(), P, Goal, this))
+		{
+			if (Path->IsValid() && Path->PathPoints.Num() > 1)
+			{
+				NavPath = Path->PathPoints;
+				NavPathIndex = 1;
+			}
+		}
+	}
+	while (NavPath.IsValidIndex(NavPathIndex) && FVector::Dist2D(NavPath[NavPathIndex], P) < 120.f)
+	{
+		++NavPathIndex;
+	}
+	const FVector Next = NavPath.IsValidIndex(NavPathIndex) ? NavPath[NavPathIndex] : Goal;
+	const FVector Dir = (Next - P).GetSafeNormal2D();
+	return Dir.IsNearlyZero() ? GetActorForwardVector().GetSafeNormal2D() : Dir;
+}
+
 void AValdoriaHeroCharacter::TickAutopilot(float DeltaSeconds)
 {
 	if (!bAutopilot || bIsDead || !ActiveDefinition)
@@ -2461,7 +3128,7 @@ void AValdoriaHeroCharacter::TickAutopilot(float DeltaSeconds)
 	// Target: nearest visible enemy, re-checked twice a second.
 	if (Now >= AutopilotNextPick)
 	{
-		AutopilotNextPick = Now + 0.5f;
+		AutopilotNextPick = Now + AutopilotPickInterval;
 		AutopilotTarget = nullptr;
 		float Best = 5000.f;
 		for (TActorIterator<AValdoriaHeroCharacter> It(GetWorld()); It; ++It)
@@ -2531,17 +3198,36 @@ void AValdoriaHeroCharacter::TickAutopilot(float DeltaSeconds)
 			}
 			bInteractHeld = bInteractHeld && IsPlayerControlled();
 		}
-		// Follow the route (MOBA lane) if there is one.
+		// Follow the route (MOBA lane) if there is one, along navmesh paths (turn 44: out of the metro, around walls).
 		if (AutopilotRoute.IsValidIndex(AutopilotRouteIndex))
 		{
+			// Stuck rescue (turn 45): barely moved in 3 s -> new path; twice in a row -> skip this route point.
+			if (Now >= AutopilotStuckCheck)
+			{
+				const bool bStuck = AutopilotStuckCheck > 0.f && FVector::Dist2D(GetActorLocation(), AutopilotStuckPos) < 150.f;
+				AutopilotStuckStrikes = bStuck ? AutopilotStuckStrikes + 1 : 0;
+				if (bStuck)
+				{
+					NavRepathTime = 0.f;
+					Jump();
+					if (AutopilotStuckStrikes >= 2 && AutopilotRouteIndex < AutopilotRoute.Num() - 1)
+					{
+						++AutopilotRouteIndex;
+						AutopilotStuckStrikes = 0;
+					}
+				}
+				AutopilotStuckPos = GetActorLocation();
+				AutopilotStuckCheck = Now + 3.f;
+			}
 			const FVector ToPoint = AutopilotRoute[AutopilotRouteIndex] - GetActorLocation();
 			if (ToPoint.Size2D() < 500.f)
 			{
 				++AutopilotRouteIndex;
 			}
-			AutopilotAim = FRotator(0.f, ToPoint.Rotation().Yaw, 0.f);
+			const FVector Step = AutopilotNavDirection(AutopilotRoute[FMath::Min(AutopilotRouteIndex, AutopilotRoute.Num() - 1)]);
+			AutopilotAim = FRotator(0.f, Step.Rotation().Yaw, 0.f);
 			SetActorRotation(AutopilotAim);
-			AddMovementInput(ToPoint.GetSafeNormal2D(), 1.f);
+			AddMovementInput(Step, 1.f);
 			if (IsFacingWall(90.f))
 			{
 				Jump();
@@ -2552,14 +3238,46 @@ void AValdoriaHeroCharacter::TickAutopilot(float DeltaSeconds)
 			}
 			return;
 		}
-		// Roam: walk forward, turn slowly, jump at walls.
-		AutopilotAim.Yaw += 20.f * DeltaSeconds;
-		AutopilotAim.Pitch = 0.f;
-		SetActorRotation(FRotator(0.f, AutopilotAim.Yaw, 0.f));
-		AddMovementInput(Fwd, 0.6f);
+		// Nobody in sight: hunt the nearest living enemy along the navmesh (turn 44: before, bots spun in place
+		// and never left closed rooms). Guardians (leashed) never hunt.
+		AValdoriaHeroCharacter* Prey = nullptr;
+		if (LeashRadius <= 0.f)
+		{
+			float Best = 40000.f;
+			for (TActorIterator<AValdoriaHeroCharacter> It(GetWorld()); It; ++It)
+			{
+				if (IsEnemy(*It) && !It->IsDead() && !It->IsHiddenByStealth() && !It->IsInvulnerable() && !It->IsA<AValdoriaGuardian>())
+				{
+					const float D = FVector::Dist(GetActorLocation(), It->GetActorLocation());
+					if (D < Best) { Best = D; Prey = *It; }
+				}
+			}
+		}
+		if (Prey)
+		{
+			const FVector Step = AutopilotNavDirection(Prey->GetActorLocation());
+			AutopilotAim = FRotator(0.f, Step.Rotation().Yaw, 0.f);
+			SetActorRotation(AutopilotAim);
+			AddMovementInput(Step, 0.9f);
+		}
+		else
+		{
+			// Roam to random reachable spots.
+			if (Now >= AutopilotRoamTime || FVector::Dist2D(AutopilotRoamGoal, GetActorLocation()) < 200.f)
+			{
+				AutopilotRoamTime = Now + 6.f;
+				FNavLocation Spot;
+				UNavigationSystemV1* Nav = FNavigationSystem::GetCurrent<UNavigationSystemV1>(GetWorld());
+				AutopilotRoamGoal = (Nav && Nav->GetRandomReachablePointInRadius(GetActorLocation(), 3000.f, Spot)) ? Spot.Location
+					: GetActorLocation() + FRotator(0.f, FMath::FRandRange(0.f, 360.f), 0.f).Vector() * 1500.f;
+			}
+			const FVector Step = AutopilotNavDirection(AutopilotRoamGoal);
+			AutopilotAim = FRotator(0.f, Step.Rotation().Yaw, 0.f);
+			SetActorRotation(AutopilotAim);
+			AddMovementInput(Step, 0.6f);
+		}
 		if (IsFacingWall(90.f))
 		{
-			AutopilotAim.Yaw += 90.f;
 			Jump();
 		}
 		if (Controller)
@@ -2586,7 +3304,7 @@ void AValdoriaHeroCharacter::TickAutopilot(float DeltaSeconds)
 	const float Desired = FMath::Clamp(Weapon.Range * 0.6f, 250.f, 1200.f);
 	if (Dist > Desired + 250.f)
 	{
-		AddMovementInput(Fwd, 1.f);
+		AddMovementInput(LeashRadius > 0.f ? Fwd : AutopilotNavDirection(Target->GetActorLocation()), 1.f);
 	}
 	else if (Dist < Desired * 0.5f)
 	{
@@ -2708,6 +3426,11 @@ bool AValdoriaHeroCharacter::TryMountRail()
 		WeaponComponent->AttachToComponent(GetMesh(), FAttachmentTransformRules::SnapToTargetNotIncludingScale, TEXT("spine_03"));
 		WeaponComponent->SetRelativeLocationAndRotation(FVector(-10.f, -25.f, 0.f), FRotator(0.f, 0.f, 45.f));
 	}
+	if (OffhandComponent->GetStaticMesh() && GetMesh()->DoesSocketExist(TEXT("spine_03")))
+	{
+		OffhandComponent->AttachToComponent(GetMesh(), FAttachmentTransformRules::SnapToTargetNotIncludingScale, TEXT("spine_03"));
+		OffhandComponent->SetRelativeLocationAndRotation(FVector(-10.f, -25.f, 20.f), FRotator(0.f, 0.f, -45.f));
+	}
 	GetCharacterMovement()->SetMovementMode(MOVE_Flying);
 	GetCharacterMovement()->StopMovementImmediately();
 	ValdoriaAudio::PlayAt(this, ValdoriaAudio::Load(TEXT("SciFi"), TEXT("forceField_000")), GetActorLocation(), 0.6f);
@@ -2721,11 +3444,17 @@ void AValdoriaHeroCharacter::StopRiding()
 		return;
 	}
 	RideRail = nullptr;
+	bRideVertical = false;
 	// Draw the weapon back into the hand quickly (equip gesture).
 	if (ActiveDefinition && WeaponComponent->GetStaticMesh())
 	{
 		WeaponComponent->AttachToComponent(GetMesh(), FAttachmentTransformRules::SnapToTargetNotIncludingScale, ActiveDefinition->WeaponSocket);
 		WeaponComponent->SetRelativeTransform(ActiveDefinition->WeaponOffset);
+		if (OffhandComponent->GetStaticMesh())
+		{
+			OffhandComponent->AttachToComponent(GetMesh(), FAttachmentTransformRules::SnapToTargetNotIncludingScale, ActiveDefinition->OffhandSocket);
+			OffhandComponent->SetRelativeTransform(ActiveDefinition->OffhandOffset);
+		}
 		if (UValdoriaAnimInstance* DrawAnim = Cast<UValdoriaAnimInstance>(GetMesh()->GetAnimInstance()))
 		{
 			const TSoftObjectPtr<UAnimSequenceBase>& Draw = ActiveDefinition->Animations.AbilityAction;
@@ -2775,10 +3504,18 @@ void AValdoriaHeroCharacter::TickRiding(float DeltaSeconds)
 		StopRiding(); // end of the trail: drop off
 		return;
 	}
-	SetActorLocation(Rail->GetPointAt(RideDistance) - FVector(0.f, 0.f, 60.f));
-	SetActorRotation(FRotator(0.f, (Tangent * Sign).Rotation().Yaw, 0.f));
+	// Owner: it looked like a zipline (the hero hung 60 cm below the ribbon). Now the feet are on top of the
+	// ribbon on the horizontal part; on the vertical part the hero rises upright inside the light column.
+	bRideVertical = FMath::Abs(Tangent.Z) > 0.7f;
+	const float Lift = bRideVertical ? 0.f : (ActiveDefinition ? ActiveDefinition->CapsuleHalfHeight : 96.f) + 15.f;
+	SetActorLocation(Rail->GetPointAt(RideDistance) + FVector(0.f, 0.f, Lift));
+	if (!bRideVertical)
+	{
+		SetActorRotation(FRotator(0.f, (Tangent * Sign).Rotation().Yaw, 0.f)); // the vertical part has no useful yaw
+	}
 	// Flying pose (owner): body leaning forward, looking ahead and a little down; weapon on the back.
-	const FRotator Lie(-28.f, 0.f, 0.f);
+	// Vertical part of the trail (rising at the spawn): upright, no lean.
+	const FRotator Lie(bRideVertical ? 0.f : -ActiveDefinition->Animations.RideLean, 0.f, 0.f);
 	const FVector FeetOffset(0.f, 0.f, -ActiveDefinition->CapsuleHalfHeight);
 	GetMesh()->SetRelativeLocationAndRotation(Lie.RotateVector(FeetOffset), Lie.Quaternion() * FRotator(0.f, -90.f, 0.f).Quaternion());
 }
@@ -2855,4 +3592,44 @@ FString AValdoriaHeroCharacter::GetChannelSubtitle() const
 	return Target->GuardTeam == TeamId
 		? TEXT("\"Solvo vincula tua, custos. Redi ad nos, surge et vigila.\"  (I loosen your bonds, guardian. Come back to us, rise and keep watch.)")
 		: TEXT("\"Sigillo te, custos. In silentio maneas.\"  (I seal you, guardian. Remain in silence.)");
+}
+
+// ------------------------------------------------------------------ stacks (turn 45)
+
+void AValdoriaHeroCharacter::SetStack(AValdoriaHeroCharacter* Source, FName Key, const FString& Label, FLinearColor Color, int32 Count, float Duration)
+{
+	const float Now = GetWorld()->GetTimeSeconds();
+	Stacks.RemoveAll([this, Now](const FValdoriaStack& S) { return !S.Source.IsValid() || !IsStackLive(S); });
+	FValdoriaStack* Found = Stacks.FindByPredicate([Source, Key](const FValdoriaStack& S) { return S.Source.Get() == Source && S.Key == Key; });
+	if (Count <= 0)
+	{
+		if (Found)
+		{
+			Stacks.RemoveAll([Source, Key](const FValdoriaStack& S) { return S.Source.Get() == Source && S.Key == Key; });
+		}
+		return;
+	}
+	if (!Found)
+	{
+		Found = &Stacks.AddDefaulted_GetRef();
+		Found->Source = Source;
+		Found->Key = Key;
+	}
+	Found->Label = Label;
+	Found->Color = Color;
+	Found->Count = Count;
+	Found->EndTime = Duration > 0.f ? Now + Duration : 0.f;
+}
+
+void AValdoriaHeroCharacter::AddStack(AValdoriaHeroCharacter* Source, FName Key, const FString& Label, FLinearColor Color, int32 Add, int32 MaxCount, float Duration)
+{
+	int32 Current = 0;
+	for (const FValdoriaStack& S : Stacks)
+	{
+		if (S.Source.Get() == Source && S.Key == Key && IsStackLive(S))
+		{
+			Current = S.Count;
+		}
+	}
+	SetStack(Source, Key, Label, Color, FMath::Clamp(Current + Add, 0, MaxCount), Duration);
 }

@@ -28,6 +28,8 @@ public:
 protected:
 	void OnPreLoadMap(const FString& MapName);
 	void OnPostLoadMap(UWorld* World);
+	/** Sets up the movie-player loading screen in advance (turn 44: it used to be set up too late, inside PreLoadMap). */
+	void ArmLoadingScreen(const FString& MapName);
 
 	/** Tela com a arte do mapa, título, dica aleatória e um indicador girando. */
 	TSharedRef<SWidget> BuildLoadingScreen(const FString& MapPath, bool bWithThrobber);

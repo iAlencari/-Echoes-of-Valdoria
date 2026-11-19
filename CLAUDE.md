@@ -52,10 +52,32 @@ português simples. **Leia `LOG.md` inteiro antes de mexer.**
 - Commits em português; não envie (`push`) sem o dono pedir.
 
 ## Decisões de design do dono (turno 20, 18/11/2026)
-- **Heróis prontos**: Brasa, Kael Rook, Iara e Vex em `Content/Valdoria/Heroes/DA_*.uasset`
+- **Heróis prontos**: Brasa, Kael Rook, Iara, Vex, Lume, Kay e Ariel (2 formas) em `Content/Valdoria/Heroes/DA_*.uasset`
   (criados por `Scripts/create_heroes.py` a partir de `ValdoriaHeroPresets.cpp`; o script **não**
   sobrescreve DA_ existentes, a não ser com `VALDORIA_RESET_HEROES=1`). Balancear = editar o DA_.
-- **Botões**: botão direito, F e E são as 3 habilidades; Q é a ultimate; a passiva é sempre ativa.
+- **Teclas padrão para TODOS os heróis (dono, turno 45, sem exceção)**: botão ESQUERDO = ataque básico,
+  botão DIREITO = habilidade 5, teclas **1, 2, 3** = habilidades 1, 2, 3, tecla **4** = suprema, passiva sempre
+  ativa. Habilidade extra opcional no **C** (preferência; X, Q ou E possíveis). X deita, K mostra as habilidades.
+  (O esquema antigo F/E/Q e a escolha "Teclas das habilidades" foram removidos.)
+- **HUD (turno 45)**: na tela só 1, 2, 3 e 4; o C (se houver) menor, à esquerda. Passiva e habilidade do botão
+  direito: ícones pequenos e transparentes com recarga em relógio + número. O resto fica na aba K.
+- **Acúmulos (stacks, turno 45)**: `SetStack`/`AddStack` no herói que RECEBE, guardando quem causou. Seus
+  acúmulos: ícone pequeno acima das habilidades; os que um inimigo pôs em você: menor, com marca vermelha;
+  os que você pôs em outro herói: ícone ao lado da barra de vida dele, visível só para você. Em uso: Foco
+  Crescente da Lume (no alvo, 1-5) e anti-cura da loja (AC, % de cura cortada).
+- **Kay [Agent Kay] (herói do dono)**: refira-se SÓ pelo nome (nunca "o"/"a"). Identidade não binária, sem arma,
+  controla fogo, terra, água e ar (4 conjuntos de habilidades, `ElementSet` em cada entrada). Toque curto no 4 =
+  troca de elemento (recarga 20 s); segurar o 4 por 3 s com a suprema cheia = **Devastação**; soltar antes = cancela
+  e dá 3 s de recarga. **As habilidades 1/2/3, o botão direito e a passiva são do dono**: não invente.
+- **Ariel (criado pelo Claude, aprovado como ideia)**: bigênero; refira-se pelo nome ou com "de Ariel". C troca de
+  forma (Forma Rocha, masculina, corpo a corpo, `DA_Ariel`; Forma Faísca, feminina, à distância, `DA_ArielFaisca`),
+  mantendo vida (%), suprema e recargas (`AlternateFormId` + `UValdoriaGA_FormSwap`).
+- **Deitar (X) é por herói**: tabela `CAN_PRONE` em `Scripts/create_heroes.py` (ou `VALDORIA_NO_PRONE=lume,vex` /
+  `VALDORIA_PRONE=...`), aplicada a cada execução do script. Lume começa sem deitar (flutua).
+- **Vigor**: só a Lume por enquanto (`bUsesVigor`); Shift corre e dá impulso gastando vigor.
+- **Lobby (turno 45)**: abre uma vez ao iniciar o jogo (nunca em testes: qualquer `-Valdoria...` pula; também
+  `-ValdoriaNoLobby`) e pelo menu de pausa. Abas: Jogar (modos), Heróis, Loja (visuais "em breve"),
+  Inventário (vazio), Treino, Configurações, Sair. Código: `ValdoriaLobby.cpp`.
 - **Tipos de dano**: Físico (armas, golpes), Mágico (cajados, magias) e Híbrido (parte de cada).
   Cada arma/habilidade declara o tipo no Data Asset; cada herói tem Poder Físico/Mágico e
   Resistência Física/Mágica. A loja e itens vão somar a esses valores.
@@ -74,6 +96,8 @@ português simples. **Leia `LOG.md` inteiro antes de mexer.**
   Lista de padrões de habilidades: `docs/HabilidadesReferencia.md`.
 - **MOBA spots (owner's decision, 2026-11-18)**: instead of towers, each lane has 3 **spots** = guardian monsters/bosses that move inside their area and focus the enemy hero who attacks an allied hero there. Each spot gives its team a different buff while alive. Spot 1: 50% damage reduction during the first minute, fading to 0% at minute 5 (configurable). Spots 2 and 3: buffs to be decided by the owner (proposed: spot 2 +20% damage fading, spot 3 regeneration). Name: **Guardian Spots**. Comeback rules: if a team's spot 1 falls before minute 5, that team keeps the spot-1 buff doubled and constant until minute 5; spot 2 buff fades from full to 0 between minutes 5 and 10; if spots 1 and 2 of a lane fall before minute 5, that lane's last spot buffs triple until minute 10. One of the two last-spot guardians is a support mage (area heal on cooldown that heals the other guardian too, and an empower on the lowest-HP ally: damage reduction or reflection). Total damage reduction is capped at 75%. The triple bonus only counts when spots 1 and 2 fall in the **same lane** (confirmed). **Final guardian (GF)** in each base behind the spawn, very high damage; it inherits health and damage (later abilities/passives) from every linked spot guardian of its team and loses each share when that spot falls; bringing it down wins. **Sealing ritual (lore)**: a defeated spot guardian becomes semi-sealed (no health, helpless). An enemy out of passive combat holds the seal (open hand, Latin incantation, subtitles for now) and it is sealed for good (seal mark, rage roar across the map). Its team can reverse it with the reverse incantation (7-10 s): it returns with little health and regenerates to 50% out of combat (+1% per minion killed, TODO); a second defeat makes it fade away (roar of pain). Roars/shockwaves are cosmetic. Semi-sealed: immune (hits show IMMUNE), ignored by minions/summons/bots' attacks; 30 s timeout -> comes back by itself with 50% health, no further regen, 2.5 s immune recovery; several heroes channel together faster; damage cancels. Visual: ~30% protection sphere (enemy view amber -> bright red over time, ally view blue -> bright green), energy line on the ground from the final guardian through every spot of the lane up to the semi-sealed one, with pulses. Bifrost pose: not lying; flying pose leaning forward looking slightly down, arms back, weapon on the back, knees slightly bent; quick weapon draw when getting off (per hero: summon, telekinesis floating weapon, melee guard, charged attack while landing). Healing items: more healing done, more healing received, anti-heal (cuts the target's healing). The **3rd (last) spot has two guardians**, each doing something different. Lane layout: **side lanes** = longer distance from the base to the 1st spot, spots closer to each other; **middle lane** = shorter distance to the 1st spot, more space between spots. Use this when laying out the MOBA on Nova Paulicéia. Code: AValdoriaGuardian (ValdoriaGuardian.h), /spot to test.
 - **Bifrost (owner chose the Norse-mythology name; the look is ours: a simple light ribbon, no Marvel/Loki style)**: a calm light trail per lane from each base (vertical at the spawn, then horizontal over the lane), reaching the middle without minions and growing/shrinking with minion pushes (TODO with minions). Enemy trails have a red accent. NP lanes are named after Brazilian avenues (Ipiranga, Paulista, Rebouças). Mount: look at it + hold Space 0.4 s (generous hitbox). Ride lying down; the camera is free: looking does not change the way; to turn around (e.g. go home) look back AND press forward (W). Space again gets off. Basic attacks only, no abilities; falls off when hit by an enemy; locked for 2 s after **passive combat** (taking damage or control from an enemy). **General combat** = any attack/ability that hits enemies or allies (heals count). The trail is intangible to everything. CanRideAnyRail for a future surfer hero (allied and enemy trails). Enemy guardians bring riders down by style: melee leaps and knocks down, mage pulls and roots from the ground, flyer grabs and stuns, thrower throws something.
+- **MOBA standard rules (owner, turn 44: "every MOBA works like that")**: the final guardian is immune until the last spot of at least one lane is sealed or gone (`bGateUntilLaneBroken`); defeating, sealing and reversing spots give shop credits to the team (`Spot|Rewards`). Follow common MOBA conventions unless the owner says otherwise.
+- **Vex (turn 44)**: telekinetic flanker. Daggers float on her back; primary throws one and recalls the previous (no ammo); RMB piercing telekinetic line; F partial stealth; E telekinetic dash to the aimed enemy (push + damage + brief stagger) or ally (small round shield behind her until she arrives); ultimate: up to 5 daggers at once; unlimited flight but no attacks/abilities while flying (arms down, levitating); passive: silent movement because she walks on small telekinetic floors she creates under her feet.
 - **Modos de jogo**: vários, incluindo **MOBA 6v6 com 3 lanes** (a NP já tem 3 rotas). Plano: um
   GameMode por modo, com as regras do modo num arquivo de dados.
 - **Corpo e locomoção**: heróis baixos, altos, largos; `CapsuleRadius`/`CapsuleHalfHeight` =

@@ -62,13 +62,68 @@ UValdoriaHeroDefinition::UValdoriaHeroDefinition()
 	Animations.JogLeft = Un(TEXT("Jog/"), TEXT("MF_Unarmed_Jog_Left"));
 	Animations.JogRight = Un(TEXT("Jog/"), TEXT("MF_Unarmed_Jog_Right"));
 	Animations.FallLoop = Un(TEXT("Jump/"), TEXT("MM_Fall_Loop"));
+	// Fab packs added by the owner (Free Animation Set, Free Crawl Animation; Fab Standard License).
+	auto Pack = [](const TCHAR* Path) { return TSoftObjectPtr<UAnimSequenceBase>(FSoftObjectPath(Path)); };
+	Animations.Glide = Pack(TEXT("/Game/FreeAnimationSet/Animations/Manny/Gliding_Forward_Anim.Gliding_Forward_Anim"));
+	Animations.GlideLeft = Pack(TEXT("/Game/FreeAnimationSet/Animations/Manny/Gliding_Left_Anim.Gliding_Left_Anim"));   // turn 45: banking while gliding sideways
+	Animations.GlideRight = Pack(TEXT("/Game/FreeAnimationSet/Animations/Manny/Gliding_Right_Anim.Gliding_Right_Anim"));
+	// RidePose: Dive_Forward from the pack is a head-first vertical dive (looked wrong on the Bifrost); empty = fall loop + lean.
+	ApplyMovementAnimationPack(); // overrides crouch/slide/mantle/prone/wall climb with the better Fab clips
 	Animations.FireActions.Add(Un(TEXT("Attack/"), TEXT("MM_Attack_01")));
 	Animations.AbilityAction = Un(TEXT("Attack/"), TEXT("MM_Attack_03"));
 	Animations.UltimateAction = Un(TEXT("Attack/"), TEXT("MM_ChargedAttack"));
-	Animations.Fly = Anim(TEXT("MM_Fly_Loop"));
+	// Fly (hovering while flying) is set by ApplyMovementAnimationPack (was MM_Fly_Loop, arms out).
 	Animations.FlyForwardPose = TSoftObjectPtr<UAnimSequenceBase>(FSoftObjectPath(TEXT("/Game/Characters/Mannequins/Anims/Unarmed/Attack/MM_Attack_01.MM_Attack_01")));
 	Animations.TakeoffAction = TSoftObjectPtr<UAnimSequenceBase>(FSoftObjectPath(TEXT("/Game/Characters/Mannequins/Anims/Unarmed/Jump/MM_Jump.MM_Jump")));
 	Animations.LandAction = TSoftObjectPtr<UAnimSequenceBase>(FSoftObjectPath(TEXT("/Game/Characters/Mannequins/Anims/Unarmed/Jump/MM_Land.MM_Land")));
+}
+
+void UValdoriaHeroDefinition::ApplyMovementAnimationPack()
+{
+	// All clips below use the UE5 Mannequin skeleton (checked: compatible with SK_Mannequin, no root motion).
+	// FAL = Fab "Free Animation Library", FC = Fab "Free Crawl Animation" (Fab Standard License, owner's library).
+	auto FAL = [](const TCHAR* SubPath, const TCHAR* Name)
+	{
+		return TSoftObjectPtr<UAnimSequenceBase>(FSoftObjectPath(FString::Printf(TEXT("/Game/FreeAnimationLibrary/Animations/%s/%s.%s"), SubPath, Name, Name)));
+	};
+	auto FC = [](const TCHAR* SubPath, const TCHAR* Name)
+	{
+		return TSoftObjectPtr<UAnimSequenceBase>(FSoftObjectPath(FString::Printf(TEXT("/Game/Free_Crawl_Animation/Animations/%s/%s.%s"), SubPath, Name, Name)));
+	};
+	FValdoriaAnimationSet& S = Animations;
+	// Crouch: real crouch-walk loops in four directions.
+	S.CrouchIdle = FAL(TEXT("Crouch"), TEXT("anim_Crouch_Idle"));
+	S.CrouchWalkForward = FAL(TEXT("Crouch"), TEXT("anim_Crouch_Fwd_Loop"));
+	S.CrouchWalkBackward = FAL(TEXT("Crouch"), TEXT("anim_Crouch_Bwd_Loop"));
+	S.CrouchWalkLeft = FAL(TEXT("Crouch"), TEXT("anim_Crouch_Left_Loop"));
+	S.CrouchWalkRight = FAL(TEXT("Crouch"), TEXT("anim_Crouch_Right_Loop"));
+	// A real slide (before: the crouch-entry clip) and a proper mantle / wall climb.
+	S.Slide = FAL(TEXT("Slide"), TEXT("anim_Slide_L"));
+	S.Mantle = FAL(TEXT("Mantle"), TEXT("anim_Mantle_1M_R"));
+	S.WallClimb = FAL(TEXT("Climbing_Animations/Climbing"), TEXT("anim_Climb_Up"));
+	// Prone: idle + crawl in every direction, with lie-down and get-up transitions.
+	S.ProneIdle = FC(TEXT("Idle"), TEXT("anim_Prone_Idle"));
+	S.ProneCrawl = FC(TEXT("Loop"), TEXT("anim_Prone_Fwd_Loop_L"));
+	S.ProneCrawlBackward = FAL(TEXT("UnarmedProne"), TEXT("anim_Prone_Bwd_Loop_R"));
+	S.ProneCrawlLeft = FAL(TEXT("UnarmedProne"), TEXT("anim_Prone_Left_loop"));
+	S.ProneCrawlRight = FAL(TEXT("UnarmedProne"), TEXT("anim_Prone_Right_Loop"));
+	S.ProneEnter = FC(TEXT("TransitionToProne"), TEXT("anim_Stand_To_Prone"));
+	S.ProneExit = FC(TEXT("TransitionToProne"), TEXT("anim_Prone_To_Stand"));
+
+	// Air poses chosen in the pose gallery (Fab "Struggle To Ascension", "Free Animation Set"):
+	auto STA = [](const TCHAR* Name)
+	{
+		return TSoftObjectPtr<UAnimSequenceBase>(FSoftObjectPath(FString::Printf(TEXT("/Game/StruggleToAscension/Animations/UE5/%s.%s"), Name, Name)));
+	};
+	S.Fly = STA(TEXT("AS_STA_Air_idle07"));  // hovering while flying: legs hanging, calm (was the arms-out fly loop)
+	// Turn 45 (owner: more flight poses): moving = knees bent, diving = head-first dive from the Free Animation Set.
+	S.FlyMove = STA(TEXT("AS_STA_Air_idle06"));
+	S.FlyDown = TSoftObjectPtr<UAnimSequenceBase>(FSoftObjectPath(TEXT("/Game/FreeAnimationSet/Animations/Manny/Dive_Downward_A_Anim.Dive_Downward_A_Anim")));
+	// Bifrost: horizontal = glide pose leaning forward; vertical (rising at the spawn) = upright, toes pointing down.
+	// The Fab glide clip is a belly-down skydive (looked lying down); legs-hanging air idle + 28 degrees forward lean instead.
+	S.RidePose = STA(TEXT("AS_STA_Air_idle07"));
+	S.RideVerticalPose = STA(TEXT("AS_STA_Ground_idle05_to_idle06_AirLoop"));
+	S.RideLean = 28.f;
 }
 
 FPrimaryAssetId UValdoriaHeroDefinition::GetPrimaryAssetId() const
@@ -79,6 +134,7 @@ FPrimaryAssetId UValdoriaHeroDefinition::GetPrimaryAssetId() const
 UValdoriaHeroDefinition* UValdoriaHeroDefinition::CreateFallbackRecruit(UObject* Outer)
 {
 	UValdoriaHeroDefinition* Def = NewObject<UValdoriaHeroDefinition>(Outer, TEXT("FallbackRecruit"));
+	Def->Movement.bAimGlide = true; // owner: the Recruit falls slower while aiming/shooting in the air
 
 	FValdoriaAbilityEntry Fire;
 	Fire.DisplayName = NSLOCTEXT("Valdoria", "Fire", "Rifle");
@@ -93,7 +149,7 @@ UValdoriaHeroDefinition* UValdoriaHeroDefinition::CreateFallbackRecruit(UObject*
 	Def->Movement.DashCharges = 2;
 	Def->Movement.bCanWallClimb = true; // o Recruta testa tudo
 	Def->Movement.MaxJumps = 1;
-	Def->Movement.bCanProne = false; // X sem ação por enquanto (pedido do dono)
+	Def->Movement.bCanProne = true; // X deita com a animação do pacote Free Crawl (Fab); o dono já baixou
 	Def->Movement.bCanGlide = true;  // o Recruta testa planar e voar com combustível
 	Def->Movement.FlightMode = EValdoriaFlightMode::Fuel;
 

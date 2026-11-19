@@ -210,6 +210,21 @@ TSharedRef<SWidget> AValdoriaPlayerController::BuildSettingsScreen()
 			Opt().AntiAliasing = AAValues[I];
 			ApplyNow();
 		})];
+	const TArray<FText> DlssNames = { LOCTEXT("Dlss0", "Desligado"), LOCTEXT("Dlss1", "DLAA (nativo)"), LOCTEXT("Dlss2", "Qualidade"),
+		LOCTEXT("Dlss3", "Equilibrado"), LOCTEXT("Dlss4", "Desempenho"), LOCTEXT("Dlss5", "Ultra desempenho") };
+	Gfx->AddSlot().AutoHeight()[Choice(LOCTEXT("Dlss", "NVIDIA DLSS"),
+		[Opt, DlssNames]()
+		{
+			return FValdoriaOptions::IsDlssAvailable() ? DlssNames[FMath::Clamp(Opt().DlssMode, 0, 5)] : LOCTEXT("DlssMissing", "Indisponível (plugin/placa)");
+		},
+		[Opt, ApplyNow](int32 D) { Opt().DlssMode = FMath::Clamp(Opt().DlssMode + D, 0, 5); ApplyNow(); })];
+	const TArray<FText> FgNames = { LOCTEXT("Fg0", "Desligada"), LOCTEXT("Fg1", "2x"), LOCTEXT("Fg2", "3x (RTX 50)"), LOCTEXT("Fg3", "4x (RTX 50)") };
+	Gfx->AddSlot().AutoHeight()[Choice(LOCTEXT("Fg", "Geração de quadros (DLSS)"),
+		[Opt, FgNames]()
+		{
+			return FValdoriaOptions::IsFrameGenerationAvailable() ? FgNames[FMath::Clamp(Opt().FrameGeneration, 0, 3)] : LOCTEXT("FgMissing", "Indisponível (plugin/placa)");
+		},
+		[Opt, ApplyNow](int32 D) { Opt().FrameGeneration = FMath::Clamp(Opt().FrameGeneration + D, 0, 3); ApplyNow(); })];
 	Gfx->AddSlot().AutoHeight()[Slider(LOCTEXT("Fov", "Campo de visão (FOV)"), 70.f, 120.f,
 		[Opt]() { return Opt().FieldOfView; }, [Opt, ApplyNow](float V) { Opt().FieldOfView = FMath::RoundToFloat(V); ApplyNow(); },
 		[Opt]() { return FText::FromString(FString::Printf(TEXT("%.0f°"), Opt().FieldOfView)); })];
@@ -250,10 +265,6 @@ TSharedRef<SWidget> AValdoriaPlayerController::BuildSettingsScreen()
 	Ctrl->AddSlot().AutoHeight()[Slider(LOCTEXT("Sens", "Sensibilidade do mouse"), 0.1f, 3.f,
 		[Opt]() { return Opt().MouseSensitivity; }, [Opt](float V) { Opt().MouseSensitivity = V; },
 		[Opt]() { return FText::FromString(FString::Printf(TEXT("%.2f"), Opt().MouseSensitivity)); })];
-	const TArray<FText> Schemes = { LOCTEXT("Scheme0", "Valdoria: botão direito, F, E, C; Q ultimate"), LOCTEXT("Scheme1", "Estilo Valorant: botão direito, Q, E, C; X ultimate") };
-	Ctrl->AddSlot().AutoHeight()[Choice(LOCTEXT("Scheme", "Teclas das habilidades"),
-		[Opt, Schemes]() { return Schemes[FMath::Clamp(Opt().KeyScheme, 0, 1)]; },
-		[Opt](int32 D) { Opt().KeyScheme = (Opt().KeyScheme + D + 2) % 2; })];
 	Ctrl->AddSlot().AutoHeight()[Toggle(LOCTEXT("Invert", "Inverter eixo Y"), [Opt]() { return Opt().bInvertY; }, [Opt](bool b) { Opt().bInvertY = b; })];
 	Ctrl->AddSlot().AutoHeight()[Slider(LOCTEXT("XSize", "Tamanho da mira"), 0.5f, 2.5f,
 		[Opt]() { return Opt().CrosshairSize; }, [Opt](float V) { Opt().CrosshairSize = V; }, [Opt]() { return Pct(Opt().CrosshairSize); })];
@@ -264,7 +275,7 @@ TSharedRef<SWidget> AValdoriaPlayerController::BuildSettingsScreen()
 	Ctrl->AddSlot().AutoHeight().Padding(4.f, 12.f)
 	[
 		SNew(STextBlock).AutoWrapText(true).Font(Font(11)).ColorAndOpacity(FLinearColor(0.75f, 0.77f, 0.82f))
-		.Text(LOCTEXT("Keys", "Teclas: WASD andar • Mouse mirar • Esq. atirar • Dir. secundário • R recarregar • Shift correr/impulso • Ctrl agachar (correndo, desliza) • Espaço pular/subir/escalar • habilidades e ultimate: veja Teclas das habilidades acima • K ajuda das habilidades • Esc menu • Alt soltar o mouse • F10 painel de administrador"))
+		.Text(LOCTEXT("Keys", "Teclas (padrão para todos os heróis): WASD andar • Mouse mirar • Botão esquerdo ataque básico • Botão direito habilidade 5 • 1, 2, 3 habilidades • 4 suprema • C habilidade extra (quando houver) • R recarregar • Shift correr/impulso • Ctrl agachar (correndo, desliza) • X deitar • Espaço pular/subir/escalar/voar • K habilidades e passiva • Esc menu • Alt soltar o mouse • F10 painel de administrador"))
 	];
 
 	Pages->AddSlot()[SNew(SScrollBox) + SScrollBox::Slot()[Gfx]];
@@ -279,6 +290,10 @@ TSharedRef<SWidget> AValdoriaPlayerController::BuildSettingsScreen()
 				.OnClicked_Lambda([Pages, Index]() { Pages->SetActiveWidgetIndex(Index); return FReply::Handled(); })
 				[
 					SNew(STextBlock).Text(Name).Font(ValdoriaSettingsUI::Font(14, true))
+					.ColorAndOpacity_Lambda([Pages, Index]()
+					{
+						return FSlateColor(Pages->GetActiveWidgetIndex() == Index ? FLinearColor(0.97f, 0.83f, 0.48f) : FLinearColor(0.7f, 0.72f, 0.78f));
+					})
 				]
 			];
 	};

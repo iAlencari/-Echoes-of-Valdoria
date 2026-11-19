@@ -1,0 +1,380 @@
+<title>Mapas de Valdoria</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@500;600;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;600&display=swap">
+<style>
+/* Layout: one plate per map (big top-down drawing in metres) followed by its callouts and two prompts to copy. */
+:root {
+  --bg: #eeedf3; --panel: #ffffff; --fg: #1c1e28; --muted: #5c6074; --line: #d4d3df;
+  --gold: #9d7116; --ally: #0d87a8; --enemy: #c0343f; --neon: #8247d1; --pink: #c23f8f; --green: #2c9566; --water: #4f8fc6;
+  --ground: #dedde7; --street: #f6f5f9; --lane: #e9e8f0; --l0: #b4b3c6; --l1: #9897b0; --l2: #7d7c98; --roof: #cfcedd; --tree: #6aa77f;
+  --font-display: "Chakra Petch", "Segoe UI", system-ui, sans-serif;
+  --font-body: "Inter", "Segoe UI", system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, Consolas, monospace;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --bg: #0e1016; --panel: #161922; --fg: #e8e7ef; --muted: #989bae; --line: #292d3b;
+  --gold: #e8c47c; --ally: #3cc8e6; --enemy: #ef5a66; --neon: #a979ff; --pink: #ff6fc4; --green: #4fcf93; --water: #5aa6e6;
+  --ground: #191d27; --street: #232937; --lane: #2b3242; --l0: #343b4e; --l1: #444d66; --l2: #58627f; --roof: #2a3040; --tree: #3f7d58; color-scheme: dark } }
+:root[data-theme="dark"] {
+  --bg: #0e1016; --panel: #161922; --fg: #e8e7ef; --muted: #989bae; --line: #292d3b;
+  --gold: #e8c47c; --ally: #3cc8e6; --enemy: #ef5a66; --neon: #a979ff; --pink: #ff6fc4; --green: #4fcf93; --water: #5aa6e6;
+  --ground: #191d27; --street: #232937; --lane: #2b3242; --l0: #343b4e; --l1: #444d66; --l2: #58627f; --roof: #2a3040; --tree: #3f7d58; color-scheme: dark }
+body { background: var(--bg); color: var(--fg); font-family: var(--font-body); font-size: 15px; line-height: 1.55;
+  padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); padding-block: 28px 64px; }
+.wrap { max-width: 1160px; margin: 0 auto; display: grid; gap: 56px; }
+header h1 { font-family: var(--font-display); font-size: clamp(30px, 5vw, 44px); margin: 0; text-wrap: balance; }
+header p { color: var(--muted); max-width: 70ch; margin: 8px 0 0; }
+.eyebrow { font-family: var(--font-mono); font-size: 12px; letter-spacing: .14em; text-transform: uppercase; color: var(--gold); }
+h2 { font-family: var(--font-display); font-size: 27px; margin: 4px 0 2px; text-wrap: balance; }
+h3 { font-family: var(--font-display); font-size: 17px; margin: 0; }
+p { margin: 0; }
+nav { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 14px; }
+nav a { font-family: var(--font-mono); font-size: 12px; color: var(--fg); text-decoration: none; border: 1px solid var(--line); padding: 5px 10px; border-radius: 4px; }
+nav a:hover, nav a:focus-visible { border-color: var(--gold); outline: none; }
+section { display: grid; gap: 16px; }
+.meta { display: flex; flex-wrap: wrap; gap: 6px 16px; font-family: var(--font-mono); font-size: 12px; color: var(--muted); }
+.meta b { color: var(--fg); font-weight: 600; }
+.map { background: var(--panel); border: 1px solid var(--line); border-radius: 6px; padding: 10px; overflow-x: auto; }
+.map svg { display: block; width: 100%; min-width: 640px; height: auto; }
+.below { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.25fr); gap: 18px; }
+@media (max-width: 880px) { .below { grid-template-columns: 1fr; } }
+.callouts { display: grid; gap: 6px; font-size: 14px; align-content: start; }
+.callouts ul { margin: 0; padding-left: 18px; display: grid; gap: 5px; }
+.legend { display: flex; flex-wrap: wrap; gap: 8px 16px; font-size: 12.5px; color: var(--muted); margin-top: 6px; }
+.legend span { display: inline-flex; align-items: center; gap: 6px; }
+.sw { width: 16px; height: 10px; border-radius: 2px; display: inline-block; }
+.prompts { display: grid; gap: 10px; min-width: 0; }
+.prompt { background: var(--panel); border: 1px solid var(--line); border-radius: 6px; display: grid; min-width: 0; }
+.prompt-head { display: flex; justify-content: space-between; align-items: center; gap: 8px; padding: 8px 12px; border-bottom: 1px solid var(--line); }
+.prompt-head span { font-family: var(--font-mono); font-size: 11px; letter-spacing: .1em; text-transform: uppercase; color: var(--muted); }
+.prompt pre { margin: 0; padding: 10px 12px; font-family: var(--font-mono); font-size: 12.5px; line-height: 1.5; white-space: pre-wrap; word-break: break-word; }
+.copy { font: 600 12px var(--font-display); background: var(--gold); color: var(--bg); border: 0; border-radius: 4px; padding: 5px 12px; cursor: pointer; }
+.copy:focus-visible { outline: 2px solid var(--fg); outline-offset: 2px; }
+/* svg ink */
+.s-ground { fill: var(--ground); } .s-street { fill: var(--street); } .s-lane { fill: none; stroke: var(--lane); stroke-linecap: round; }
+.s-l0 { fill: var(--l0); } .s-l1 { fill: var(--l1); } .s-l2 { fill: var(--l2); } .s-roof { fill: var(--roof); }
+.s-edge { fill: none; stroke: var(--bg); stroke-width: .5; opacity: .7; }
+.s-crate { fill: var(--l1); stroke: var(--bg); stroke-width: .25; }
+.s-car { fill: var(--muted); opacity: .75; } .s-tree { fill: var(--tree); } .s-water { fill: var(--water); opacity: .7; }
+.s-stairs { fill: none; stroke: var(--fg); stroke-width: .35; opacity: .6; }
+.s-route { fill: none; stroke: var(--gold); stroke-width: 2; stroke-dasharray: 4 2.5; }
+.s-flank { fill: none; stroke: var(--neon); stroke-width: 1.2; stroke-dasharray: 2 1.6; }
+.s-bif-a { fill: none; stroke: var(--ally); stroke-width: 1.1; stroke-dasharray: 3 1.5; }
+.s-bif-b { fill: none; stroke: var(--enemy); stroke-width: 1.1; stroke-dasharray: 3 1.5; }
+.s-sight { fill: none; stroke: var(--fg); stroke-width: .3; stroke-dasharray: 1 1; opacity: .5; }
+.s-ally { fill: var(--ally); } .s-enemy { fill: var(--enemy); } .s-gold { fill: var(--gold); } .s-green { fill: var(--green); } .s-neon { fill: var(--neon); } .s-pink { fill: var(--pink); }
+.s-ally-o { fill: none; stroke: var(--ally); stroke-width: 1.2; } .s-enemy-o { fill: none; stroke: var(--enemy); stroke-width: 1.2; } .s-gold-o { fill: none; stroke: var(--gold); stroke-width: 1.2; }
+.s-elev { fill: none; stroke: var(--l2); stroke-linecap: round; opacity: .9; }
+.s-label { fill: var(--fg); font-family: var(--font-display); font-weight: 600; }
+.s-call { fill: var(--muted); font-family: var(--font-mono); }
+.s-plus { fill: none; stroke: var(--green); stroke-width: .9; }
+footer { color: var(--muted); font-size: 13px; }
+</style>
+
+<div class="wrap">
+<header>
+  <div class="eyebrow">Echoes of Valdoria · plantas detalhadas · 1 unidade = 1 metro</div>
+  <h1>Mapas de Valdoria</h1>
+  <p>Quatro mapas, um por estilo, com nomes de posições (callouts), cobertura, níveis de altura, curas, linhas de visão e rotas. Abaixo de cada planta há um prompt de imagem e um de vídeo para o Gemini gerar o conceito em 3D. No fim, o prompt da arte conceitual da Lume.</p>
+  <nav aria-label="Mapas"><a href="#escolta">Escolta</a><a href="#arena">Arena</a><a href="#moba">MOBA</a><a href="#tatico">Tático</a><a href="#lume">Lume</a></nav>
+  <div class="legend" style="margin-top:14px">
+    <span><i class="sw" style="background:var(--l0)"></i>térreo</span><span><i class="sw" style="background:var(--l1)"></i>1º nível / mezanino</span><span><i class="sw" style="background:var(--l2)"></i>telhado / elevado</span>
+    <span><i class="sw" style="background:var(--gold)"></i>rota / objetivo</span><span><i class="sw" style="background:var(--neon)"></i>flanco</span><span><i class="sw" style="background:var(--green)"></i>cura / spawn livre</span><span><i class="sw" style="background:var(--pink)"></i>neon</span>
+  </div>
+</header>
+
+<section id="escolta">
+  <div class="eyebrow">Hero shooter · objetivo · 6v6</div>
+  <h2>Nova Paulicéia — Escolta</h2>
+  <div class="meta"><span><b>240 × 150 m</b></span><span>rota <b>≈ 220 m</b></span><span>3 checkpoints</span><span>metrô → praça <b>≈ 13 s</b></span></div>
+  <div class="map"><svg id="m-escolta" viewBox="0 0 240 150" role="img" aria-label="Planta detalhada da escolta na Nova Paulicéia"></svg></div>
+  <div class="below">
+    <div class="callouts"><h3>Leitura do mapa</h3><ul>
+      <li><b>Metrô (ataque):</b> plataforma subterrânea com 3 saídas — Escadaria Central, Saída Norte (para o Minhocão) e Saída Sul (para o Mercado).</li>
+      <li><b>Trecho 1 · Praça Amarela:</b> carga cruza a avenida; defesa segura o <b>Minhocão</b> (6 m) e a Lanchonete com varanda.</li>
+      <li><b>Trecho 2 · Viaduto:</b> carga passa por baixo do viaduto curvo; snipers nos <b>Telhados Neon</b>, brigas curtas na Galeria.</li>
+      <li><b>Trecho 3 · Entrega:</b> rampa até a Torre; heliporto é o ponto alto final da defesa.</li>
+      <li>Flancos: Mercado Coberto, becos do grafite e a passarela entre telhados (para Vex e quem voa; teto do mapa a 25 m acima do prédio mais alto).</li>
+    </ul></div>
+    <div class="prompts" data-map="escolta"></div>
+  </div>
+</section>
+
+<section id="arena">
+  <div class="eyebrow">Mata-mata · todos contra todos</div>
+  <h2>Arena do Viaduto</h2>
+  <div class="meta"><span><b>80 × 80 m</b></span><span>2 andares</span><span>6–8 jogadores</span><span>tempo sem ver inimigo <b>&lt; 5 s</b></span></div>
+  <div class="map"><svg id="m-arena" viewBox="0 0 90 90" role="img" aria-label="Planta detalhada da arena com viaduto, praça e prédios nos cantos"></svg></div>
+  <div class="below">
+    <div class="callouts"><h3>Leitura do mapa</h3><ul>
+      <li><b>Praça da Fonte</b> no centro: aberta, cura no meio — quem pega, se expõe.</li>
+      <li><b>Viaduto</b> cruza a arena no 2º nível; escadas em espiral nos pilares e rampas nas pontas.</li>
+      <li>Quatro prédios: <b>Oficina</b> e <b>Bar</b> com interior (luta curta), <b>Banca</b> e <b>Ponto de Ônibus</b> como cobertura baixa.</li>
+      <li>Spawns espalhados (verde), sempre longe de quem está vivo.</li>
+    </ul></div>
+    <div class="prompts" data-map="arena"></div>
+  </div>
+</section>
+
+<section id="moba">
+  <div class="eyebrow">MOBA 3D · 6v6 · Guardian Spots</div>
+  <h2>Nova Paulicéia — Três Avenidas</h2>
+  <div class="meta"><span><b>300 × 200 m</b></span><span>lane <b>≈ 260 m</b></span><span>45 s a pé · 15 s de Bifrost</span><span>3 spots por lane</span></div>
+  <div class="map"><svg id="m-moba" viewBox="0 0 300 200" role="img" aria-label="Planta detalhada do MOBA com três avenidas, spots, selva e trilhas Bifrost"></svg></div>
+  <div class="below">
+    <div class="callouts"><h3>Leitura do mapa</h3><ul>
+      <li><b>Av. Ipiranga</b> (cima), <b>Av. Paulista</b> (meio, com o Minhocão por cima), <b>Av. Rebouças</b> (baixo, beira do rio canalizado).</li>
+      <li>Spots: laterais longe da base e próximos; meio perto da base e espaçados; o último spot de cada lane tem 2 guardiões (um é o mago de suporte).</li>
+      <li><b>Selva</b> em 4 quarteirões entre as lanes: campos neutros (roxo) dão créditos e um buff curto; o <b>Chafariz</b> central dá visão do mapa por alguns segundos.</li>
+      <li><b>Guardião Final</b> atrás de cada base, imune até cair o último spot de uma lane.</li>
+      <li>Bifrost (tracejado) sai vertical de cada base e segue por cima da lane até o meio.</li>
+    </ul></div>
+    <div class="prompts" data-map="moba"></div>
+  </div>
+</section>
+
+<section id="tatico">
+  <div class="eyebrow">FPS tático · rodadas · 5v5</div>
+  <h2>Fábrica Abandonada</h2>
+  <div class="meta"><span><b>≈ 120 × 110 m</b></span><span>2 sites</span><span>base → site <b>≈ 20 s</b></span><span>primeira pessoa</span></div>
+  <div class="map"><svg id="m-tatico" viewBox="0 0 130 120" role="img" aria-label="Planta detalhada do mapa tático com sites A e B, pátio e rotas"></svg></div>
+  <div class="below">
+    <div class="callouts"><h3>Leitura do mapa</h3><ul>
+      <li><b>Site A · Galpão de Cargas:</b> caixas empilhadas e uma ponte rolante (mezanino) para quem defende.</li>
+      <li><b>Site B · Caldeiras:</b> tubulações e duas caldeiras como cobertura dura; entrada estreita pela Sala de Bombas.</li>
+      <li><b>Pátio</b> no meio com a chaminé caída; janelas quebradas ligam o pátio aos dois sites (rotação arriscada).</li>
+      <li>Vegetação do pacote Overgrown Factory tampa visão nas bordas; o telhado é fechado (sem voo por cima).</li>
+    </ul></div>
+    <div class="prompts" data-map="tatico"></div>
+  </div>
+</section>
+
+<section id="lume">
+  <div class="eyebrow">Arte conceitual · personagem</div>
+  <h2>Lume</h2>
+  <p style="max-width:70ch;color:var(--muted)">Mesmo formato das folhas que você já tem (Kael, Vex, Brasa, Iara): frente, perfil e costas em pose A, fundo cinza claro. Um prompt com o cajado e outro sem nada nas mãos, que é a melhor base para o modelo 3D.</p>
+  <div class="prompts" data-map="lume"></div>
+</section>
+
+<footer>Conceitos para discussão. Escala estimada pela velocidade dos heróis (5,4–6 m/s). Jogos citados só como referência de gênero; nomes, lugares e arte são nossos.</footer>
+</div>
+
+<script>
+const NS = 'http://www.w3.org/2000/svg';
+function el(svg, tag, attrs, text) {
+  const e = document.createElementNS(NS, tag);
+  for (const k in attrs) e.setAttribute(k, attrs[k]);
+  if (text) e.textContent = text;
+  svg.appendChild(e); return e;
+}
+// seeded random so the drawings are the same every time
+function rng(seed) { return () => { seed = (seed * 16807) % 2147483647; return (seed - 1) / 2147483646; }; }
+const R = (svg, x, y, w, h, cls, extra) => el(svg, 'rect', Object.assign({ x, y, width: w, height: h, class: cls }, extra || {}));
+const T = (svg, x, y, s, txt, cls, extra) => el(svg, 'text', Object.assign({ x, y, class: cls || 's-call', 'font-size': s }, extra || {}), txt);
+const C = (svg, x, y, r, cls) => el(svg, 'circle', { cx: x, cy: y, r, class: cls });
+const P = (svg, d, cls, extra) => el(svg, 'path', Object.assign({ d, class: cls }, extra || {}));
+function building(svg, x, y, w, h, lvl, label, size) {
+  R(svg, x, y, w, h, 's-l' + lvl); R(svg, x, y, w, h, 's-edge');
+  if (w > 10 && h > 8) R(svg, x + 1.2, y + 1.2, w - 2.4, h - 2.4, 's-edge');
+  if (label) T(svg, x + 1.2, y + h / 2 + 1, size || 2.6, label, 's-label', { 'font-size': size || 2.6 });
+}
+function crates(svg, list) { list.forEach(([x, y, w, h]) => R(svg, x, y, w || 2, h || 2, 's-crate')); }
+function trees(svg, list, r) { list.forEach(([x, y]) => C(svg, x, y, r || 1.6, 's-tree')); }
+function cars(svg, list) { list.forEach(([x, y, v]) => R(svg, x, y, v ? 2 : 4.4, v ? 4.4 : 2, 's-car', { rx: .6 })); }
+function stairs(svg, x, y, w, h, n) { for (let i = 0; i <= n; i++) { const yy = y + i * h / n; P(svg, `M${x} ${yy} H${x + w}`, 's-stairs'); } }
+function heal(svg, x, y) { C(svg, x, y, 1.6, 's-plus'); P(svg, `M${x - .9} ${y} H${x + .9} M${x} ${y - .9} V${y + .9}`, 's-plus'); }
+function neon(svg, x, y, w, cls) { R(svg, x, y, w, .7, cls || 's-pink'); }
+function scale(svg, x, y, m, s) { R(svg, x, y, m, .9, 's-label', { opacity: .7 }); T(svg, x, y - 1, s || 2.6, m + ' m'); }
+
+/* ---------------- ESCOLTA ---------------- */
+(function () {
+  const s = document.getElementById('m-escolta'), r = rng(7);
+  R(s, 0, 0, 240, 150, 's-ground');
+  // streets
+  R(s, 28, 61, 206, 18, 's-street'); R(s, 103, 14, 16, 128, 's-street'); R(s, 148, 36, 14, 92, 's-street'); R(s, 40, 104, 70, 7, 's-street'); R(s, 175, 18, 6, 44, 's-street');
+  for (let x = 32; x < 230; x += 8) R(s, x, 69.6, 4, .8, 's-car', { opacity: .35 }); // lane marks
+  // river strip bottom
+  R(s, 0, 140, 240, 10, 's-water');
+  // Minhocão elevated (L2) with ramps
+  P(s, 'M44 33 H190', 's-elev', { 'stroke-width': 6 }); stairs(s, 40, 30, 4, 6, 4); stairs(s, 190, 30, 4, 6, 4);
+  T(s, 70, 28, 2.8, 'MINHOCÃO · elevado 6 m', 's-label', { 'font-size': 2.8 });
+  // blocks
+  building(s, 44, 40, 22, 18, 0, 'Lanchonete'); R(s, 44, 56, 22, 2.4, 's-l1'); // balcony
+  building(s, 70, 40, 28, 18, 1, 'Edifício Copan', 2.4);
+  building(s, 124, 40, 20, 18, 2, 'Telhados Neon', 2.3); neon(s, 124, 39, 20); neon(s, 124, 58, 12, 's-neon');
+  building(s, 166, 42, 24, 16, 1, 'Galeria', 2.4); neon(s, 166, 58, 10);
+  building(s, 194, 22, 18, 14, 0, '');
+  building(s, 44, 84, 22, 18, 1, 'Hotel', 2.4); building(s, 70, 84, 28, 18, 0, 'Banca', 2.4);
+  building(s, 124, 84, 20, 16, 0, 'Farmácia', 2.4); building(s, 166, 82, 24, 22, 1, 'Cortiço', 2.4);
+  building(s, 124, 104, 20, 22, 2, 'Arranha-céu 90 m', 2.1);
+  // market (covered, flank)
+  R(s, 52, 113, 50, 22, 's-roof', { opacity: .9 });
+  for (let i = 0; i < 6; i++) R(s, 55 + i * 7.6, 116, 5, 3, 's-crate');
+  for (let i = 0; i < 6; i++) R(s, 55 + i * 7.6, 128, 5, 3, 's-crate');
+  T(s, 54, 124.5, 2.8, 'MERCADO COBERTO', 's-label', { 'font-size': 2.8 });
+  // graffiti alleys
+  neon(s, 104, 104, 14, 's-neon'); T(s, 106, 111, 2, 'beco do grafite');
+  // metro spawn (attack)
+  R(s, 4, 50, 26, 40, 's-ally-o', { rx: 2 }); stairs(s, 22, 64, 6, 12, 6);
+  T(s, 6, 47, 3.6, 'METRÔ', 's-label', { 'font-size': 3.6, style: 'fill:var(--ally)' });
+  T(s, 6, 58, 2, 'plataforma'); T(s, 6, 95, 2.2, 'Saída Sul ↓'); T(s, 6, 45, 2, '') ; T(s, 31, 60, 2.2, 'Escadaria'); T(s, 6, 44.5, 0, '');
+  T(s, 30, 46, 2.2, 'Saída Norte ↗');
+  // tower spawn (defense) + heliport
+  R(s, 206, 56, 30, 34, 's-enemy-o', { rx: 2 }); C(s, 228, 64, 4, 's-enemy-o');
+  T(s, 207, 53, 3.6, 'TORRE', 's-label', { 'font-size': 3.6, style: 'fill:var(--enemy)' }); T(s, 224, 71, 2, 'heliporto');
+  stairs(s, 206, 74, 6, 10, 5);
+  // payload route + checkpoints
+  P(s, 'M32 70 H104 Q111 70 111 62 V55 Q111 48 119 48 H154 V70 Q154 78 162 78 H204', 's-route');
+  [[111, 66, '1 · PRAÇA AMARELA'], [154, 56, '2 · VIADUTO'], [200, 78, '3 · ENTREGA']].forEach(([x, y, t], i) => { C(s, x, y, 3.4, 's-gold'); T(s, x + 4, y - 4 + (i === 2 ? 14 : 0), 2.6, t, 's-label', { 'font-size': 2.6 }); });
+  R(s, 104, 62, 14, 10, 's-gold-o', { rx: 1 }); // praça
+  // viaduct over checkpoint 2
+  P(s, 'M140 30 Q156 52 172 30', 's-elev', { 'stroke-width': 4 });
+  // flanks
+  P(s, 'M30 90 Q46 122 100 124 Q118 124 124 104', 's-flank'); P(s, 'M60 33 H146 Q160 33 160 40', 's-flank'); P(s, 'M144 50 L166 50', 's-flank');
+  // cover, cars, trees
+  crates(s, [[84, 66], [88, 73], [126, 64, 3, 1.2], [140, 74, 3, 1.2], [176, 66], [186, 73], [60, 74, 2, 1.2]]);
+  cars(s, [[48, 63], [92, 76], [132, 63], [170, 75], [150, 92, 1], [106, 30, 1]]);
+  trees(s, [[36, 82], [40, 58], [100, 58], [100, 82], [120, 82], [146, 82], [200, 92], [196, 48]], 1.8);
+  heal(s, 98, 66); heal(s, 146, 46); heal(s, 192, 86); heal(s, 60, 108);
+  // sight line from Minhocão to praça
+  P(s, 'M92 34 L111 64', 's-sight');
+  scale(s, 8, 136, 50, 2.6);
+})();
+
+/* ---------------- ARENA ---------------- */
+(function () {
+  const s = document.getElementById('m-arena');
+  R(s, 0, 0, 90, 90, 's-ground'); R(s, 5, 5, 80, 80, 's-street');
+  // corner buildings
+  building(s, 7, 60, 22, 23, 0, 'Oficina', 2.2); R(s, 11, 64, 14, 15, 's-street'); crates(s, [[13, 67], [20, 73], [14, 76]]);
+  building(s, 61, 60, 22, 23, 1, 'Bar', 2.2); R(s, 65, 64, 14, 15, 's-street'); R(s, 66, 66, 10, 1.6, 's-crate');
+  building(s, 7, 7, 16, 14, 0, 'Banca', 2); building(s, 67, 7, 16, 14, 0, 'Ônibus', 2);
+  // viaduct + pillars + spiral stairs
+  P(s, 'M2 28 Q45 42 88 28', 's-elev', { 'stroke-width': 7 });
+  [[22, 33.5], [45, 37], [68, 33.5]].forEach(([x, y]) => { C(s, x, y, 1.6, 's-l2'); });
+  stairs(s, 20, 37, 4, 4, 4); stairs(s, 66, 37, 4, 4, 4);
+  T(s, 50, 31, 2.2, 'VIADUTO · 2º andar', 's-label', { 'font-size': 2.2 });
+  // fountain plaza
+  C(s, 45, 56, 11, 's-gold-o'); C(s, 45, 56, 3.4, 's-water'); heal(s, 45, 56);
+  T(s, 37, 71, 2.4, 'PRAÇA DA FONTE', 's-label', { 'font-size': 2.4 });
+  crates(s, [[33, 50, 4, 1.2], [53, 61, 4, 1.2], [44, 43, 1.2, 4], [44, 66, 1.2, 4], [30, 60], [58, 50]]);
+  trees(s, [[32, 47], [58, 47], [32, 65], [58, 65]], 1.4);
+  neon(s, 61, 59, 14); neon(s, 7, 59, 10, 's-neon');
+  cars(s, [[26, 14], [56, 16], [40, 80]]);
+  [[10, 45], [80, 45], [45, 82], [45, 10], [26, 56], [64, 56]].forEach(([x, y]) => C(s, x, y, 1.3, 's-green'));
+  heal(s, 18, 30); heal(s, 72, 30);
+  scale(s, 6, 88, 20, 2);
+})();
+
+/* ---------------- MOBA ---------------- */
+(function () {
+  const s = document.getElementById('m-moba');
+  R(s, 0, 0, 300, 200, 's-ground');
+  // river along the bottom lane
+  P(s, 'M0 192 Q150 184 300 192 V200 H0z', 's-water');
+  // lanes
+  ['M34 100 Q40 30 110 28 H190 Q260 30 266 100', 'M34 100 H266', 'M34 100 Q40 170 110 172 H190 Q260 170 266 100'].forEach(d => P(s, d, 's-lane', { 'stroke-width': 13 }));
+  P(s, 'M60 96 H240', 's-elev', { 'stroke-width': 3, opacity: .5 }); // Minhocão over the mid lane
+  T(s, 128, 21, 3, 'AV. IPIRANGA', 's-label', { 'font-size': 3 }); T(s, 128, 92, 3, 'AV. PAULISTA', 's-label', { 'font-size': 3 }); T(s, 128, 182, 3, 'AV. REBOUÇAS', 's-label', { 'font-size': 3 });
+  // jungle quarters with buildings and camps
+  [[76, 46], [184, 46], [76, 116], [184, 116]].forEach(([x, y], q) => {
+    R(s, x, y, 42, 38, 's-roof', { rx: 2 });
+    building(s, x + 3, y + 3, 12, 10, 1, ''); building(s, x + 27, y + 25, 12, 10, 1, ''); building(s, x + 26, y + 4, 12, 8, 0, '');
+    trees(s, [[x + 6, y + 30], [x + 18, y + 34], [x + 20, y + 16]], 1.8);
+    C(s, x + 14, y + 22, 2.4, 's-neon'); C(s, x + 32, y + 18, 1.8, 's-neon');
+  });
+  T(s, 78, 44, 2.4, 'SELVA · campos neutros', 's-label', { 'font-size': 2.4 });
+  // central fountain objective
+  C(s, 150, 100, 9, 's-gold-o'); C(s, 150, 100, 3, 's-water'); T(s, 142, 114, 2.6, 'CHAFARIZ', 's-label', { 'font-size': 2.6 });
+  // bases
+  R(s, 12, 84, 22, 32, 's-ally-o', { rx: 2 }); T(s, 9, 81, 3.2, 'METRÔ', 's-label', { 'font-size': 3.2, style: 'fill:var(--ally)' });
+  R(s, 266, 84, 22, 32, 's-enemy-o', { rx: 2 }); T(s, 263, 81, 3.2, 'TORRE', 's-label', { 'font-size': 3.2, style: 'fill:var(--enemy)' });
+  C(s, 7, 100, 4.2, 's-ally'); T(s, 2, 122, 2.4, 'GF'); C(s, 293, 100, 4.2, 's-enemy'); T(s, 289, 122, 2.4, 'GF');
+  // spots
+  const ally = [[62, 40, 3], [80, 31, 3], [99, 28, 3.5], [62, 160, 3], [80, 169, 3], [99, 172, 3.5], [58, 100, 3], [90, 100, 3], [122, 100, 3.5]];
+  ally.forEach(([x, y, r]) => { C(s, x, y, r, 's-ally'); C(s, 300 - x, y, r, 's-enemy'); });
+  T(s, 52, 48, 2.2, 'spot 1'); T(s, 74, 39, 2.2, 'spot 2'); T(s, 94, 36, 2.2, 'spot 3 (×2)');
+  // Bifrost
+  ['M24 90 Q34 40 110 34 H150', 'M24 98 H150', 'M24 110 Q34 160 110 166 H150'].forEach(d => P(s, d, 's-bif-a'));
+  ['M276 90 Q266 40 190 34 H150', 'M276 102 H150', 'M276 110 Q266 160 190 166 H150'].forEach(d => P(s, d, 's-bif-b'));
+  // city edge blocks
+  for (let i = 0; i < 12; i++) { building(s, 30 + i * 21, 4, 16, 9, i % 3 === 0 ? 2 : 1, ''); }
+  for (let i = 0; i < 6; i++) { neon(s, 40 + i * 42, 13.5, 8, i % 2 ? 's-neon' : 's-pink'); }
+  heal(s, 30, 70); heal(s, 30, 130); heal(s, 270, 70); heal(s, 270, 130);
+  scale(s, 12, 196, 50, 2.6);
+})();
+
+/* ---------------- TÁTICO ---------------- */
+(function () {
+  const s = document.getElementById('m-tatico');
+  R(s, 0, 0, 130, 120, 's-ground');
+  // outer walls
+  [[5, 5, 120, 4], [5, 111, 120, 4], [5, 5, 4, 110], [121, 5, 4, 110]].forEach(([x, y, w, h]) => R(s, x, y, w, h, 's-l2'));
+  // sheds and walls
+  building(s, 38, 28, 16, 44, 1, ''); building(s, 76, 28, 16, 44, 1, '');
+  building(s, 9, 72, 30, 9, 0, ''); building(s, 91, 72, 30, 9, 0, '');
+  building(s, 54, 9, 22, 8, 0, '');
+  // site A
+  R(s, 12, 13, 26, 26, 's-gold-o', { rx: 2 }); T(s, 22, 29, 6, 'A', 's-label', { 'font-size': 6, style: 'fill:var(--gold)' });
+  crates(s, [[15, 16, 4, 4], [30, 30, 4, 4], [16, 32, 3, 3], [26, 18, 3, 3]]); R(s, 12, 40, 26, 2.4, 's-l1'); T(s, 12, 46, 2, 'ponte rolante');
+  T(s, 12, 11, 2.2, 'GALPÃO DE CARGAS', 's-label', { 'font-size': 2.2 });
+  // site B
+  R(s, 92, 13, 26, 26, 's-gold-o', { rx: 2 }); T(s, 102, 29, 6, 'B', 's-label', { 'font-size': 6, style: 'fill:var(--gold)' });
+  C(s, 98, 19, 3.4, 's-l1'); C(s, 112, 33, 3.4, 's-l1'); P(s, 'M98 22 V33 H109', 's-stairs');
+  T(s, 92, 11, 2.2, 'CALDEIRAS', 's-label', { 'font-size': 2.2 }); T(s, 92, 46, 2, 'sala de bombas');
+  // courtyard with fallen chimney
+  R(s, 56, 40, 18, 32, 's-street'); P(s, 'M58 66 L72 46', 's-elev', { 'stroke-width': 3 }); T(s, 57, 76, 2.2, 'PÁTIO · chaminé caída', 's-label', { 'font-size': 2.2 });
+  // spawns
+  R(s, 42, 94, 46, 14, 's-ally-o', { rx: 2 }); T(s, 52, 103, 2.6, 'ATAQUE', 's-label', { 'font-size': 2.6, style: 'fill:var(--ally)' });
+  R(s, 50, 18, 30, 8, 's-enemy-o', { rx: 2 }); T(s, 57, 24, 2.6, 'DEFESA', 's-label', { 'font-size': 2.6, style: 'fill:var(--enemy)' });
+  // routes
+  P(s, 'M48 94 Q24 92 22 76 V42', 's-route'); P(s, 'M65 94 V74', 's-route'); P(s, 'M82 94 Q106 92 108 76 V42', 's-route');
+  P(s, 'M64 40 Q58 30 40 26', 's-flank'); P(s, 'M66 40 Q72 30 92 26', 's-flank');
+  T(s, 12, 88, 2.2, 'A principal'); T(s, 104, 88, 2.2, 'B principal'); T(s, 59, 86, 2.2, 'meio');
+  trees(s, [[11, 60], [16, 52], [118, 60], [112, 52], [60, 108], [70, 108]], 2);
+  crates(s, [[24, 60, 3, 3], [104, 62, 3, 3], [62, 52, 2, 2], [68, 60, 2, 2]]);
+  scale(s, 10, 118, 20, 2);
+})();
+
+/* ---------------- PROMPTS ---------------- */
+const STYLE = 'Original game concept art, stylized realism like a modern hero shooter, no logos or real brands, no text overlays.';
+const PROMPTS = {
+  escolta: [
+    ['Imagem (Gemini)', `${STYLE} Isometric 3/4 aerial view of "Nova Pauliceia", a fictional future São Paulo district at sunset, purple haze and orange sky. A 220-metre escort route: an underground metro station on the left with three wide exits, a broad avenue, a yellow-paved plaza, an elevated concrete highway (six metres high) running along the top, a curved viaduct crossing the route in the middle, a covered street market on the lower flank with tarps and stalls, graffiti alleys with pink and violet neon signs, and a tall residential tower with a rooftop heliport on the right. Readable gameplay layout: chokepoints, high ground for defenders, cover crates and parked cars, small green health stations. Wet asphalt reflections, tropical trees, water towers on roofs.`],
+    ['Vídeo (Gemini / Veo)', `${STYLE} 8-second slow drone flight over the same map: start inside the metro platform, rise through the wide central staircase, follow the escort route along the avenue to the yellow plaza, pass under the curved viaduct where neon signs flicker, and end circling the rooftop heliport of the residential tower at sunset. Smooth camera, no characters, light rain mist, city ambience.`]
+  ],
+  arena: [
+    ['Imagem (Gemini)', `${STYLE} Top-down 3/4 view of an 80x80 metre urban arena in a fictional Brazilian megacity at night: a circular fountain plaza in the centre with a glowing health pickup, a concrete viaduct crossing the arena on a second level with spiral stairs around its pillars, four corner buildings (a mechanic workshop and a bar with open interiors, a newsstand and a bus stop as low cover), scattered planters and crates, neon signs in pink and violet, puddles reflecting the lights. Clear, symmetrical, competitive layout.`],
+    ['Vídeo (Gemini / Veo)', `${STYLE} 6-second orbit around the fountain plaza at night, camera slowly rising from ground level to above the viaduct, revealing the four corner buildings and the stairs on the pillars; neon buzzing, light steam from drains, no characters.`]
+  ],
+  moba: [
+    ['Imagem (Gemini)', `${STYLE} High aerial view of a three-lane MOBA map set in "Nova Pauliceia", a fictional future São Paulo: two bases at opposite ends (an underground metro hub with a cyan glow, and a residential tower with a red glow), three wide avenues as lanes (the middle one under an elevated highway, the bottom one along a channelled river), four jungle city blocks between the lanes with courtyards, trees and small glowing neutral camps, a fountain plaza in the exact centre, giant stone guardian statues standing on circular platforms along each lane, and thin luminous light-ribbon trails rising vertically from each base and running above the lanes. Dusk lighting, purple haze, readable lanes, no characters.`],
+    ['Vídeo (Gemini / Veo)', `${STYLE} 10-second cinematic: camera rides a luminous light-ribbon trail that rises vertically from the cyan metro base and then flies forward above the middle avenue, passing three giant guardian statues on circular platforms, the elevated highway and the central fountain plaza, ending at the red-lit tower base. Dusk, neon reflections, no characters.`]
+  ],
+  tatico: [
+    ['Imagem (Gemini)', `${STYLE} Overhead 3/4 view of a tactical 5v5 map inside an abandoned overgrown factory: two bomb-site style areas (site A in a cargo warehouse with stacked crates and an overhead crane walkway, site B in a boiler room with two huge boilers and pipes), a central courtyard with a fallen brick chimney, broken windows connecting the courtyard to both sites, an attacker entrance at the bottom and a defender office at the top, vines and trees growing through the roof gaps, dusty god rays, muted greens and rusted orange, clean competitive readability.`],
+    ['Vídeo (Gemini / Veo)', `${STYLE} 8-second first-person walk-through: from the attacker entrance through the central courtyard past the fallen chimney, a quick look through a broken window into the boiler room, then turning into the cargo warehouse with crates and the crane walkway above; dust in the light beams, distant birds, no characters.`]
+  ],
+  lume: [
+    ['Folha de personagem (com cajado)', `Original character concept art turnaround sheet, front view, side view and back view in A-pose, full body, plain light grey background, stylized realism matching a modern hero shooter, same style as the existing sheets. Character: "Lume", a guardian of light who floats about 30 centimetres above the ground with toes pointing down. Woman in her early thirties, Southeast Asian, natural athletic proportions, short silver-white hair with a few golden strands, calm focused expression. Outfit: layered robes in warm white and sunlit gold with geometric prism inlays, fitted sleeves, a light chest guard, soft sandals, a thin floating halo ring made of light segments behind her head, golden light motes around her hands. Holds a slender crystal staff with a sun-prism head that emits a gentle beam. Elegant and protective, not sexualised, no cleavage, practical clothing. Colour palette: gold #FFCC4D, warm white, pale amber, small cyan accents.`],
+    ['Folha de personagem (sem arma, base do modelo)', `Same character as above, same turnaround layout (front, side, back, A-pose, full body, light grey background), but with empty hands and no staff, no light effects, so it can be used as a clean base for 3D modelling. Keep the floating pose with toes pointing down, the robes, chest guard, short silver-white hair and the halo ring.`]
+  ]
+};
+document.querySelectorAll('.prompts').forEach(box => {
+  (PROMPTS[box.dataset.map] || []).forEach(([title, text], i) => {
+    const id = 'p-' + box.dataset.map + '-' + i;
+    const wrap = document.createElement('div'); wrap.className = 'prompt';
+    wrap.innerHTML = `<div class="prompt-head"><span>${title}</span><button type="button" class="copy" data-for="${id}">Copiar</button></div><pre id="${id}"></pre>`;
+    wrap.querySelector('pre').textContent = text;
+    box.appendChild(wrap);
+  });
+});
+document.addEventListener('click', e => {
+  const b = e.target.closest('.copy'); if (!b) return;
+  const pre = document.getElementById(b.dataset.for);
+  const done = () => { b.textContent = 'Copiado'; setTimeout(() => (b.textContent = 'Copiar'), 1500); };
+  const select = () => { const r = document.createRange(); r.selectNodeContents(pre); const sel = getSelection(); sel.removeAllRanges(); sel.addRange(r); b.textContent = 'Selecionado'; };
+  if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(pre.textContent).then(done, select); else select();
+});
+</script>

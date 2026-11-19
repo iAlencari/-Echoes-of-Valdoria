@@ -58,11 +58,61 @@ AValdoriaMobaMode::AValdoriaMobaMode()
 FVector AValdoriaMobaMode::Ground(const FVector& Point) const
 {
 	FHitResult Down;
-	if (GetWorld()->LineTraceSingleByChannel(Down, Point + FVector(0, 0, 3000.f), Point - FVector(0, 0, 6000.f), ECC_WorldStatic))
+	if (GetWorld()->LineTraceSingleByObjectType(Down, Point + FVector(0, 0, 3000.f), Point - FVector(0, 0, 6000.f), FCollisionObjectQueryParams(ECC_WorldStatic)))
 	{
 		return Down.ImpactPoint + FVector(0.f, 0.f, 120.f);
 	}
 	return Point;
+}
+
+FVector AValdoriaMobaMode::StreetPoint(const FVector& Point) const
+{
+	// Turn 45: lane points and spots were pure geometry from the bases, so some fell inside buildings (bots pushed
+	// the wall forever) or on roofs. Nearest spot at street level with room for a hero, searched in rings.
+	const FCollisionShape Body = FCollisionShape::MakeCapsule(55.f, 95.f);
+	FCollisionQueryParams Params(SCENE_QUERY_STAT(ValdoriaStreetPoint), false);
+	for (float Radius = 0.f; Radius <= 6000.f; Radius += 300.f)
+	{
+		const int32 Steps = Radius <= 0.f ? 1 : 16;
+		for (int32 i = 0; i < Steps; ++i)
+		{
+			const float A = 2.f * PI * i / Steps;
+			const FVector C(Point.X + FMath::Cos(A) * Radius, Point.Y + FMath::Sin(A) * Radius, StreetLevel + 120.f);
+			if (GetWorld()->OverlapAnyTestByObjectType(C, FQuat::Identity, FCollisionObjectQueryParams(ECC_WorldStatic), Body, Params))
+			{
+				continue; // inside a building, wall or prop
+			}
+			FHitResult Down;
+			if (GetWorld()->LineTraceSingleByObjectType(Down, C, C - FVector(0, 0, 400.f), FCollisionObjectQueryParams(ECC_WorldStatic), Params))
+			{
+				return Down.ImpactPoint + FVector(0.f, 0.f, 120.f);
+			}
+		}
+	}
+	return Ground(Point);
+}
+
+float AValdoriaMobaMode::HighestTop(const FVector& Point, float Radius) const
+{
+	// Highest solid surface under the point and around it (a building roof, the elevated road...).
+	float Top = -100000.f;
+	const FVector Offsets[] = { FVector::ZeroVector, FVector(Radius, 0, 0), FVector(-Radius, 0, 0), FVector(0, Radius, 0), FVector(0, -Radius, 0) };
+	for (const FVector& O : Offsets)
+	{
+		FHitResult Down;
+		const FVector P2(Point.X + O.X, Point.Y + O.Y, 0.f);
+		if (GetWorld()->LineTraceSingleByChannel(Down, P2 + FVector(0, 0, 30000.f), P2 - FVector(0, 0, 5000.f), ECC_WorldStatic))
+		{
+			Top = FMath::Max(Top, Down.ImpactPoint.Z);
+		}
+	}
+	return Top > -100000.f ? Top : Point.Z;
+}
+
+bool AValdoriaMobaMode::HasRoofAbove(const FVector& Point) const
+{
+	FHitResult Up;
+	return GetWorld()->LineTraceSingleByChannel(Up, Point + FVector(0, 0, 50.f), Point + FVector(0, 0, 5000.f), ECC_WorldStatic);
 }
 
 void AValdoriaMobaMode::StartPlay()
@@ -109,6 +159,7 @@ void AValdoriaMobaMode::BuildLayout()
 	const FVector SideDir = FVector::CrossProduct(FVector::UpVector, Axis);
 	const FVector Centre = (Base[0] + Base[1]) * 0.5f;
 	const float HalfLength = FVector::Dist2D(Base[0], Base[1]) * 0.5f;
+	const float SideOffset = Rules->SideLaneRatio > 0.f ? HalfLength * Rules->SideLaneRatio : Rules->SideLaneOffset;
 	AValdoriaPlayerController* PC = Cast<AValdoriaPlayerController>(GetWorld()->GetFirstPlayerController());
 	FActorSpawnParameters P;
 	P.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AdjustIfPossibleButAlwaysSpawn;
@@ -124,10 +175,10 @@ void AValdoriaMobaMode::BuildLayout()
 			{
 				const FValdoriaSpotRule& Spot = Rules->Spots[SpotIdx];
 				const float Along = (bSide ? Spot.SideLanePosition : Spot.MidLanePosition) * HalfLength;
-				const FVector LanePoint = Base[Team] + Toward * Along + SideDir * (Lane * Rules->SideLaneOffset);
+				const FVector LanePoint = Base[Team] + Toward * Along + SideDir * (Lane * SideOffset);
 				for (int32 g = 0; g < Spot.Buffs.Num(); ++g)
 				{
-					const FVector Where = Ground(LanePoint + SideDir * (g - (Spot.Buffs.Num() - 1) * 0.5f) * 350.f);
+					const FVector Where = StreetPoint(LanePoint + SideDir * (g - (Spot.Buffs.Num() - 1) * 0.5f) * 350.f);
 					AValdoriaGuardian* Guardian = GetWorld()->SpawnActor<AValdoriaGuardian>(AValdoriaGuardian::StaticClass(), Where,
 						(-Toward).Rotation(), P);
 					if (!Guardian)
@@ -157,7 +208,7 @@ void AValdoriaMobaMode::BuildLayout()
 	for (uint8 Team = 0; Team < 2; ++Team)
 	{
 		const FVector Toward = Team == 0 ? Axis : -Axis;
-		if (AValdoriaGuardian* Final = GetWorld()->SpawnActor<AValdoriaGuardian>(AValdoriaGuardian::StaticClass(), Ground(Base[Team] - Toward * 700.f), Toward.Rotation(), P))
+		if (AValdoriaGuardian* Final = GetWorld()->SpawnActor<AValdoriaGuardian>(AValdoriaGuardian::StaticClass(), StreetPoint(Base[Team] - Toward * 700.f), Toward.Rotation(), P))
 		{
 			Final->bFinalGuardian = true;
 			Final->GuardianHealth = Rules->FinalGuardianHealth;
@@ -185,16 +236,38 @@ void AValdoriaMobaMode::BuildLayout()
 		const FVector Toward = Team == 0 ? Axis : -Axis;
 		for (int32 Lane = -1; Lane <= 1; ++Lane)
 		{
-			const FVector LaneOffset = SideDir * (Lane * Rules->SideLaneOffset);
-			const FVector Spawn = Ground(Base[Team]) + SideDir * (Lane * 250.f);
+			const FVector LaneOffset = SideDir * (Lane * SideOffset);
+			// The vertical start needs open sky (the metro spawn is underground): walk toward the lane until nothing is overhead.
+			FVector StartFlat = Base[Team] + SideDir * (Lane * 250.f);
+			for (int32 Step = 0; Step < 20 && HasRoofAbove(Ground(StartFlat)); ++Step)
+			{
+				StartFlat += Toward * 300.f;
+			}
+			const FVector Spawn = Ground(StartFlat);
+			// Horizontal part: dense samples, each above the highest roof around it (owner: it went through buildings),
+			// then a moving max so it climbs before a building instead of clipping its edge.
+			const int32 NumSamples = 48;
+			TArray<FVector> Flats;
+			TArray<float> Tops;
+			for (int32 k = 1; k <= NumSamples; ++k)
+			{
+				const float A = k / static_cast<float>(NumSamples);
+				const FVector Flat = StartFlat + (Base[1 - Team] - Base[Team]).GetSafeNormal2D() * (A * HalfLength * 2.f) + LaneOffset * FMath::Min(1.f, A * 4.f);
+				Flats.Add(Flat);
+				Tops.Add(HighestTop(Flat, 450.f));
+			}
 			TArray<FVector> Points;
 			Points.Add(Spawn);
-			Points.Add(Spawn + FVector(0.f, 0.f, Rules->TrailHeight * 0.6f));
-			for (int32 k = 1; k <= 12; ++k)
+			const float FirstZ = FMath::Max(Tops[0], Tops.Num() > 1 ? Tops[1] : Tops[0]) + Rules->TrailHeight;
+			Points.Add(FVector(Spawn.X, Spawn.Y, FMath::Max(Spawn.Z + Rules->TrailHeight * 0.6f, FirstZ)));
+			for (int32 k = 0; k < Flats.Num(); ++k)
 			{
-				const float A = k / 12.f;
-				const FVector Flat = Base[Team] + Toward * (A * HalfLength * 2.f) + LaneOffset * FMath::Min(1.f, A * 4.f);
-				Points.Add(Ground(Flat) + FVector(0.f, 0.f, Rules->TrailHeight - 120.f));
+				float Top = Tops[k];
+				for (int32 j = FMath::Max(0, k - 2); j <= FMath::Min(Flats.Num() - 1, k + 2); ++j)
+				{
+					Top = FMath::Max(Top, Tops[j]);
+				}
+				Points.Add(FVector(Flats[k].X, Flats[k].Y, Top + Rules->TrailHeight));
 			}
 			if (AValdoriaLaneRail* Rail = GetWorld()->SpawnActor<AValdoriaLaneRail>(AValdoriaLaneRail::StaticClass(), Spawn, FRotator::ZeroRotator, P))
 			{
@@ -205,6 +278,9 @@ void AValdoriaMobaMode::BuildLayout()
 			}
 		}
 	}
+
+	BuildLaneRoutes(Axis, SideDir, Centre, HalfLength, SideOffset);
+	NextMinionWave = GetWorld()->GetTimeSeconds() + Rules->MinionFirstWave;
 
 	// Heroes: the player + allies in team 0, the enemy team in team 1, spread over the lanes.
 	// Each bot walks its lane towards the enemy base when nobody is in sight.
@@ -232,10 +308,13 @@ void AValdoriaMobaMode::BuildLayout()
 				Bot->SetHeroDefinition(PC->FindHero(Rules->BotHeroes[HeroIndex++ % Rules->BotHeroes.Num()]));
 			}
 			Bot->SetAutopilot(true, 0.35f + 0.2f * Rules->BotDifficulty);
-			const FVector LaneOffset = SideDir * (Lane * Rules->SideLaneOffset);
-			Bot->SetAutopilotRoute({ Base[Team] + LaneOffset + (Team == 0 ? Axis : -Axis) * HalfLength * 0.3f,
-				Centre + LaneOffset, Base[1 - Team] + LaneOffset * 0.3f });
+			Bot->SetAutopilotRoute(LaneRoutes[Team][Lane + 1]);
 		}
+	}
+	// The player (team 0) takes the right lane, so each lane has 2 heroes per team in a 6v6 (turn 45).
+	if (AValdoriaHeroCharacter* Me = PC ? Cast<AValdoriaHeroCharacter>(PC->GetPawn()) : nullptr)
+	{
+		Me->SetAutopilotRoute(LaneRoutes[0][2]);
 	}
 }
 
@@ -256,6 +335,11 @@ float AValdoriaMobaMode::GetTimeLeft() const
 
 void AValdoriaMobaMode::OnHeroKilled(AValdoriaHeroCharacter* Victim, AValdoriaHeroCharacter* Killer)
 {
+	if (const AValdoriaTrainingDummy* Minion = Cast<AValdoriaTrainingDummy>(Victim); Minion && Minion->bMinion)
+	{
+		Victim->SetLifeSpan(1.5f); // minions do not come back and do not count as hero kills
+		return;
+	}
 	if (Victim && !Victim->IsA<AValdoriaGuardian>() && Victim->IsA<AValdoriaTrainingDummy>())
 	{
 		// MOBA bots respawn at their base after the respawn delay (not where they died).
@@ -286,6 +370,11 @@ void AValdoriaMobaMode::OnHeroKilled(AValdoriaHeroCharacter* Victim, AValdoriaHe
 void AValdoriaMobaMode::Tick(float DeltaSeconds)
 {
 	Super::Tick(DeltaSeconds);
+	if (Rules && Rules->bMinions && Result == 0 && NextMinionWave > 0.f && GetWorld()->GetTimeSeconds() >= NextMinionWave)
+	{
+		NextMinionWave = GetWorld()->GetTimeSeconds() + Rules->MinionWaveSeconds;
+		SpawnMinionWave();
+	}
 	if (bAutoPlayer)
 	{
 		if (APlayerController* PC = GetWorld()->GetFirstPlayerController())
@@ -403,6 +492,10 @@ void AValdoriaMobaMode::RunMobaTestStep()
 		for (TActorIterator<AValdoriaLaneRail> It(GetWorld()); It; ++It) { ++Rails; }
 		UE_LOG(LogValdoria, Display, TEXT("MOBATEST inicio: guardioes=%d (vivos 0:%d 1:%d) finais=%d/%d trilhas=%d"), Guardians.Num(),
 			GetGuardiansAlive(0), GetGuardiansAlive(1), FinalGuardian[0].IsValid(), FinalGuardian[1].IsValid(), Rails);
+		if (AValdoriaGuardian* F = FinalGuardian[1].Get())
+		{
+			UE_LOG(LogValdoria, Display, TEXT("MOBATEST final herda: estilos=%d mago=%d vida=%.0f"), F->InheritedStyles.Num(), F->bInheritedMage, F->GetMaxHealth());
+		}
 		Shot(TEXT("Moba_Inicio.png"));
 		break;
 	}
@@ -423,7 +516,21 @@ void AValdoriaMobaMode::RunMobaTestStep()
 			Hero->DealTypedDamage(Target, 50.f, EValdoriaDamageType::Physical); // should show IMMUNE
 		}
 		break;
-	case 17: Hero->SetAutopilot(false); Hero->bInteractHeld = true; break;
+	case 17:
+		// Isolate the ritual: enemy heroes stop and enemy bots go home, so nobody reverses the seal during the test.
+		for (TActorIterator<AValdoriaHeroCharacter> It(GetWorld()); It; ++It)
+		{
+			if (*It != Hero && *It != Target && It->TeamId == 1)
+			{
+				It->SetAutopilot(false);
+				if (!Cast<AValdoriaGuardian>(*It))
+				{
+					It->TeleportTo(Ground(Base[1]) + FVector(0, 0, 50.f), It->GetActorRotation());
+				}
+			}
+		}
+		Hero->SetAutopilot(false); Hero->bInteractHeld = true;
+		break;
 	case 20: if (Target) { UE_LOG(LogValdoria, Display, TEXT("MOBATEST selando: progresso=%.2f"), Hero->GetChannelProgress()); } Shot(TEXT("Moba_Selando.png")); break;
 	case 28:
 		Hero->bInteractHeld = false;
@@ -455,5 +562,114 @@ void AValdoriaMobaMode::RunMobaTestStep()
 		FPlatformMisc::RequestExit(false);
 		break;
 	default: break;
+	}
+}
+
+// ================================================================ lanes and minions (turn 45)
+
+void AValdoriaMobaMode::BuildLaneRoutes(const FVector& Axis, const FVector& SideDir, const FVector& Centre, float HalfLength, float SideOffset)
+{
+	// Each lane: base exit -> lane centre -> every ENEMY spot of that lane -> enemy base, ordered along the
+	// base-to-base axis, plus extra points every ~35 m so bots and minions stay on their own lane instead of the
+	// navmesh shortcut through another lane. Every point is a free street spot.
+	for (uint8 Team = 0; Team < 2; ++Team)
+	{
+		const FVector Toward = Team == 0 ? Axis : -Axis;
+		for (int32 Lane = -1; Lane <= 1; ++Lane)
+		{
+			const FVector LaneOffset = SideDir * (Lane * SideOffset);
+			TArray<FVector> Key;
+			Key.Add(Base[Team] + Toward * 600.f + LaneOffset * 0.5f);
+			for (const TWeakObjectPtr<AValdoriaGuardian>& G : Guardians)
+			{
+				if (G.IsValid() && G->LaneIndex == Lane + 1 && G->GuardTeam != Team) // own giants stand on their points and block the way (6v6 test)
+				{
+					Key.Add(G->GetActorLocation());
+				}
+			}
+			Key.Add(Centre + LaneOffset);
+			Key.Add(Base[1 - Team] + LaneOffset * 0.3f);
+			const FVector Home = Base[Team];
+			Key.Sort([&Home, &Toward](const FVector& A, const FVector& B) { return FVector::DotProduct(A - Home, Toward) < FVector::DotProduct(B - Home, Toward); });
+			TArray<FVector>& Route = LaneRoutes[Team][Lane + 1];
+			Route.Reset();
+			for (int32 k = 0; k < Key.Num(); ++k)
+			{
+				if (k > 0)
+				{
+					const float Gap = FVector::Dist2D(Key[k - 1], Key[k]);
+					const int32 Extra = FMath::FloorToInt(Gap / 3500.f);
+					for (int32 e = 1; e <= Extra; ++e)
+					{
+						Route.Add(StreetPoint(FMath::Lerp(Key[k - 1], Key[k], e / float(Extra + 1))));
+					}
+				}
+				Route.Add(StreetPoint(Key[k]));
+			}
+		}
+	}
+}
+
+void AValdoriaMobaMode::SpawnMinionWave()
+{
+	int32 Alive = 0;
+	for (TActorIterator<AValdoriaTrainingDummy> It(GetWorld()); It; ++It)
+	{
+		Alive += (It->bMinion && !It->IsDead()) ? 1 : 0;
+	}
+	if (!MinionDef)
+	{
+		// The Recruit's rifle, much weaker and small: easy to tell from heroes and from the (big) guardians.
+		MinionDef = UValdoriaHeroDefinition::CreateFallbackRecruit(this);
+		MinionDef->HeroId = TEXT("minion");
+		MinionDef->DisplayName = NSLOCTEXT("Valdoria", "MinionName", "Minion");
+		MinionDef->MaxHealth = Rules->MinionHealth;
+		MinionDef->MeshScale *= Rules->MinionScale;
+		MinionDef->CapsuleRadius *= Rules->MinionScale;
+		MinionDef->CapsuleHalfHeight *= Rules->MinionScale;
+		MinionDef->MoveSpeed = 420.f;
+		MinionDef->Weapon.Damage = Rules->MinionDamage;
+		MinionDef->Weapon.Range = 1800.f;
+		MinionDef->Movement.ShiftMode = EValdoriaShiftMode::None;
+		MinionDef->Movement.bCanGlide = false;
+		MinionDef->Movement.bCanWallClimb = false;
+		MinionDef->Movement.FlightMode = EValdoriaFlightMode::None;
+		MinionDef->Abilities.RemoveAll([](const FValdoriaAbilityEntry& E) { return E.Slot != EValdoriaAbilitySlot::PrimaryFire; });
+		MinionDef->UltimateCost = 1000000.f;
+	}
+	FActorSpawnParameters P;
+	P.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AdjustIfPossibleButAlwaysSpawn;
+	for (int32 n = 0; n < Rules->MinionsPerWave; ++n)
+	{
+		for (uint8 Team = 0; Team < 2; ++Team)
+		{
+			for (int32 L = 0; L < 3; ++L)
+			{
+				if (Alive >= Rules->MaxMinions || LaneRoutes[Team][L].Num() == 0)
+				{
+					return;
+				}
+				const FVector First = LaneRoutes[Team][L][0];
+				const FVector Start = First + FVector(FMath::FRandRange(-150.f, 150.f), FMath::FRandRange(-150.f, 150.f), 0.f);
+				AValdoriaTrainingDummy* M = GetWorld()->SpawnActor<AValdoriaTrainingDummy>(AValdoriaTrainingDummy::StaticClass(), Start,
+					(LaneRoutes[Team][L].Last() - First).Rotation(), P);
+				if (!M)
+				{
+					continue;
+				}
+				M->bMinion = true;
+				M->TeamId = Team;
+				M->bHunter = true;
+				M->BotDifficulty = 0;
+				M->bNoAutoHeal = true;
+				M->SetHeroDefinition(MinionDef);
+				M->SetAutopilot(true, 0.3f);
+				M->SetAutopilotPace(1.5f, 1.f); // lighter thinking: dozens of minions (turn 45 6v6 test: 58 FPS)
+				TArray<FVector> Route = LaneRoutes[Team][L];
+				Route.RemoveAt(0); // already there
+				M->SetAutopilotRoute(Route);
+				++Alive;
+			}
+		}
 	}
 }

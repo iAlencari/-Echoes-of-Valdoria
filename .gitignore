@@ -25,3 +25,41 @@ Plugins/**/Intermediate/
 Thumbs.db
 desktop.ini
 .DS_Store
+
+# NVIDIA DLSS / Streamline plugins (RTX SDK EULA, ~3 GB): installed locally from the NVIDIA download, see docs/DLSS.md
+Plugins/DLSS/
+Plugins/StreamlineCore/
+Plugins/StreamlineDLSSG/
+Plugins/StreamlineNGXCommon/
+Plugins/StreamlineReflex/
+
+# Raw downloads from Fab (license: keep source files out of the repo)
+Imports/
+
+# Fab packs (Fab Standard License: do not redistribute the source assets; kept local)
+Content/AbsorbtionFX/
+Content/AdvancedCompanionDroneSystem/
+Content/Attaku/
+Content/DeadBodies_Poses_nikoff/
+Content/DynamicFalling/
+Content/FirstPersonRifleAnimations/
+Content/FreeAnimationLibrary/
+Content/FreeAnimationSet/
+Content/FreeAnimationsPack2/
+Content/FreeAnimsMixPack/
+Content/FreeSampleAnimationSet/
+Content/Free_Crawl_Animation/
+Content/LookWindowPack01/
+Content/MC_Sample/
+Content/StruggleToAscension/
+Content/OvergrownFactoryENV/
+Content/Valdoria/Weapons/Fantasy/
+
+# Raw downloaded packs (Sketchfab/Fab zips extracted at the root): local sources only, the used meshes live in Content/
+/Lincoln_Square_NY_City-*/
+/London_Financial_District-*/
+/_100_Fantasy_Weapons_Basemesh_Pack_V1_-*/
+/________COMING_SOON________-*/
+/free_Fantasy_Staffs-*/
+Scripts/__pycache__/
+

@@ -286,6 +286,16 @@ void AValdoriaHUD::DrawWorldHealthBars(AValdoriaHeroCharacter* Viewer)
 			DrawLabel(FString::Printf(TEXT("%.0f"), Other->GetHealth() + Other->GetArmor() + Other->GetShield()),
 				Screen.X, Y - 22.f * S, Color, 1.0f * S, true);
 		}
+		// Stacks I put on this hero (only I see them), to the right of the bar.
+		float StX = X + BarW + 6.f * S;
+		for (const AValdoriaHeroCharacter::FValdoriaStack& St : Other->GetStacks())
+		{
+			if (Viewer && St.Source.Get() == Viewer && Other->IsStackLive(St))
+			{
+				DrawStackIcon(StX, Y - 6.f * S, 20.f * S, St.Label, St.Count, St.Color, false);
+				StX += 24.f * S;
+			}
+		}
 	}
 }
 
@@ -339,6 +349,17 @@ void AValdoriaHUD::DrawPlayerPanel(AValdoriaHeroCharacter* Hero, float W, float 
 		DrawRect(FX + 120.f * S, FY + 4.f * S, 200.f * S, 10.f * S, FLinearColor(0.f, 0.f, 0.f, 0.6f));
 		DrawRect(FX + 120.f * S, FY + 4.f * S, 200.f * S * Fuel, 10.f * S, FLinearColor(0.45f, 0.85f, 1.f, 0.95f));
 	}
+	const float VigorPct = Hero->GetVigorPercent();
+	if (VigorPct >= 0.f)
+	{
+		// Vigor (turn 45, only Lume for now): Shift sprint drains it, dashes cost a chunk, it refills after a pause.
+		const float VX = X;
+		const float VY = Y + BarH + (Rules.FlightMode != EValdoriaFlightMode::None ? 64.f : 46.f) * S;
+		const FLinearColor VigorColor = VigorPct < 0.3f ? FLinearColor(1.f, 0.55f, 0.2f, 0.95f) : FLinearColor(0.55f, 1.f, 0.45f, 0.95f);
+		DrawLabel(TEXT("VIGOR"), VX, VY - 2.f * S, VigorColor, 0.75f * S);
+		DrawRect(VX + 120.f * S, VY + 4.f * S, 200.f * S, 10.f * S, FLinearColor(0.f, 0.f, 0.f, 0.6f));
+		DrawRect(VX + 120.f * S, VY + 4.f * S, 200.f * S * VigorPct, 10.f * S, VigorColor);
+	}
 	if (Hero->IsFlying()) MoveText = TEXT("VOANDO");
 	else if (Hero->IsGliding()) MoveText = TEXT("PLANANDO");
 	else if (Hero->IsSliding()) MoveText = TEXT("DESLIZANDO");
@@ -353,84 +374,215 @@ void AValdoriaHUD::DrawPlayerPanel(AValdoriaHeroCharacter* Hero, float W, float 
 	}
 }
 
-void AValdoriaHUD::DrawAbilities(AValdoriaHeroCharacter* Hero, float W, float H)
+void AValdoriaHUD::DrawClock(float Cx, float Cy, float Radius, float Fraction, const FLinearColor& Color)
+{
+	// Clock-style cooldown: a dark pie that shrinks clockwise from 12 o'clock as the cooldown ends.
+	if (!Canvas || Fraction <= 0.f)
+	{
+		return;
+	}
+	const int32 Segments = FMath::Max(3, FMath::CeilToInt(36.f * Fraction));
+	const float Start = -HALF_PI;
+	const float Sweep = TWO_PI * FMath::Clamp(Fraction, 0.f, 1.f);
+	const FVector2D C(Cx, Cy);
+	for (int32 i = 0; i < Segments; ++i)
+	{
+		const float A0 = Start + Sweep * i / Segments;
+		const float A1 = Start + Sweep * (i + 1) / Segments;
+		FCanvasTriangleItem Tri(C, C + FVector2D(FMath::Cos(A0), FMath::Sin(A0)) * Radius,
+			C + FVector2D(FMath::Cos(A1), FMath::Sin(A1)) * Radius, GWhiteTexture);
+		Tri.SetColor(Color);
+		Tri.BlendMode = SE_BLEND_Translucent;
+		Canvas->DrawItem(Tri);
+	}
+}
+
+void AValdoriaHUD::DrawStackIcon(float X, float Y, float Size, const FString& Label, int32 Count, const FLinearColor& Color, bool bEnemyMark)
 {
 	const float S = Scale;
+	const float TextK = Size / (34.f * S);
+	DrawRect(X, Y, Size, Size, FLinearColor(0.05f, 0.05f, 0.08f, 0.75f));
+	DrawRect(X, Y + Size - 4.f * S, Size, 4.f * S, Color);
+	DrawFrame(X, Y, Size, Size, bEnemyMark ? FLinearColor(1.f, 0.15f, 0.15f) : Color, bEnemyMark ? 2.f : 1.f);
+	DrawLabel(Label, X + Size * 0.5f, Y + Size * 0.12f, Color, TextK * 0.8f * S, true);
+	if (Count > 1)
+	{
+		DrawLabel(FString::FromInt(Count), X + Size - 4.f * S, Y + Size * 0.45f, FLinearColor::White, TextK * 0.7f * S, true);
+	}
+	if (bEnemyMark && Canvas)
+	{
+		// Small red triangle in the corner = an enemy put this on you.
+		FCanvasTriangleItem Tri(FVector2D(X, Y), FVector2D(X + Size * 0.4f, Y), FVector2D(X, Y + Size * 0.4f), GWhiteTexture);
+		Tri.SetColor(FLinearColor(1.f, 0.1f, 0.1f, 0.95f));
+		Canvas->DrawItem(Tri);
+	}
+}
+
+void AValdoriaHUD::DrawAbilities(AValdoriaHeroCharacter* Hero, float W, float H)
+{
+	// Standard layout (owner, turn 45): only 1, 2, 3 and 4 (supreme) on screen; C smaller on the left when the hero
+	// has it; passive and the right-click ability as small see-through icons with a clock cooldown; the rest is on K.
+	const float S = Scale;
 	const UValdoriaHeroDefinition* Def = Hero->GetHeroDefinition();
-	const FLinearColor Theme = Def->ThemeColor;
+	const FLinearColor Theme = Hero->GetElementColor();
 	const float Size = 64.f * S;
 	const float Gap = 12.f * S;
 	const float Y = H - 112.f * S;
-
-	struct FSlotInfo { EValdoriaAbilitySlot Slot; FString Key; };
-	// Teclas conforme o esquema das Configurações; a habilidade 3 (C) só aparece se o herói tiver.
 	const FValdoriaOptions& KeyOpt = FValdoriaOptions::Get();
-	TArray<FSlotInfo> Slots;
-	for (EValdoriaAbilitySlot S2 : { EValdoriaAbilitySlot::SecondaryFire, EValdoriaAbilitySlot::Ability1, EValdoriaAbilitySlot::Ability2, EValdoriaAbilitySlot::Ability3 })
-	{
-		if (S2 != EValdoriaAbilitySlot::Ability3 || Hero->FindAbilityEntry(S2))
-		{
-			Slots.Add({ S2, KeyOpt.GetSlotKeyLabel(S2) });
-		}
-	}
-	// Passiva (losango simples) + 3 habilidades + ultimate.
+	const bool bHasExtra = Hero->FindAbilityEntry(EValdoriaAbilitySlot::AbilityExtra) != nullptr;
+	const float ExtraSize = 48.f * S;
 	const float UltSize = 86.f * S;
-	const float TotalW = Size * 0.7f + Gap + (Size + Gap) * Slots.Num() + UltSize;
+	const float TotalW = (bHasExtra ? ExtraSize + Gap : 0.f) + (Size + Gap) * 3.f + UltSize;
 	float X = W * 0.5f - TotalW * 0.5f;
+	const float RowLeft = X;
 
-	// Passiva.
-	DrawRect(X, Y + Size * 0.15f, Size * 0.7f, Size * 0.7f, FLinearColor(0.08f, 0.09f, 0.12f, 0.8f));
-	DrawFrame(X, Y + Size * 0.15f, Size * 0.7f, Size * 0.7f, Theme * 0.8f, 1.5f);
-	if (!DrawIcon(Def->PassiveIcon, X + 2.f * S, Y + Size * 0.15f + 2.f * S, Size * 0.7f - 4.f * S))
+	auto DrawSlot = [&](EValdoriaAbilitySlot Slot, float SX, float SY, float SSize)
 	{
-		DrawLabel(TEXT("P"), X + Size * 0.35f, Y + Size * 0.3f, Theme, 0.9f * S, true);
-	}
-	X += Size * 0.7f + Gap;
-
-	for (const FSlotInfo& Info : Slots)
-	{
-		const FValdoriaAbilityEntry* Entry = Hero->FindAbilityEntry(Info.Slot);
-		const float Remaining = Entry ? Hero->GetCooldownRemaining(Info.Slot) : 0.f;
+		const FValdoriaAbilityEntry* Entry = Hero->FindAbilityEntry(Slot);
+		const float Remaining = Entry ? Hero->GetCooldownRemaining(Slot) : 0.f;
 		const float Cooldown = Entry ? FMath::Max(0.01f, Entry->Cooldown) : 1.f;
-		DrawRect(X, Y, Size, Size, FLinearColor(0.08f, 0.09f, 0.12f, Entry ? 0.85f : 0.4f));
-		const bool bHasIcon = Entry && DrawIcon(Entry->Icon, X + 2.f * S, Y + 2.f * S, Size - 4.f * S,
-			Remaining > 0.f || !Hero->CanUseSlot(Info.Slot) ? FLinearColor(0.35f, 0.35f, 0.4f) : FLinearColor::White);
+		const float K = SSize / Size;
+		DrawRect(SX, SY, SSize, SSize, FLinearColor(0.08f, 0.09f, 0.12f, Entry ? 0.85f : 0.35f));
+		const bool bHasIcon = Entry && DrawIcon(Entry->Icon, SX + 2.f * S, SY + 2.f * S, SSize - 4.f * S,
+			Remaining > 0.f || !Hero->CanUseSlot(Slot) ? FLinearColor(0.35f, 0.35f, 0.4f) : FLinearColor::White);
 		if (Entry && Remaining > 0.f)
 		{
-			// Faixa escura que baixa conforme a recarga termina.
 			const float Frac = FMath::Clamp(Remaining / Cooldown, 0.f, 1.f);
-			DrawRect(X, Y + Size * (1.f - Frac), Size, Size * Frac, FLinearColor(0.f, 0.f, 0.f, 0.6f));
-			DrawLabel(FString::Printf(TEXT("%.0f"), FMath::CeilToFloat(Remaining)), X + Size * 0.5f, Y + Size * 0.22f, FLinearColor::White, 1.8f * S, true);
+			DrawRect(SX, SY + SSize * (1.f - Frac), SSize, SSize * Frac, FLinearColor(0.f, 0.f, 0.f, 0.6f));
+			DrawLabel(FString::Printf(TEXT("%.0f"), FMath::CeilToFloat(Remaining)), SX + SSize * 0.5f, SY + SSize * 0.22f, FLinearColor::White, K * 1.8f * S, true);
 		}
 		else if (Entry && !bHasIcon)
 		{
-			DrawLabel(Entry->DisplayName.ToString().Left(10), X + Size * 0.5f, Y + Size * 0.4f, FLinearColor::White, 0.8f * S, true);
+			// Whole name, wrapped by words (up to 3 short lines).
+			TArray<FString> Words;
+			Entry->DisplayName.ToString().ParseIntoArray(Words, TEXT(" "));
+			TArray<FString> NameLines;
+			FString Cur;
+			for (const FString& Wd : Words)
+			{
+				if (!Cur.IsEmpty() && Cur.Len() + 1 + Wd.Len() > 10) { NameLines.Add(Cur); Cur = Wd; }
+				else { Cur = Cur.IsEmpty() ? Wd : Cur + TEXT(" ") + Wd; }
+			}
+			if (!Cur.IsEmpty()) { NameLines.Add(Cur); }
+			const int32 NumLines = FMath::Min(NameLines.Num(), 3);
+			const float LineH = SSize * 0.2f;
+			const float Y0 = SY + SSize * 0.52f - LineH * NumLines * 0.5f;
+			for (int32 L = 0; L < NumLines; ++L)
+			{
+				DrawLabel(NameLines[L], SX + SSize * 0.5f, Y0 + LineH * L, FLinearColor::White, K * 0.72f * S, true);
+			}
 		}
-		DrawFrame(X, Y, Size, Size, Entry && Remaining <= 0.f ? Theme : FLinearColor(0.35f, 0.37f, 0.42f), 2.f);
-		DrawRect(X + 3.f * S, Y + 3.f * S, 22.f * S, 18.f * S, FLinearColor(0.f, 0.f, 0.f, 0.6f));
-		DrawLabel(Info.Key, X + 14.f * S, Y + 3.f * S, FLinearColor(1.f, 0.9f, 0.6f), 0.85f * S, true);
+		DrawFrame(SX, SY, SSize, SSize, Entry && Remaining <= 0.f ? Theme : FLinearColor(0.35f, 0.37f, 0.42f), 2.f);
+		DrawRect(SX + 3.f * S, SY + 3.f * S, 22.f * S, 18.f * S, FLinearColor(0.f, 0.f, 0.f, 0.6f));
+		DrawLabel(KeyOpt.GetSlotKeyLabel(Slot), SX + 14.f * S, SY + 3.f * S, FLinearColor(1.f, 0.9f, 0.6f), 0.85f * S, true);
+	};
+
+	if (bHasExtra)
+	{
+		DrawSlot(EValdoriaAbilitySlot::AbilityExtra, X, Y + (Size - ExtraSize), ExtraSize);
+		X += ExtraSize + Gap;
+	}
+	for (EValdoriaAbilitySlot Slot : { EValdoriaAbilitySlot::Ability1, EValdoriaAbilitySlot::Ability2, EValdoriaAbilitySlot::Ability3 })
+	{
+		DrawSlot(Slot, X, Y, Size);
 		X += Size + Gap;
 	}
 
-	// Ultimate com moldura dupla e porcentagem.
-	if (Hero->FindAbilityEntry(EValdoriaAbilitySlot::Ultimate))
+	// Supreme (4) with double frame and percentage; hold-to-cast clock (Kay) and the current element above it.
+	const float UltX = X;
+	const float UY = Y - (UltSize - Size) * 0.5f;
+	if (const FValdoriaAbilityEntry* UltEntry = Hero->FindAbilityEntry(EValdoriaAbilitySlot::Ultimate))
 	{
 		const float Pct = Hero->GetUltimatePercent();
 		const bool bReady = Pct >= 1.f;
-		const float UY = Y - (UltSize - Size) * 0.5f;
+		const float CancelLeft = Hero->GetCooldownRemaining(EValdoriaAbilitySlot::Ultimate);
 		DrawRect(X, UY, UltSize, UltSize, FLinearColor(0.08f, 0.09f, 0.12f, 0.85f));
-		if (const FValdoriaAbilityEntry* UltEntry = Hero->FindAbilityEntry(EValdoriaAbilitySlot::Ultimate))
-		{
-			DrawIcon(UltEntry->Icon, X + 2.f * S, UY + 2.f * S, UltSize - 4.f * S, bReady ? FLinearColor::White : FLinearColor(0.45f, 0.45f, 0.5f, 0.8f));
-		}
+		DrawIcon(UltEntry->Icon, X + 2.f * S, UY + 2.f * S, UltSize - 4.f * S, bReady ? FLinearColor::White : FLinearColor(0.45f, 0.45f, 0.5f, 0.8f));
 		DrawRect(X, UY + UltSize * (1.f - Pct), UltSize, UltSize * Pct, Theme * FLinearColor(1.f, 1.f, 1.f, 0.35f));
+		const float Hold = Hero->GetUltimateHoldProgress();
+		if (Hold >= 0.f)
+		{
+			DrawClock(X + UltSize * 0.5f, UY + UltSize * 0.5f, UltSize * 0.45f, Hold, Theme * FLinearColor(1.f, 1.f, 1.f, 0.55f));
+			DrawLabel(TEXT("SEGURE"), X + UltSize * 0.5f, UY + UltSize + 6.f * S, Theme, 0.8f * S, true);
+		}
 		const float Pulse = bReady ? 0.6f + 0.4f * FMath::Sin(GetWorld()->GetTimeSeconds() * 6.f) : 1.f;
 		DrawFrame(X, UY, UltSize, UltSize, Theme * Pulse, 3.f);
 		DrawFrame(X - 5.f * S, UY - 5.f * S, UltSize + 10.f * S, UltSize + 10.f * S, Theme * 0.6f, 1.5f);
-		DrawLabel(bReady ? TEXT("PRONTA") : FString::Printf(TEXT("%d%%"), FMath::FloorToInt(Pct * 100.f)),
-			X + UltSize * 0.5f, UY + UltSize * 0.3f, bReady ? Theme : FLinearColor::White, (bReady ? 1.2f : 1.6f) * S, true);
+		FString UltText = bReady ? FString(TEXT("PRONTA")) : FString::Printf(TEXT("%d%%"), FMath::FloorToInt(Pct * 100.f));
+		if (bReady && CancelLeft > 0.f)
+		{
+			UltText = FString::Printf(TEXT("%.0f"), FMath::CeilToFloat(CancelLeft)); // cancelled hold: short lock
+		}
+		DrawLabel(UltText, X + UltSize * 0.5f, UY + UltSize * 0.3f, bReady ? Theme : FLinearColor::White, (bReady ? 1.2f : 1.6f) * S, true);
 		DrawRect(X + 3.f * S, UY + 3.f * S, 22.f * S, 18.f * S, FLinearColor(0.f, 0.f, 0.f, 0.6f));
 		DrawLabel(KeyOpt.GetSlotKeyLabel(EValdoriaAbilitySlot::Ultimate), X + 14.f * S, UY + 3.f * S, FLinearColor(1.f, 0.9f, 0.6f), 0.85f * S, true);
+	}
+	if (Def->ElementCount > 0)
+	{
+		// Element tag above the supreme: name in its colour + the switch cooldown (tap 4), one dot per element.
+		const float Switch = Hero->GetElementSwitchRemaining();
+		const FString Tag = ToUpperPt(Hero->GetElementName().ToString()) + (Switch > 0.f ? FString::Printf(TEXT("  %.0f"), FMath::CeilToFloat(Switch)) : FString());
+		DrawRect(UltX - 6.f * S, UY - 34.f * S, UltSize + 12.f * S, 24.f * S, FLinearColor(0.f, 0.f, 0.f, 0.55f));
+		DrawLabel(Tag, UltX + UltSize * 0.5f, UY - 33.f * S, Theme, 1.f * S, true);
+		for (int32 i = 0; i < Def->ElementCount; ++i)
+		{
+			const FLinearColor Dot = Def->ElementColors.IsValidIndex(i) ? Def->ElementColors[i] : FLinearColor::White;
+			const float DX = UltX + UltSize * 0.5f + (i - (Def->ElementCount - 1) * 0.5f) * 14.f * S;
+			DrawRect(DX - 4.f * S, UY - 44.f * S, 8.f * S, 6.f * S, i == Hero->GetCurrentElement() ? Dot : Dot * FLinearColor(0.4f, 0.4f, 0.4f, 0.7f));
+		}
+	}
+
+	// Passive and right-click ability: small, see-through, clock cooldown (right of the supreme).
+	{
+		const float Small = 40.f * S;
+		float PX = UltX + UltSize + Gap * 1.5f;
+		const float PY = Y + Size - Small;
+		const FLinearColor Ghost(1.f, 1.f, 1.f, 0.55f);
+		DrawRect(PX, PY, Small, Small, FLinearColor(0.08f, 0.09f, 0.12f, 0.35f));
+		if (!DrawIcon(Def->PassiveIcon, PX + 2.f * S, PY + 2.f * S, Small - 4.f * S, Ghost))
+		{
+			DrawLabel(TEXT("P"), PX + Small * 0.5f, PY + Small * 0.22f, Theme * Ghost, 0.9f * S, true);
+		}
+		DrawFrame(PX, PY, Small, Small, Theme * FLinearColor(1.f, 1.f, 1.f, 0.45f), 1.f);
+		PX += Small + Gap * 0.6f;
+		if (const FValdoriaAbilityEntry* Rmb = Hero->FindAbilityEntry(EValdoriaAbilitySlot::SecondaryFire))
+		{
+			const float Remaining = Hero->GetCooldownRemaining(EValdoriaAbilitySlot::SecondaryFire);
+			DrawRect(PX, PY, Small, Small, FLinearColor(0.08f, 0.09f, 0.12f, 0.35f));
+			if (!DrawIcon(Rmb->Icon, PX + 2.f * S, PY + 2.f * S, Small - 4.f * S, Ghost))
+			{
+				DrawLabel(TEXT("DIR"), PX + Small * 0.5f, PY + Small * 0.25f, FLinearColor(1.f, 1.f, 1.f, 0.6f), 0.7f * S, true);
+			}
+			if (Remaining > 0.f)
+			{
+				DrawClock(PX + Small * 0.5f, PY + Small * 0.5f, Small * 0.48f, FMath::Clamp(Remaining / FMath::Max(0.01f, Rmb->Cooldown), 0.f, 1.f), FLinearColor(0.f, 0.f, 0.f, 0.6f));
+				DrawLabel(FString::Printf(TEXT("%.0f"), FMath::CeilToFloat(Remaining)), PX + Small * 0.5f, PY + Small * 0.2f, FLinearColor::White, 1.1f * S, true);
+			}
+			DrawFrame(PX, PY, Small, Small, Remaining <= 0.f ? Theme * FLinearColor(1.f, 1.f, 1.f, 0.6f) : FLinearColor(0.35f, 0.37f, 0.42f, 0.6f), 1.f);
+		}
+	}
+
+	// Stacks above the abilities: mine (small) and the ones an enemy put on me (smaller, red mark).
+	{
+		float SX = RowLeft;
+		const float SY = UY - (Def->ElementCount > 0 ? 82.f : 40.f) * S;
+		for (const AValdoriaHeroCharacter::FValdoriaStack& St : Hero->GetStacks())
+		{
+			AValdoriaHeroCharacter* Src = St.Source.Get();
+			if (!Hero->IsStackLive(St) || !Src)
+			{
+				continue;
+			}
+			const bool bMine = Src == Hero;
+			const bool bEnemy = Hero->IsEnemy(Src);
+			if (!bMine && !bEnemy)
+			{
+				continue;
+			}
+			const float StSize = (bMine ? 30.f : 24.f) * S;
+			DrawStackIcon(SX, SY + (30.f * S - StSize), StSize, St.Label, St.Count, St.Color, bEnemy);
+			SX += StSize + 6.f * S;
+		}
 	}
 }
 
@@ -561,6 +713,7 @@ void AValdoriaHUD::DrawStatusLine(AValdoriaHeroCharacter* Hero, float W, float H
 	if (Hero->GetTeamDamageBonus() > 0.f) Lines.Add({ FString::Printf(TEXT("SPOT: +%d%% DAMAGE"), FMath::RoundToInt(Hero->GetTeamDamageBonus() * 100.f)), FLinearColor(1.f, 0.6f, 0.4f) });
 	if (Hero->GetTeamRegen() > 0.f) Lines.Add({ FString::Printf(TEXT("SPOT: +%.0f HP/S"), Hero->GetTeamRegen()), FLinearColor(0.5f, 1.f, 0.6f) });
 	if (Hero->IsRiding()) Lines.Add({ FString::Printf(TEXT("BIFROST  %s  (look back + W to turn around, Space to get off)"), *Hero->GetRideLaneName()), FLinearColor(0.7f, 0.85f, 1.f) });
+	if (Hero->Overheal >= 1.f) Lines.Add({ FString::Printf(TEXT("SOBRECURA +%.0f (escudo que se desfaz)"), Hero->Overheal), FLinearColor(1.f, 0.95f, 0.6f) });
 	if (Hero->IsReflecting()) Lines.Add({ TEXT("REFLETINDO"), FLinearColor(1.f, 0.9f, 0.5f) });
 	if (Hero->IsAbsorbing()) Lines.Add({ TEXT("ABSORVENDO DANO"), FLinearColor(1.f, 0.8f, 0.4f) });
 	if (Hero->IsIntangible()) Lines.Add({ TEXT("INTANGÍVEL (imune a físico)"), FLinearColor(0.8f, 0.9f, 1.f) });

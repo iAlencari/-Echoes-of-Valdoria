@@ -37,6 +37,18 @@ public:
 		const FGameplayAbilityActivationInfo ActivationInfo, const FGameplayEventData* TriggerEventData) override;
 };
 
+/** Vex (turn 44): throws a dagger by telekinesis and, at the same time, pulls the previous one back (it hits enemies
+ *  on the way back for 60% of the damage). No ammo, no reload; the fire rate is the limit. */
+UCLASS()
+class ECHOESOFVALDORIA_API UValdoriaGA_TelekineticDagger : public UValdoriaGA_FireHitscan
+{
+	GENERATED_BODY()
+public:
+	UValdoriaGA_TelekineticDagger();
+	virtual void ActivateAbility(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo,
+		const FGameplayAbilityActivationInfo ActivationInfo, const FGameplayEventData* TriggerEventData) override;
+};
+
 // ---------------------------------------------------------------- defesa
 
 /** Barreira na sua frente que acompanha você e bloqueia tiros inimigos.
@@ -196,6 +208,43 @@ public:
 		const FGameplayAbilityActivationInfo ActivationInfo, const FGameplayEventData* TriggerEventData) override;
 };
 
+/** Vex (turn 44): telekinetic hand. The aimed ALLY is pulled to you; the aimed ENEMY is pushed away (and takes
+ *  Magnitude damage). Radius = reach, SecondaryMagnitude = force. */
+UCLASS()
+class ECHOESOFVALDORIA_API UValdoriaGA_TelekineticPush : public UValdoriaGameplayAbility
+{
+	GENERATED_BODY()
+public:
+	UValdoriaGA_TelekineticPush();
+	virtual void ActivateAbility(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo,
+		const FGameplayAbilityActivationInfo ActivationInfo, const FGameplayEventData* TriggerEventData) override;
+};
+
+/** Vex E (turn 44): aims at an enemy or an ally and flies to it. Enemy: push + Magnitude damage + brief stagger.
+ *  Ally: a small round telekinetic shield (SecondaryMagnitude health) floats behind her during the flight and ends when
+ *  she arrives. Radius = reach, Duration unused, speed fixed (2800 cm/s). No target under the crosshair = nothing used. */
+UCLASS()
+class ECHOESOFVALDORIA_API UValdoriaGA_TelekineticDash : public UValdoriaGameplayAbility
+{
+	GENERATED_BODY()
+public:
+	UValdoriaGA_TelekineticDash();
+	virtual void ActivateAbility(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo,
+		const FGameplayAbilityActivationInfo ActivationInfo, const FGameplayEventData* TriggerEventData) override;
+};
+
+/** Vex ultimate (turn 44): up to SecondaryMagnitude telekinetic daggers fly at once, one to each visible enemy within
+ *  Radius (Magnitude damage each); they stick and come back hitting again (60%). She does not move. */
+UCLASS()
+class ECHOESOFVALDORIA_API UValdoriaGA_TelekineticStorm : public UValdoriaGameplayAbility
+{
+	GENERATED_BODY()
+public:
+	UValdoriaGA_TelekineticStorm();
+	virtual void ActivateAbility(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo,
+		const FGameplayAbilityActivationInfo ActivationInfo, const FGameplayEventData* TriggerEventData) override;
+};
+
 /** Avanço cortando: corre Radius cm para frente e acerta quem estiver no caminho (Magnitude). */
 UCLASS()
 class ECHOESOFVALDORIA_API UValdoriaGA_LungeSlash : public UValdoriaGameplayAbility
@@ -346,4 +395,31 @@ public:
 protected:
 	TWeakObjectPtr<class AValdoriaPortal> PendingEntrance;
 	float PendingUntil = 0.f;
+};
+
+/** Kay's ultimate "Devastação" (owner, turn 45): cast by HOLDING 4 for UltimateHoldSeconds (see the hero
+ *  definition). Area burst around Kay whose effect follows the current element:
+ *  0 fire = burning ground (15% of Magnitude per second, at least 3 s),
+ *  1 earth = stun for Duration s, 2 water = slow (SecondaryMagnitude fraction) for Duration s,
+ *  3 air = throws enemies up. Magnitude = burst damage, Radius = radius. Numbers are provisional. */
+UCLASS()
+class ECHOESOFVALDORIA_API UValdoriaGA_Devastation : public UValdoriaGameplayAbility
+{
+	GENERATED_BODY()
+public:
+	UValdoriaGA_Devastation();
+	virtual void ActivateAbility(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo,
+		const FGameplayAbilityActivationInfo ActivationInfo, const FGameplayEventData* TriggerEventData) override;
+};
+
+/** Swaps to the hero definition named in AlternateFormId (Ariel's C: Forma Rocha <-> Forma Faísca).
+ *  Health fraction, ultimate charge and cooldowns are kept. Cooldown = time between swaps. */
+UCLASS()
+class ECHOESOFVALDORIA_API UValdoriaGA_FormSwap : public UValdoriaGameplayAbility
+{
+	GENERATED_BODY()
+public:
+	UValdoriaGA_FormSwap();
+	virtual void ActivateAbility(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo,
+		const FGameplayAbilityActivationInfo ActivationInfo, const FGameplayEventData* TriggerEventData) override;
 };

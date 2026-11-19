@@ -7,11 +7,19 @@
 #   Rota C (Y positivo): mercado coberto e becos com grafite.
 #   Marco: arranha-céu com antena. Clima: anoitecer roxo/laranja, neon.
 # Rodar: UnrealEditor-Cmd.exe <projeto> -run=pythonscript -script="Scripts/build_np_map.py"
-import unreal, math, traceback
+import unreal, math, traceback, os
 
-MAP = "/Game/Maps/NP_NovaPauliceia"
+# Map scale (owner 2026-11-18: NP was too small). Horizontal positions and big horizontal sizes
+# (>= 5 m) are multiplied; heights, props and characters keep their size.
+#   VALDORIA_NP_SCALE (default 2.0) and VALDORIA_NP_MAP (default /Game/Maps/NP_NovaPauliceia).
+#   MOBA version: VALDORIA_NP_SCALE=2.6 VALDORIA_NP_MAP=/Game/Maps/NP_Moba
+S = float(os.environ.get("VALDORIA_NP_SCALE", "2.0"))
+# Turn 45 (owner): the MOBA starts at lane level. VALDORIA_NP_METRO=0 covers the metro stair and puts the left base on
+# the street (default: metro on for the 2.0 map, off for the MOBA 2.6 map).
+METRO = os.environ.get("VALDORIA_NP_METRO", "1" if S < 2.5 else "0") == "1"
+MAP = os.environ.get("VALDORIA_NP_MAP", "/Game/Maps/NP_NovaPauliceia")
 MAT_DIR = "/Game/Maps/NP_Materials"
-LOG = unreal.Paths.project_saved_dir() + "build_np_map.txt"
+LOG = unreal.Paths.project_saved_dir() + "build_np_map_" + MAP.split("/")[-1] + ".txt"
 log_lines = []
 
 def log(m):
@@ -64,8 +72,94 @@ def mat(name, rgb, glow=0.0, rough=0.7):
     MATS[name] = mi
     return mi
 
-# ---------------------------------------------------------------- nível
-les = unreal.get_editor_subsystem(unreal.LevelEditorSubsystem)
+# Facade material (owner: plain boxes looked like Roblox). Windows from world position, so they keep
+# their size on any box; random lit windows, roofs without windows. Instances vary the colours.
+def facade_material():
+    path = MAT_DIR + "/M_NP_Fachada"
+    if unreal.EditorAssetLibrary.does_asset_exist(path):
+        return unreal.load_asset(path)
+    m = tools.create_asset("M_NP_Fachada", MAT_DIR, unreal.Material, unreal.MaterialFactoryNew())
+    def E(cls, x, y, **props):
+        e = mel.create_material_expression(m, cls, x, y)
+        for k, v in props.items():
+            e.set_editor_property(k, v)
+        return e
+    def C(a, b, pin="", out=""):
+        mel.connect_material_expressions(a, out, b, pin)
+    def P(name, x, y, value, vector=False):
+        e = E(unreal.MaterialExpressionVectorParameter if vector else unreal.MaterialExpressionScalarParameter, x, y, parameter_name=name)
+        e.set_editor_property("default_value", unreal.LinearColor(*value, 1) if vector else value)
+        return e
+    wp = E(unreal.MaterialExpressionWorldPosition, -2200, 0)
+    mx = E(unreal.MaterialExpressionComponentMask, -2000, -100, r=True, g=False, b=False, a=False); C(wp, mx)
+    my = E(unreal.MaterialExpressionComponentMask, -2000, 0, r=False, g=True, b=False, a=False); C(wp, my)
+    mz = E(unreal.MaterialExpressionComponentMask, -2000, 150, r=False, g=False, b=True, a=False); C(wp, mz)
+    hsum = E(unreal.MaterialExpressionAdd, -1800, -50); C(mx, hsum, "A"); C(my, hsum, "B")
+    u = E(unreal.MaterialExpressionMultiply, -1600, -50, const_b=1.0 / 350.0); C(hsum, u, "A")
+    v = E(unreal.MaterialExpressionMultiply, -1600, 150, const_b=1.0 / 380.0); C(mz, v, "A")
+    def stripe(src, width, y):
+        fr = E(unreal.MaterialExpressionFrac, -1400, y); C(src, fr)
+        sb = E(unreal.MaterialExpressionSubtract, -1250, y, const_b=0.5); C(fr, sb, "A")
+        ab = E(unreal.MaterialExpressionAbs, -1100, y); C(sb, ab)
+        s2 = E(unreal.MaterialExpressionSubtract, -950, y, const_b=width); C(ab, s2, "A")
+        mu = E(unreal.MaterialExpressionMultiply, -800, y, const_b=-25.0); C(s2, mu, "A")
+        sa = E(unreal.MaterialExpressionSaturate, -650, y); C(mu, sa)
+        return sa
+    wu = stripe(u, 0.32, -50)
+    wv = stripe(v, 0.27, 150)
+    win = E(unreal.MaterialExpressionMultiply, -450, 50); C(wu, win, "A"); C(wv, win, "B")
+    # roofs and floors: no windows
+    nrm = E(unreal.MaterialExpressionVertexNormalWS, -800, 350)
+    nz = E(unreal.MaterialExpressionComponentMask, -650, 350, r=False, g=False, b=True, a=False); C(nrm, nz)
+    naz = E(unreal.MaterialExpressionAbs, -500, 350); C(nz, naz)
+    side = E(unreal.MaterialExpressionOneMinus, -350, 350); C(naz, side)
+    winside = E(unreal.MaterialExpressionMultiply, -250, 150); C(win, winside, "A"); C(side, winside, "B")
+    # random lit windows: hash(floor(u), floor(v))
+    fu = E(unreal.MaterialExpressionFloor, -1400, 500); C(u, fu)
+    fv = E(unreal.MaterialExpressionFloor, -1400, 600); C(v, fv)
+    hu = E(unreal.MaterialExpressionMultiply, -1250, 500, const_b=12.9898); C(fu, hu, "A")
+    hv = E(unreal.MaterialExpressionMultiply, -1250, 600, const_b=78.233); C(fv, hv, "A")
+    hs = E(unreal.MaterialExpressionAdd, -1100, 550); C(hu, hs, "A"); C(hv, hs, "B")
+    sn = E(unreal.MaterialExpressionSine, -950, 550); C(hs, sn)
+    big = E(unreal.MaterialExpressionMultiply, -800, 550, const_b=43758.5453); C(sn, big, "A")
+    rnd = E(unreal.MaterialExpressionFrac, -650, 550); C(big, rnd)
+    thr = P("Acesas", -800, 700, 0.5)
+    rs = E(unreal.MaterialExpressionSubtract, -500, 600); C(rnd, rs, "A"); C(thr, rs, "B")
+    rm = E(unreal.MaterialExpressionMultiply, -350, 600, const_b=40.0); C(rs, rm, "A")
+    lit = E(unreal.MaterialExpressionSaturate, -200, 600); C(rm, lit)
+    wl = E(unreal.MaterialExpressionMultiply, -50, 300); C(winside, wl, "A"); C(lit, wl, "B")
+    wcol = P("CorJanela", -400, 800, (1.0, 0.75, 0.4), True)
+    glow = P("Brilho", -400, 950, 6.0)
+    cg = E(unreal.MaterialExpressionMultiply, -200, 850); C(wcol, cg, "A"); C(glow, cg, "B")
+    em = E(unreal.MaterialExpressionMultiply, 100, 400); C(wl, em, "A"); C(cg, em, "B")
+    fcol = P("CorFachada", -400, -350, (0.16, 0.15, 0.19), True)
+    gcol = P("CorVidro", -400, -200, (0.03, 0.04, 0.06), True)
+    base = E(unreal.MaterialExpressionLinearInterpolate, 100, -250); C(fcol, base, "A"); C(gcol, base, "B"); C(winside, base, "Alpha")
+    rough = E(unreal.MaterialExpressionLinearInterpolate, 100, 0, const_a=0.85, const_b=0.12); C(winside, rough, "Alpha")
+    mel.connect_material_property(base, "", unreal.MaterialProperty.MP_BASE_COLOR)
+    mel.connect_material_property(em, "", unreal.MaterialProperty.MP_EMISSIVE_COLOR)
+    mel.connect_material_property(rough, "", unreal.MaterialProperty.MP_ROUGHNESS)
+    mel.recompile_material(m)
+    unreal.EditorAssetLibrary.save_loaded_asset(m)
+    return m
+
+def facade(name, window_rgb, facade_rgb, lit=0.5):
+    if name in MATS:
+        return MATS[name]
+    path = MAT_DIR + "/MI_NP_" + name
+    if unreal.EditorAssetLibrary.does_asset_exist(path):
+        mi = unreal.load_asset(path)
+    else:
+        mi = tools.create_asset("MI_NP_" + name, MAT_DIR, unreal.MaterialInstanceConstant, unreal.MaterialInstanceConstantFactoryNew())
+        mel.set_material_instance_parent(mi, facade_material())
+    mel.set_material_instance_vector_parameter_value(mi, "CorJanela", unreal.LinearColor(*window_rgb, 1))
+    mel.set_material_instance_vector_parameter_value(mi, "CorFachada", unreal.LinearColor(*facade_rgb, 1))
+    mel.set_material_instance_scalar_parameter_value(mi, "Acesas", lit)
+    unreal.EditorAssetLibrary.save_loaded_asset(mi)
+    MATS[name] = mi
+    return mi
+
+# ---------------------------------------------------------------- nívelles = unreal.get_editor_subsystem(unreal.LevelEditorSubsystem)
 eas = unreal.get_editor_subsystem(unreal.EditorActorSubsystem)
 if unreal.EditorAssetLibrary.does_asset_exist(MAP):
     unreal.EditorAssetLibrary.delete_asset(MAP)
@@ -74,6 +168,8 @@ NEW_WORLD = unreal.EditorLoadingAndSavingUtils.new_blank_map(False)
 
 def box(name, center, size, material, rot_yaw=0.0, mesh=None):
     """Cubo de 'size' (cm) com o centro em 'center'."""
+    center = (center[0] * S, center[1] * S, center[2])
+    size = tuple((s * S if (i < 2 and s >= 500) else s) for i, s in enumerate(size))
     a = eas.spawn_actor_from_class(unreal.StaticMeshActor, unreal.Vector(*center), unreal.Rotator(0, 0, rot_yaw))
     a.set_actor_label(name)
     c = a.static_mesh_component
@@ -87,8 +183,8 @@ def floor_box(name, x0, x1, y0, y1, z_top, thick, material):
 
 def ramp(name, start, end, width, material):
     """Rampa entre dois pontos (x, y, z do topo da superfície)."""
-    sx, sy, sz = start
-    ex, ey, ez = end
+    sx, sy, sz = start[0] * S, start[1] * S, start[2]
+    ex, ey, ez = end[0] * S, end[1] * S, end[2]
     dx, dy, dz = ex - sx, ey - sy, ez - sz
     run = math.sqrt(dx * dx + dy * dy)
     length = math.sqrt(run * run + dz * dz)
@@ -102,12 +198,12 @@ def ramp(name, start, end, width, material):
     return a
 
 def light(name, pos, color, intensity=8000.0, radius=1500.0):
-    l = eas.spawn_actor_from_class(unreal.PointLight, unreal.Vector(*pos), unreal.Rotator(0, 0, 0))
+    l = eas.spawn_actor_from_class(unreal.PointLight, unreal.Vector(pos[0] * S, pos[1] * S, pos[2]), unreal.Rotator(0, 0, 0))
     l.set_actor_label(name)
     lc = l.light_component
     lc.set_light_color(unreal.LinearColor(*color, 1))
     lc.set_intensity(intensity)
-    lc.set_attenuation_radius(radius)
+    lc.set_attenuation_radius(radius * S)
     return l
 
 try:
@@ -127,18 +223,25 @@ try:
     veiculo = mat("Veiculo", (0.6, 0.7, 0.8), rough=0.2)
     lona = mat("Lona", (0.6, 0.15, 0.1))
     verde = mat("Grama", (0.1, 0.3, 0.1))
+    fachadas = [facade("FachadaQuente", (1.0, 0.72, 0.38), (0.17, 0.15, 0.18)),
+                facade("FachadaCiano", (0.3, 0.85, 1.0), (0.13, 0.15, 0.2), 0.55),
+                facade("FachadaRosa", (1.0, 0.35, 0.75), (0.2, 0.15, 0.2), 0.6)]
 
     # ---------------- chão geral e limites (mapa ~ 120 x 80 m)
     floor_box("Chao_Avenidas", -3900, 6000, -4000, 4000, 0, 50, asfalto)
     # faixa entre o metrô e a avenida, com o vão da escada do metrô
     floor_box("Chao_Faixa_N", -4400, -3900, -4000, -850, 0, 50, asfalto)
     floor_box("Chao_Faixa_S", -4400, -3900, -350, 4000, 0, 50, asfalto)
+    if not METRO:
+        floor_box("Tampa_Escada_Metro", -4400, -3900, -850, -350, 0, 50, asfalto)  # stair covered: no underground
     floor_box("Chao_Oeste_N", -6000, -4400, -4000, -1200, 0, 50, asfalto)
     floor_box("Chao_Oeste_S", -6000, -4400, 1200, 4000, 0, 50, asfalto)
-    for i, (y, h) in enumerate(((-4050, 900), (4050, 900))):
-        box("Limite_%d" % i, (0, y, h / 2), (12400, 100, h), predio)
-    box("Limite_Oeste", (-6050, 0, 450), (100, 8200, 900), predio)
-    box("Limite_Leste", (6050, 0, 450), (100, 8200, 900), predio)
+    # Turn 45: the border walls were 100 cm thick (not scaled) and stood 50*S cm away from the floor edge -> a 50-80 cm
+    # gap along all four sides. Now 600 wide (scaled), starting exactly at the floor edge, and 12 m tall.
+    for i, (y, h) in enumerate(((-4300, 1200), (4300, 1200))):
+        box("Limite_%d" % i, (0, y, h / 2), (13200, 600, h), fachadas[i % 3])
+    box("Limite_Oeste", (-6300, 0, 600), (600, 9200, 1200), fachadas[2])
+    box("Limite_Leste", (6300, 0, 600), (600, 9200, 1200), fachadas[0])
 
     # ---------------- avenida central (meio) com calçadas e faixas
     floor_box("Calcada_N", -4500, 4500, -1500, -1100, 15, 30, calcada)
@@ -177,7 +280,7 @@ try:
               (3700, -2100, 1300, 900, 1200), (-3900, 2100, 1100, 900, 900), (-1600, 2200, 1300, 900, 1100),
               (3800, 2200, 1200, 900, 1000)]
     for i, (x, y, sx, sy, h) in enumerate(blocks):
-        box("Quarteirao_%d" % i, (x, y, h / 2), (sx, sy, h), predio if i % 2 else predio2)
+        box("Quarteirao_%d" % i, (x, y, h / 2), (sx, sy, h), fachadas[i % 3])
 
     # ---------------- ROTA A: elevado (Minhocão) + telhados e passarelas
     elev_z = 600
@@ -207,41 +310,64 @@ try:
             light("Neon_Mercado_%d" % i, (x, 3300, 280), (0.75, 0.2, 1.0), 5000, 900)
     box("Mercado_Telhado", (0, 3450, 450), (6000, 500, 30), concreto)
     for i, x in enumerate((-2600, -1200, 400, 2000)):
-        box("Beco_Parede_%d" % i, (x, 3750, 400), (900, 120, 800), predio2)
+        box("Beco_Parede_%d" % i, (x, 3750, 400), (900, 120, 800), fachadas[(i + 1) % 3])
         box("Grafite_%d" % i, (x, 3685, 250), (700, 10, 300), [rotaC, neonRosa, rotaA][i % 3])
     box("Caixa_Agua", (2600, 2600, 120), (200, 200, 240), concreto, mesh=CYL)
 
     # ---------------- marco: arranha-céu com antena
-    box("Arranha_Ceu", (2600, -1200, 4500), (1100, 1100, 9000), predio)
+    box("Arranha_Ceu", (2600, -1200, 4500), (1100, 1100, 9000), fachadas[1])
     box("Antena", (2600, -1200, 10000), (40, 40, 2000), concreto, mesh=CYL)
     light("Luz_Antena", (2600, -1200, 11000), (1.0, 0.1, 0.1), 50000, 3000)
     for k in range(6):
         box("Janelas_Neon_%d" % k, (2600, -645, 1500 + k * 1200), (900, 10, 120), [rotaA, rotaC][k % 2])
 
-    # ---------------- SPAWN ESQUERDO: estação de metrô subterrânea
-    floor_box("Metro_Piso", -6000, -4400, -1200, 1200, -500, 50, calcada)
-    box("Metro_Trilho", (-5200, 900, -480), (1600, 300, 40), mat("Trilho", (0.1, 0.1, 0.1)))
-    box("Metro_Faixa", (-5200, 650, -470), (1600, 40, 10), spawnA)
-    ramp("Escada_Metro", (-4500, -600, -500), (-3900, -600, 0), 500, concreto)
-    box("Saida_Metro_Placa", (-3950, -900, 300), (60, 300, 120), spawnA)
-    light("Luz_Metro_1", (-5500, 0, -200), (0.4, 1.0, 0.6), 6000, 1200)
-    light("Luz_Metro_2", (-4800, 0, -200), (0.4, 1.0, 0.6), 6000, 1200)
-    # teto do metrô = chão da rua; a saída é pela escada a leste
-    floor_box("Metro_Teto", -6000, -4400, -1200, 1200, 0, 50, concreto)
-    box("Metro_Parede_N", (-5200, -1225, -250), (1600, 50, 500), concreto)
-    box("Metro_Parede_S", (-5200, 1225, -250), (1600, 50, 500), concreto)
-    box("Metro_Parede_L_N", (-4400, -1050, -250), (50, 400, 500), concreto)
-    box("Metro_Parede_L_S", (-4400, 400, -250), (50, 1600, 500), concreto)
-    ps = eas.spawn_actor_from_class(unreal.PlayerStart, unreal.Vector(-5600, -300, -380), unreal.Rotator(0, 0, 0))
-    ps.set_actor_label("Spawn_Esquerdo_Metro")
+    # ---------------- SPAWN ESQUERDO: estação de metrô subterrânea (or, for the MOBA, a base on the street)
+    if not METRO:
+        floor_box("Metro_Teto", -6000, -4400, -1200, 1200, 0, 50, concreto)
+        floor_box("Base_Esquerda", -5900, -4500, -1100, 500, 12, 12, spawnA)
+        box("Base_Esquerda_Placa", (-4500, -900, 300), (60, 300, 120), spawnA)
+        light("Luz_Base_Esquerda", (-5200, -300, 500), (0.78, 0.95, 0.85), 6000, 2000)
+        ps = eas.spawn_actor_from_class(unreal.PlayerStart, unreal.Vector(-5600 * S, -300 * S, 120), unreal.Rotator(0, 0, 0))
+        ps.set_actor_label("Spawn_Esquerdo_Rua")
+    if METRO:
+        floor_box("Metro_Piso", -6000, -4400, -1200, 1200, -500, 50, calcada)
+        box("Metro_Trilho", (-5200, 900, -480), (1600, 300, 40), mat("Trilho", (0.1, 0.1, 0.1)))
+        box("Metro_Faixa", (-5200, 650, -470), (1600, 40, 10), spawnA)
+        # Turn 44: the stair opening in the street is 500*S wide but the ramp was 500 (not scaled): 2.5 m gaps on each side
+        # with no floor below -> heroes fell out of the map. Ramp as wide as the opening + a floor under the whole opening.
+        ramp("Escada_Metro", (-4500, -600, -500), (-3900, -600, 0), 500 * S, concreto)
+        floor_box("Escada_Fosso", -4450, -3900, -850, -350, -500, 50, calcada)
+        box("Saida_Metro_Placa", (-3950, -900, 300), (60, 300, 120), spawnA)
+        # Turn 44 playtest: the strong saturated green tinted everything and hid enemies; softer, whiter light.
+        light("Luz_Metro_1", (-5500, 0, -200), (0.78, 0.95, 0.85), 2500, 1400)
+        light("Luz_Metro_2", (-4800, 0, -200), (0.78, 0.95, 0.85), 2500, 1400)
+        # teto do metrô = chão da rua; a saída é pela escada a leste
+        floor_box("Metro_Teto", -6000, -4400, -1200, 1200, 0, 50, concreto)
+        box("Metro_Parede_N", (-5200, -1225, -250), (1600, 50, 500), concreto)
+        box("Metro_Parede_S", (-5200, 1225, -250), (1600, 50, 500), concreto)
+        # Turn 44: the station had no west wall and the east walls did not follow the map scale (sizes under
+        # 500 cm are not scaled), leaving gaps beside the stair: heroes walked off the floor into the void.
+        # Walls now computed in world units: west wall closed, east wall closed up to the stair opening.
+        def wall_abs(name, x, y0, y1):
+            a = eas.spawn_actor_from_class(unreal.StaticMeshActor, unreal.Vector(x, (y0 + y1) / 2, -250), unreal.Rotator(0, 0, 0))
+            a.set_actor_label(name)
+            a.static_mesh_component.set_static_mesh(CUBE)
+            a.set_actor_scale3d(unreal.Vector(0.5, abs(y1 - y0) / 100.0, 5.0))
+            a.static_mesh_component.set_material(0, concreto)
+        stair_y, stair_half = -600 * S, 250 + 20
+        wall_abs("Metro_Parede_O", -6000 * S, -1200 * S - 50, 1200 * S + 50)
+        wall_abs("Metro_Parede_L_N", -4400 * S, -1200 * S, stair_y - stair_half)
+        wall_abs("Metro_Parede_L_S", -4400 * S, stair_y + stair_half, 1200 * S)
+        ps = eas.spawn_actor_from_class(unreal.PlayerStart, unreal.Vector(-5600 * S, -300 * S, -380), unreal.Rotator(0, 0, 0))
+        ps.set_actor_label("Spawn_Esquerdo_Metro")
 
     # ---------------- SPAWN DIREITO: prédio-torre com heliporto
     floor_box("Torre_Base", 4400, 6000, 600, 2600, 300, 300, predio2)
-    box("Torre_Corpo", (5400, 1600, 1100), (900, 900, 1600), predio2)
+    box("Torre_Corpo", (5400, 1600, 1100), (900, 900, 1600), fachadas[0])
     box("Torre_Heliporto", (5400, 1600, 1910), (800, 800, 20), spawnB, mesh=CYL)
     ramp("Torre_Rampa", (4100, 400, 0), (4700, 1000, 300), 500, concreto)
     box("Torre_Faixa", (4420, 1600, 320), (40, 2000, 20), spawnB)
-    ps2 = eas.spawn_actor_from_class(unreal.PlayerStart, unreal.Vector(5000, 1000, 420), unreal.Rotator(0, 180, 0))
+    ps2 = eas.spawn_actor_from_class(unreal.PlayerStart, unreal.Vector(5000 * S, 1000 * S, 420), unreal.Rotator(0, 180, 0))
     ps2.set_actor_label("Spawn_Direito_Torre_Time2")
     ps2.set_editor_property("player_start_tag", "Time2")
 
@@ -276,6 +402,16 @@ try:
         ppv.set_editor_property("settings", pps)
     except Exception:
         log("pos-processo: " + traceback.format_exc().splitlines()[-1])
+
+    # Turn 44: navigation bounds for the runtime navmesh (autopilot / bots pathfinding).
+    try:
+        import sys
+        sys.path.append(os.path.dirname(os.path.abspath(__file__)))
+        from add_nav_bounds import add_nav_bounds
+        add_nav_bounds(log)
+    except Exception:
+        import traceback as _tb
+        log("nav bounds: " + _tb.format_exc().splitlines()[-1])
 
     # modo de jogo do projeto
     world = unreal.get_editor_subsystem(unreal.UnrealEditorSubsystem).get_editor_world()

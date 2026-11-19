@@ -29,7 +29,7 @@ AValdoriaHeroCharacter* UValdoriaGameplayAbility::GetHero() const
 EValdoriaAbilitySlot UValdoriaGameplayAbility::GetSlot() const
 {
 	const FGameplayAbilitySpec* Spec = GetCurrentAbilitySpec();
-	return Spec ? static_cast<EValdoriaAbilitySlot>(Spec->InputID) : EValdoriaAbilitySlot::None;
+	return Spec ? static_cast<EValdoriaAbilitySlot>(Spec->InputID % 16) : EValdoriaAbilitySlot::None; // InputID = slot + 16 * (element set + 1)
 }
 
 float UValdoriaGameplayAbility::GetEffectiveCooldown() const
@@ -91,7 +91,7 @@ bool UValdoriaGameplayAbility::CanActivateAbility(const FGameplayAbilitySpecHand
 	}
 	const FGameplayAbilitySpec* Spec = ActorInfo->AbilitySystemComponent.IsValid()
 		? ActorInfo->AbilitySystemComponent->FindAbilitySpecFromHandle(Handle) : nullptr;
-	const EValdoriaAbilitySlot Slot = Spec ? static_cast<EValdoriaAbilitySlot>(Spec->InputID) : EValdoriaAbilitySlot::None;
+	const EValdoriaAbilitySlot Slot = Spec ? static_cast<EValdoriaAbilitySlot>(Spec->InputID % 16) : EValdoriaAbilitySlot::None;
 	if (Hero->GetCooldownRemaining(Slot) > 0.f)
 	{
 		return false;
@@ -149,11 +149,13 @@ EValdoriaDamageType UValdoriaGameplayAbility::GetDamageType() const
 	{
 		if (const AValdoriaHeroCharacter* Hero = GetHero())
 		{
-			return Hero->GetWeaponStats().DamageType;
+			return Hero->GetElementDamageType(Hero->GetWeaponStats().DamageType); // Kay: per element
 		}
 	}
 	const FValdoriaAbilityEntry* Entry = GetEntry();
-	return Entry ? Entry->DamageType : DefaultDamageType;
+	const EValdoriaDamageType Base = Entry ? Entry->DamageType : DefaultDamageType;
+	const AValdoriaHeroCharacter* Hero = GetHero();
+	return Hero ? Hero->GetElementDamageType(Base) : Base; // elemental heroes (Kay): the current element decides
 }
 
 float UValdoriaGameplayAbility::GetMagicShare() const
@@ -172,6 +174,11 @@ float UValdoriaGameplayAbility::GetMagicShare() const
 FLinearColor UValdoriaGameplayAbility::GetThemeColor() const
 {
 	const AValdoriaHeroCharacter* Hero = GetHero();
+	// Elemental heroes (Kay) take the colour of the current element.
+	if (Hero && Hero->GetHeroDefinition() && Hero->GetHeroDefinition()->ElementCount > 0)
+	{
+		return Hero->GetElementColor();
+	}
 	return Hero && Hero->GetHeroDefinition() ? Hero->GetHeroDefinition()->ThemeColor : FLinearColor::White;
 }
 

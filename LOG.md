@@ -422,3 +422,182 @@ Owner's brother is playing Deadlock, so this batch is **built but not run** (no 
 - Owner approved the suggestions: **30 s timeout** (on), group channelling stacks (shared progress per side on the guardian, `AddChannel`), damage cancels. Self-revert = 50% health fixed (no regen) with 2.5 s immune recovery. Semi-sealed guardians are immune: hits show **IMMUNE** (HUD), autopilot/bots ignore them as targets. Bots now walk to a semi-sealed guardian nearby and seal (enemy) or free (ally) it.
 - Visual: protection sphere ~30% (enemy view amber -> bright red, ally view blue -> bright green over the 30 s), energy line from the final guardian through every spot of the lane up to the semi-sealed one, with travelling pulses (cosmetic).
 - **Tested on screen** (Deadlock closed): `-ValdoriaMobaTest` on NP: 24 spot guardians (12 per team), 2 final guardians, 6 Bifrost trails; spot defeated -> semi-sealed + immune + IMMUNE + sphere and link visible (`Moba_SemiSelado.png`); sealing started (progress 0.38 after 1.5 s), but the enemy bots came and reversed it together (group reverse) before it finished, so the "sealed" step ended back in Normal: working as designed, the test needs isolation to show a completed seal; mounted the Bifrost (Av. Paulista) by looking + holding Space (`Moba_Bifrost.png`). `-ValdoriaHeroTest` 25 reports OK; `-ValdoriaFlightTest` OK.
+### Turn 41 - Claude Code - 2026-11-18 (completed seal tested on screen)
+- PC status window (main monitor, scratchpad `pc_status.ps1`): stays open; "Vou jogar" -> single "Nao vou jogar mais" button; that or "Nao vou jogar" -> free. Each click is logged with the time in `C:\Dev\pc_status_log.txt`.
+- `-ValdoriaMobaTest` now isolates the ritual (enemy heroes stop, enemy bots go back to their base) so the seal can finish. **Tested on screen**: semi-sealed (state 1, immune) -> sealing 0.38 after 1.5 s -> **sealed** (state 2, enemy guardians 12 -> 11, red seal mark on the ground, `Moba_Selado.png`); Bifrost mount OK.
+- Noticed: ability names are cut on the HUD slots ("Pulso de c", "Light Trai"); cosmetic, not changed.
+- Turn 41b: **final guardian inherits the kits** of its team's standing spot guardians (state Normal only; each part goes away when that spot is semi-sealed, sealed or gone), refreshed every 0.5 s in `AValdoriaGuardian::TickInherited`: rider-strike styles (it takes turns with them), the support mage's heal/empower if a linked mage stands, and `InheritBuffShare` (0.5, placeholder for the owner) of each spot's buff on itself. `bInheritSpotKits` toggles it. Tested: enemy final starts with 4 styles + mage, 15200 health.
+- HUD ability slots without an icon now wrap the full name in up to 3 lines (was cut at 10 letters). Checked on screen.
+
+### Turn 42 - Claude Code - 2026-11-18 (DLSS, admin mode/panel, bigger NP, Bifrost, grips, Fab packs, Lume beam)
+- **DLSS**: NVIDIA DLSS 4.5 plugin v8.9.0 for UE 5.8 (official download, NVIDIA RTX SDK EULA) in `Plugins/` (DLSS, StreamlineCore/DLSSG/NGXCommon/Reflex; git-ignored, zip in `C:\Dev\Downloads\DLSS`). Settings > Graphics: "NVIDIA DLSS" (off/DLAA/Quality/Balanced/Performance/Ultra) and "Frame generation" (off/2x/3x/4x), both off by default (`r.NGX.DLSS.Enable`, `r.Streamline.DLSSG.*`).
+- **Admin**: `/adm` only toggles admin mode (commands work with the panel closed); F10 opens the panel. Admin Recruit = god, no cooldowns, infinite ammo/dash/flight fuel, 3x speed, noclip (`/voar` walks again). Panel now in Valorant-style horizontal tabs (owner's preferred menu style); settings tabs highlight the active one.
+- **Admin panel review** (`-ValdoriaAdminTest` clicks every control through Slate and logs the state): all 70+ controls work. Fixed: air control was overwritten every frame (`AdminAirControl`), "Apagar bonecos" deleted bots/guardians (now only panel-spawned, tag `AdminSpawned`), attribute fields capped at 5000 (now 100000) and applied only on Enter (now while dragging), aim pick cone 10->20 degrees, MAPA title had been commented out, wrap boxes left big gaps.
+- **Nova Paulicea**: `build_np_map.py` takes `VALDORIA_NP_SCALE`/`VALDORIA_NP_MAP`; NP rebuilt at 2x and a MOBA copy `NP_Moba` at 2.6x (`/modo moba` opens it). Procedural facade material `M_NP_Fachada` (world-space windows, random lit windows, 3 colour variants) on the buildings instead of plain boxes.
+- **Bifrost**: rail samples 48 points and stays `TrailHeight` above the highest roof around it (moving max), the vertical start moves out from under roofs (metro spawn); side lanes follow the map size (`SideLaneRatio` 0.6).
+- **Grips** (owner's concept art): Brasa hammer head-down in the right hand + shield (`EscudoA`) on the left arm; Iara/Lume staff diagonal, crystal end low in front; Vex one curved dagger per hand (`SM_Arma_AdagaA/B` split from the pair by `Scripts/split_daggers.py`); Kael unchanged. New `OffhandMesh/Socket/Offset` + `OffhandComponent`. `-ValdoriaWeaponPose` = lineup of every hero, optional `Saved/grip_variants.txt` to try grips without rebuilding.
+- **Fab packs** (owner added to GameAnimationSample, copied here, git-ignored): 16 folders (animations, AbsorbtionFX, drone system, Overgrown Factory). Their mannequin skeletons are marked compatible with `SK_Mannequin`. Used: Gliding_Forward (Space glide), Free Crawl (prone idle/crawl), AS_LevitatingFireballCharge2 (Lume beam pose). Dive_Forward tried for the Bifrost and dropped (head-first vertical).
+- **Lume beam**: visible with no target (stops at walls), drain motes flowing to the hand, life steal (`LifeSteal` 0.25) and **overheal** (healing past full = shield that fades, `OverhealMax` 0.3, `OverhealDecay` 8/s; HUD "SOBRECURA"). Tested: overheal 1.4, target 250->226.
+- **Recruit aim glide** (`bAimGlide`): aiming/shooting in the air slows the fall (tested -784 -> -260 cm/s).
+- PC rules: close warning `C:\Dev\close_warn.ps1` (5 s, "Nao fechar"); status window logs clicks. Junction `Documents\Unreal Projects\EchoesOfValdoria` -> `C:\Dev\EchoesOfValdoria` for the Epic Launcher.
+- Tests: MOBA (seal OK, Bifrost OK), admin, beam, grips, hero test (96 lines, fim).
+- Turn 42b: Fab '+100 Fantasy Weapons Basemesh Pack V1' (Velit Draakziel) imported to /Game/Valdoria/Weapons/Fantasy (109 meshes, git-ignored) and listed in the admin panel ARMA tab. Not applied: 'Lincoln Square NY City' and 'London Financial District' (33333DDDDDDDDD) are single photogrammetry meshes of real cities (Lincoln Square flagged AI-generated), not modular buildings; Fantasy Staffs, Free Animations Pack, Free Interaction Animation and 'COMING SOON' downloaded only a placeholder.
+
+### Turn 43 - Claude Code (session "eager-pare") - 2026-11-18/19 (read-only review of admin on other heroes; NO game code changed)
+**Why:** owner reported (thread "Criar hero shooter na Unreal", 16:56) that the admin functions do not work on the other heroes, that on the Recruit they cannot be switched off, and asked to remove "fly through things" keeping only the normal infinite fly, plus new models/animations and the lie-down (X) animation he already downloaded. That thread was cut by the spending limit (resets 21 Nov 20:00). This session (a git worktree of `Projeto Padrao`, no Unreal sources of its own) read the project and ran existing tests. The owner asked: read and test, change nothing yet, write it all in the logs.
+**Rule from the owner:** hero switching exists in the Esc menu (buttons per hero), `/heroi <id>` in chat and the admin panel HERO tab. Do not forget it.
+- **Tests run (Deadlock closed, UnrealEditor of the owner left open, existing build, 1280x720, `t.MaxFPS 40`, monitor 2, no input simulated):**
+  - `-ValdoriaAdminTest`: all 211 controls clicked, ended with `ADMINTEST fim`, no crash. It only exercises the **Recruit** (hero switches are queued last, and the report taken right after clicking "Brasa" still says `heroi=FallbackRecruit`). So it does NOT prove admin works on other heroes. On the Recruit, Imortal / Sem recarga / Municao infinita toggles went 1 -> 0 in the log, i.e. they can be switched off from the panel.
+  - `-ValdoriaHeroTest` (switches Brasa, Kael, Iara, Vex, Lume through `SelectHero`): OK, 94 lines, `fim`. Attacks, abilities, ultimates, shop (B) and Lume's defensive states all had effect.
+- **Code reading (findings, nothing fixed yet):**
+  1. `AValdoriaPlayerController::PlayerTick` (ValdoriaPlayerController.cpp:40-59) applies `SetAdminMaxLoadout` (god, no cooldowns, infinite ammo/dashes/flight, speed x3, **noclip**) only when `bAdminMode && !Hero->HeroDefinition`, i.e. only to the fallback Recruit. Switching to any real hero runs `SetAdminMaxLoadout(false)` on the old pawn state, so every admin toggle is reset on a hero switch; on real heroes the owner has to turn each toggle on by hand. This is the likely root of "admin does not work on the others" (by design, but not what he expects). Also `AdminMaxHero` re-applies the max loadout every time the Recruit comes back, which can look like "cannot switch off".
+  2. `SetHeroDefinition` (ValdoriaHeroCharacter.cpp:154) switches on the same pawn, immediately, and `ApplyHeroDefinition` resets cooldowns, ammo, status effects and attributes but not `bGodMode`/`bNoCooldowns`/`bInfiniteAmmo`/`AdminSpeedMultiplier`. So the panel toggles themselves act on `GetPawn()` and should work on any hero.
+  3. The "Brasa" click in `-ValdoriaAdminTest` did not change the hero in the log. Not explained yet: either the label matched another button (`CollectAdminControls` keys controls by label text, first match wins) or the snapshot is taken before the change shows. Needs a test that waits a few frames and prints `GetHeroDefinition()`.
+  4. Noclip (`SetNoclip`, MOVE_Flying + `SetActorEnableCollision(false)`) disables all collision, so it also falls through the ground, which is what the owner complained about. Normal infinite flight already exists (`bInfiniteFlight`, flight mode).
+- **Plan (waiting for the owner's OK, because building needs the editor closed):** (a) extend `RunAdminTestStep` to loop over every hero, wait frames after each switch, and log which toggles/values stick; (b) decide with the owner whether admin mode should keep the max loadout across heroes (option) and make the Recruit toggles stay off when switched off; (c) remove noclip from the admin max loadout and the panel, keep only normal infinite flight; (d) lie-down (X) animation and new models still pending (ask where the downloaded animation is).
+- **Files touched this turn:** LOG.md only (and `EcosDeValdoria/log.md` in `Projeto Padrao`, turn 9). No game source, no assets, no commit.
+
+### Turn 44 - Claude Code - 2026-11-18 (admin on every hero, noclip removed, movement animations, prone, Lume glide)
+**Owner:** admin did not work on the other heroes and could not be switched off on the Recruit; remove "fly through things" (it fell through the floor) and keep only normal infinite flight; better animations everywhere from the packs he downloaded; lie-down on X; Lume jumps and sinks very slowly while holding Space; only test the weapon models the current heroes use.
+- **Real bug found by test:** the admin panel's hero buttons kept weak pointers to the hero Data Assets; they were garbage-collected, so clicking Brasa/Kael/... called `SetHeroDefinition(nullptr)` and you stayed (or became) the Recruit. `AdminHeroList` is now a `UPROPERTY(Transient)` strong array. Test: every hero button now switches (`heroi=DA_Brasa/DA_Kael/DA_Iara/DA_Vex/DA_Lume`).
+- **Admin mode for any hero** (`ValdoriaPlayerController.cpp`): the max loadout (god, no cooldowns, infinite ammo/dashes/flight fuel, speed x3) applies to whatever hero you are when admin turns on; every toggle can be switched off and keeps its state when you switch heroes. Noclip removed from the loadout, the panel and `/voar`.
+- **Normal infinite flight for any hero:** `bAdminFlight` (panel MOVIMENTO "Voar normal e infinito", chat `/voar`): fuel-mode flight with infinite fuel, min speed 900, keeps collision.
+- **Movement animations** (`UValdoriaHeroDefinition::ApplyMovementAnimationPack`, called by the constructor and by `ApplyPresetLooks`): crouch idle/4 directions, real slide, mantle 1 m and wall climb from Fab "Free Animation Library"; prone idle + crawl forward/back/left/right, lie-down and get-up transitions (new fields `ProneCrawlBackward/Left/Right`, `ProneEnter/Exit`) from "Free Crawl Animation". All checked by script: UE5 Mannequin skeleton (compatible), no root motion. Walk/run kept (Epic, match the rifle set).
+- **Prone (X) on** for the Recruit and the 5 heroes (`ApplyPresetLooks` sets `Movement.bCanProne = true`; turn it off per hero in the Data Asset).
+- **Lume:** `GlideFallSpeed` 60 cm/s, `GlideAirControl` 1, glide pose = calm hover clip. Test: jump vz 273, holding Space falls at -60 cm/s, lands normally.
+- Hero Data Assets re-saved with `VALDORIA_APPLY_LOOKS=1` (looks + the movement flags above; balance untouched).
+- Tests (monitor 2, Deadlock closed): `-ValdoriaAdminTest` (all heroes; now skips weapon models not used by current heroes), NP `-ValdoriaAutoTest` (prone ok, wall climb anim `anim_Climb_Up`, admin, help, pause), `-ValdoriaBeamTest` + new LUMETEST steps, `-ValdoriaHeroTest` earlier (5 heroes ok). On the default training map only 1 dummy spawns (ground-height check), so the auto test needs the NP map.
+- **Not done:** the owner's new hover reference video (`gemini_generated_video_f1f94933.mp4`) could not be read: Windows PowerShell 5.1 cannot use the WinRT clip list (`MediaComposition.Clips` comes back as a bare COM object), the app browser shows local videos as a static snapshot and a localhost page came back empty. Needs ffmpeg or a few screenshots from the owner.
+- **Turn 44b (same night):** ffmpeg installed (winget, owner approved) and the owner's hover video read: upright body, legs almost straight, toes pointing down, small lean. New `-ValdoriaPoseGallery` test (8 candidate air clips side by side, `Saved/Screenshots/Poses_*.png`, per-actor `DebugBaseAnim`). Chosen (Fab "Struggle To Ascension", UE5 skeleton, checked compatible):
+  - Lume hover = `AS_STA_Ground_idle05_to_idle06_AirLoop` (toes down), sinking with Space = `AS_STA_Air_idle06`; jump `JumpVelocity` 820 + `AirControl` 0.8 (owner: longer jump). Test: jump vz 573, glide -60 cm/s, ~25 m forward.
+  - Flying hover (Recruit and anyone who flies) = `AS_STA_Air_idle07` (legs hanging) instead of the arms-out fly loop. Flight test screenshots OK.
+  - Bifrost: owner said it looked like a zipline (hero hung 60 cm under the ribbon). Now the feet ride on top of the ribbon on the horizontal part (pose `AS_STA_Air_idle07` + `RideLean` 28) and the hero rises upright inside the light column on the vertical part (`RideVerticalPose` = AirLoop, new field). The Fab glide clip was a belly-down skydive (dropped). MOBA test needs `NP_Moba?game=/Script/EchoesOfValdoria.ValdoriaMobaMode`.
+
+### Turn 44c - Claude Code - 2026-11-19 (full playtest, fixes written, Vex redesign) - code NOT compiled yet
+Owner rules for this block: Deadlock is open on monitor 1, so no builds, no game, no input; a check is scheduled for ~03:07 to build + test everything when Deadlock is closed.
+- **Playtest observer** `-ValdoriaPlaytest=<s> -ValdoriaHero=<id>` (base GameMode): picks the hero, autopilot on, logs every hero every 5 s, flags stuck (15 s) and fallen heroes (with screenshot), kills/deaths per hero, 3 screenshots, FPS, navmesh check, exits. Runner: `Scripts/playtest_all.ps1` (20 matches, stops if Deadlock opens; summary `Saved/Logs/Playtest/resumo.txt`).
+- **Playtest results (2026-11-18, 20 matches, before the fixes below):**
+  - NP: every hero fell out of the map ~15 s after spawning. Cause: the metro station had **no west wall** and the east walls did not follow the map scale (gaps beside the stair). Fixed in `build_np_map.py` (walls in world units) and maps rebuilt 23:26; re-run: no falls.
+  - Deathmatch: bots spawned in a 14 m ring around the metro spawn -> whole match inside the metro, player killed on spawn, some bots spawned in the void. Training on NP: dummies were placed on the street on top of the metro (ground trace started above the ceiling), never seen.
+  - MOBA (6 runs x 120 s): at most 1 kill per match; bots stuck in the metro (straight-line autopilot cannot find the stair). Spot-guardian kill shows as `ValdoriaHeroDefinition_0` (guardians use an in-memory Brasa preset: not a bug).
+  - A deathmatch restarted mid-run: a bot reached 15 kills in 89 s (normal end + restart), the observer now closes on match end.
+  - Balance indication (7 deathmatches, equal bots, owner decides): Lume hardest to kill (2-5 deaths, lock-on beam + lifesteal + overheal + shield), Kael top fragger (up to 14), Brasa survives but kills little, Iara and Vex die most (Vex 8-16 deaths).
+  - Visual: strong saturated green metro light + fog hides enemies; heroes are still the grey UE mannequin.
+  - FPS: 150+ focused; the logged 30 is the background cap (window without focus).
+- **Written, waiting for the build:**
+  - Falling below (lowest player start - 30 m) kills the hero (god mode: back to spawn), logged as `PLAYTEST PROBLEMA caiu do mapa`.
+  - **Map limits**: box around the level's static meshes, sides = invisible walls (+5 m), sky = soft ceiling 25 m above the highest geometry (upward speed capped smoothly in the last 15 m). Bifrost exempt.
+  - **Deathmatch spawns spread** over street level (`AValdoriaGameMode::FindSpreadSpawnPoint`, >= 15 m from any hero, room for a capsule): bots at start and on revive (`bReviveAtSpreadSpot`), player on respawn (`bSpreadRespawns`). Ring fallback looks for ground closer to the centre.
+  - Training dummies: ground trace from +150 cm (was +400) so they stay inside the metro.
+  - **Autopilot pathfinding**: module NavigationSystem, `RecastNavMesh RuntimeGeneration=Dynamic` (DefaultEngine.ini), `Scripts/add_nav_bounds.py` (NavMeshBoundsVolume sized to the map; called by `build_np_map.py`, run manually for Lvl_ThirdPerson). `AutopilotNavDirection` follows navmesh paths for MOBA lanes, chasing the nearest enemy when nobody is in sight (no more spinning in place), and random reachable roaming. Guardians (leashed) unchanged.
+  - Metro lights softer and whiter (2500, 0.78/0.95/0.85).
+  - **Vex redesign (owner)**: `UValdoriaGA_TelekineticDagger` + `AValdoriaTelekinesisDagger` (throw one dagger and recall the previous one in the same click; sticks in the first enemy/wall or stops at max range; comes back by itself after 4 s; return hits for 60%; no ammo, `bUsesAmmo=false`, fire rate 1.25/s, damage 45 - provisional), `UValdoriaGA_TelekineticPush` (E: pull an aimed ally to you / expel an aimed enemy +20 damage), movement rules `bUnlimitedFlight` + `bFlightBlocksActions` (flying = no attack/abilities), flight style Levitate with the arms-down air idle, daggers floating on her back (`bWeaponsFloat`, sockets spine_03, offsets to tune with `-ValdoriaWeaponPose` + `Saved/grip_variants.txt`). Right click (Corte Duplo) and ultimate (Dança das Lâminas) still melee: **waiting for the owner's choice** (suggestions in the reply). Apply with `VALDORIA_RESET_HERO=vex` (new per-hero reset in `create_heroes.py`; the other DAs are kept).
+- Research notes (Deadlock lane ladder + gates + rewards, ultimate economy, map design) in `docs/PesquisaDesign.md`, with what each means for Guardian Spots / Final Guardian / maps.
+- **Turn 44c (cont.) owner answers:** Vex right click and ultimate become telekinetic + ranged; her passive is **silence** (no movement noise). GS/GF: "every MOBA works like that" -> standard MOBA rules adopted. Written (not compiled):
+  - Vex: RMB *Corte Telecinético* (`UValdoriaGA_PiercingBolt`, both daggers in a 15 m line, 50 physical to everyone on it, 6 s); ultimate *Tempestade de Lâminas* (new `UValdoriaGA_TelekineticStorm`: up to 5 daggers at once, one per visible enemy in 12 m, 100 each, they stick and come back for 60%); passive *Passos Silenciosos* (`bSilentMovement`: no footsteps/movement sounds; backstab bonus removed). Numbers provisional.
+  - Final guardian **gate** (`bGateUntilLaneBroken`, default on): immune (protection sphere shown, still fights, bots ignore it) until every guardian of the last spot of at least one lane of its team is sealed or gone; then a map-wide roar and it can be damaged.
+  - **Credits** to the players of the team (`Spot|Rewards`, placeholders): semi-seal 50 (near), seal 150 near / 50 rest, reverse 100 near / 25 rest, gone for good 100 (near). Near = inside the spot area.
+  - Docs: `docs/GuardianSpots_Analise.md` (review), `docs/ConceitosHerois.md` (5 hero drafts).
+- **Turn 44c (cont. 2) owner:** Vex is silent because she walks on small telekinetic floors she creates under her feet (slightly above the ground) -> `Locomotion = RideEffect`, `HoverHeight` 8, purple disc. **E changed** (pull/push did not fit an assassin): *Salto Telecinético* (`UValdoriaGA_TelekineticDash` + `StartTelekineticDash` on the hero): aim at an enemy or ally and fly to it (2800 cm/s, follows the target, gives up after 1.5 s; no target = no cooldown). Enemy: 40 physical, pushed away, 0.4 s stagger (stun). Ally: a small round telekinetic shield (`AValdoriaBarrier::MakeRound`, 250 health) floats behind her (opposite side of the flight: one hand drives her, the other holds the shield) and ends when she arrives. Arm pose still missing (Attaku finger poses / a hand-forward clip later).
+  - Asset inventory with an action for every image, video, sound pack and Unreal pack: `docs/InventarioAssets.md` (licences to check before publishing: voice-over, music, magic/RPG sounds).
+- **Turn 44c (cont. 3):** map concepts in 2D at real scale (escort NP ~240x150 m / route 220 m, arena 80x80 m, MOBA NP_Moba 300x200 m with spots/GF/Bifrost/jungle proposal, tactical factory ~120x110 m for an FPS round mode), HUD icon set (vector, hexagonal gold frame) and the **lobby** concept (mode -> lobby with teams, hero select by role, map vote, ready, timer -> loading -> match -> results): `docs/concepts/Atlas.html` (also published as a private page for the owner). Map sizes: estimated from hero speed (no official numbers published by those games).
+  - **Loading screen late**: the engine's movie player also listens to PreLoadMap and could run before our handler, so the screen was not set up for that load (it appeared on the next one); at launch the overlay only appeared after the map loaded; nothing of ours can draw while the engine boots. Fix written: `UValdoriaGameInstance::ArmLoadingScreen` (armed in Init and after every load), startup movie configured in DefaultGame.ini (`Content/Movies/Valdoria_Startup.mp4`, to be made from the loading art with ffmpeg when the PC is free).
+- **Turn 44c (cont. 4) owner:** crouch and prone must improve gun accuracy (prone even more). Written: weapon stats `CrouchSpreadMultiplier` 0.6 and `ProneSpreadMultiplier` 0.35 (per hero in the DA, placeholders), used by `GetSpreadMultiplier` (stacks with Kael's still bonus) and, softened (sqrt), by `ApplyRecoil`. Detailed 2D maps (callouts, cover, levels, heals, sight lines, river, Minhocão, jungle camps) with an image prompt and a video prompt per map for Gemini, plus Lume's concept-art prompts (with staff / empty hands base): `docs/concepts/Mapas.html` (published privately for the owner).
+- **Turn 44d (PC free, 2026-11-19 ~01:20):** everything written in 44c compiled at first try. Startup movie made (`Content/Movies/Valdoria_Startup.mp4`), NP + NP_Moba rebuilt (metro walls, nav bounds, softer light), nav bounds added to Lvl_ThirdPerson, Vex reset (`VALDORIA_RESET_HERO=vex`) and looks applied to all. Lume concept art saved in `SourceArt/Concepts`. Fixes after the hero test: Vex ultimate was not flagged `bIsUltimate` (fired for free) -> fixed; Vex dash target pick now = hero best aligned with the crosshair within 12 deg + line of sight (the thin sweep missed). Hero test: every Vex ability works (dagger 242->136, line 136->86, stealth, dash 86->46, ultimate spends charge). `Scripts/test_all.ps1` started (admin, flight, Lume, auto, input tests + full playtest; summary `Saved/Logs/t44_summary.txt`, `Saved/Logs/Playtest/resumo.txt`) - results to be read next session.
+### Turn 45 - Claude Code - 2026-11-19 (standard keys, Kay, Ariel, HUD, stacks, Lume vigor, Vex foot discs, lobby)
+Owner batch ("deixa pra compilar no final"): everything written first, one build at the end (+2 small fixes).
+- **Standard keys for every hero**: LMB basic, RMB ability 5, 1/2/3, 4 supreme, C optional extra (`AbilityExtra` slot,
+  appended to the enum), X prone. `KeyScheme` and the settings choice are gone; the hero test presses the real key 1.
+- **Elements (Kay)**: `ElementCount/Names/Colors/DamageTypes`, `ElementSwitchCooldown` 20, `UltimateHoldSeconds` 3,
+  `UltimateCancelCooldown` 3 on the hero definition; ability entries can be bound to an element (`ElementSet`; GAS
+  InputID = slot + 16 * (set + 1)). Tap 4 (< 0.3 s) switches element, holding casts the supreme when the hold completes,
+  releasing early locks it 3 s. Damage type and theme colour of every ability follow the current element.
+- **Kay** (owner's hero, base only): `kay` preset, no weapon, elemental bolt, new `UValdoriaGA_Devastation`.
+  Abilities 1/2/3, RMB, passive: owner.
+- **Ariel** (Claude's hero, bigender): `ariel` (Forma Rocha) and `ariel_faisca` (Forma Faísca), new
+  `UValdoriaGA_FormSwap` on C (`SwapToForm`: next tick, loads `DA_<Pascal id>`, keeps health %, supreme, cooldowns).
+- **Lume**: Shift = sprint + 2 dashes paid with **vigor** (`bUsesVigor`, only Lume; vigor bar in the HUD). Air poses:
+  rising = STA `idle_Ascension`, falling = STA `Air_idle07` (new `AirRise`/`AirFall` fields), so she is not stiff after
+  a jump. **Recruit**: flying and moving = STA `Air_idle06` (`FlyMove`), diving = Free Animation Set
+  `Dive_Downward_A` (`FlyDown`), glide sideways = `Gliding_Left/Right` (`GlideLeft/Right`).
+- **Vex**: one small disc under EACH foot (`bRideEffectPerFoot`, `FootDiscL/R`, absolute location), made as the foot
+  comes down and shrinking away after it lifts, instead of the single board-like disc.
+- **HUD**: only 1/2/3/4 on the row, C smaller on the left; passive and RMB as small see-through icons with a clock
+  cooldown (`DrawClock`, triangle fan, needs module RenderCore) + number; Kay's element tag + dots + switch cooldown
+  above the supreme, "SEGURE" clock while holding 4.
+- **Stacks**: `SetStack/AddStack/RemoveStack` on the receiving hero (source, key, label, colour, count, duration).
+  HUD rules in CLAUDE.md. Used by Lume's Foco Crescente (1-5 on the target) and the shop anti-heal (AC).
+- **Prone per hero**: `CAN_PRONE` table / `VALDORIA_NO_PRONE` in `create_heroes.py` (Lume off by default). The looks
+  no longer force prone on.
+- **Lobby** (`ValdoriaLobby.cpp`): Jogar (Campo de Treino, Treino em NP, Mata-mata, Guardian Spots), Heróis (grid +
+  details), Loja (skins "EM BREVE"), Inventário (empty categories), Treino, Configurações, Sair. Opens once at game
+  start (skipped by any `-Valdoria...` flag) and from the pause menu ("Voltar ao lobby"); the picked hero carries over.
+- Map script stair fix applied: NP_NovaPauliceia (2.0) and NP_Moba (2.6) rebuilt. Spawn/dummy ground traces ignore
+  pawns (the no-dummies bug on NP). `create_heroes.py` run: DA_Kay, DA_Ariel, DA_ArielFaisca created, looks applied.
+- **Hero test (t45_heroi2.log)**: key 1 fires ability 1; Kay tap 4 -> Terra, switch 19.8 s; Kay hold 4 for 3.5 s ->
+  Devastação spent the supreme and killed the dummy; Ariel C -> ariel_faisca. The test now puts the hero back 3-4 m
+  from the enemy dummy before abilities (the sidestep left slams/cones out of reach: Brasa 1/2 and Kael RMB looked
+  broken) and logs `dist=`.
+- Owner rules noted: refer to Kay only by name; Ariel by name or "de Ariel"; not every hero lies down.
+- **Full suite after the build (2026-11-19 04:02-04:38, summary `Saved/Logs/t44_summary.txt`, `Saved/Logs/Playtest/resumo.txt`):**
+  admin (every hero incl. Kay via the panel), flight, Lume (glide -60 cm/s, jump 24.6 m), auto test on NP (dummies now
+  exist: shot 30/250, ultimate killed it), input test (Recruit flight now works: voando=1, +14.6 m) all pass.
+  Playtest 20 runs, FPS 130-209. Still open: **MOBA bots stuck at (9800-9960, -4248)** in every run (now Kay and Kael
+  bots) with at most 1 kill per match; Lume fell off NP in a deathmatch at (-7080,-1901,-3402); on Lvl_ThirdPerson
+  deathmatch two bots fell (Z -2700). Lobby not seen on screen yet (tests skip it).
+- **Turn 45 (cont.) owner:** MOBA starts at lane level, every hero must have passive + abilities 1-5, Kay videos.
+  - Kay references: `SourceArt/Concepts/Kay_Sheet.png`, `SourceArt/Concepts/Videos/Kay_*.mp4` (+ contact sheets),
+    `SourceArt/Concepts/Kay_Tripo/` (front/side/back crops for image-to-3D). Tripo with the whole sheet gave a broken
+    model (merged views); free plan = one image only -> front crop or a clean A-pose image (prompt in the reply).
+    Owner will look at MetaHuman.
+  - **NP_Moba without the metro** (`VALDORIA_NP_METRO`, default off for scale >= 2.5): stair covered, left base on
+    the street (green pad, `Spawn_Esquerdo_Rua`). NP_NovaPauliceia keeps the metro.
+  - **MOBA bots stuck at (9900,-4248)** = south face of Quarteirao_3 near the tower: route points and spots were
+    pure geometry from the bases (inside buildings / on roofs) and the left base was underground. Fix:
+    `AValdoriaMobaMode::StreetPoint` (nearest free street spot, rings up to 60 m) for spots, final guardians and
+    routes; bot route = every spot of its lane ordered from home, then the enemy base; stuck rescue in the
+    autopilot (no progress in 3 s -> repath + jump; twice -> next point). Playtest after the first part: no bot
+    stuck in 6 runs (was 2 per run), bots cross the map; guardians still untouched -> spots added to the route.
+  - **Ability 3 for every ready hero** (numbers provisional): Brasa *Corrente de Forja* (HookPull), Kael *Granada de
+    Pulso* (ThrowZone), Iara *Correnteza* (AllyLink pull + heal), Vex *Passo Sombrio* (Teleport with return), Lume
+    *Pulso de Aurora* (HealPulse), Ariel Rocha *Muralha de Pedra* (Barrier), Ariel Faísca *Campo Elétrico*
+    (ThrowZone). Existing DAs get only the missing entries (`AddMissingPresetAbilities`, run by
+    VALDORIA_APPLY_LOOKS) so the owner's balance is kept. Ariel passive *Duas Metades*: arriving in Rocha = 60
+    temporary shield, in Faísca = +25% speed for 2 s (from the form's swap entry). Hero test case 28 uses ability 3.
+  - `playtest_all.ps1 -Only moba` runs just one group.
+  - MOBA playtest with spots in the route (6 x 120 s, 05:26-05:40): still no stuck bot, FPS 117-149, bots reach the
+    enemy spot-2 area by 115 s, but no guardian falls in 2 min (`guardioes=26/26` = alive count; guardian health is
+    not logged) and at most 1 kill per match. Next: log guardian health, run 5-min matches, check bots really shoot
+    guardians (target pick, line of sight in the spot area).
+- **Turn 45 (cont. 2) owner: close the map, better routes, small minions, guardians x2, 6v6 test.**
+  - `Scripts/find_holes.py` (grid over the level, a point is a hole when no collidable piece reaches street level
+    under it; line traces do not work in the commandlet). Found: border walls 100 cm thick, not scaled, 50*S cm
+    from the floor edge -> 50-80 cm gap along all four sides of NP and NP_Moba, and nothing outside the walls.
+    Fixed in `build_np_map.py` (walls 600 wide scaled, start at the floor edge, 12 m tall). Rescan at 50 cm: 0 holes
+    on both maps. Lvl_ThirdPerson: 0 holes.
+  - Runtime side limits now follow the GROUND pieces (thin, wide, near street level) 60 cm inside the edge
+    (`MapGroundInset`), not 5 m past every mesh (gliders went over the border walls / walked off the floor).
+  - Guardians 3x Brasa (twice the old 1.5x): `AValdoriaGuardian::GuardianScale`, body + hitbox + hammer reach.
+  - **Minions** (new): small (0.55x) weak Recruit-rifle units, 3 per lane per team every 30 s (first at 15 s),
+    max 54 alive, walk the lane route, removed on death, no hero-kill score (`UValdoriaMobaRules` Minions section,
+    `AValdoriaTrainingDummy::bMinion`). Playtest line shows `minions=a/b`, guardian health % and the lowest one.
+  - **Lane routes** (`BuildLaneRoutes`): base exit -> every spot of the lane -> lane centre -> enemy base, ordered
+    along the base-to-base axis, extra points every ~35 m, all snapped to free street spots. Bots and minions use
+    them; the player takes the right lane -> 2 heroes per lane per team in 6v6.
+  - **Tests after the build (2026-11-19 ~09:35):**
+    - Deathmatch NP with Lume (120 s) and Lvl_ThirdPerson deathmatch (90 s): **no fall** (both used to have one).
+      Kills flow normally (Kael 11, Lume 6...).
+    - **MOBA 6v6, 300 s:** waves arrive (9 at 15 s, 18 at 45 s, up to 32 alive per team); guardians start taking
+      damage at ~150 s (lowest guardian 100% -> 27% at 215 s) but **none falls in 5 min** and it recovers out of
+      combat (27% -> 39%); hero kills very low (Vex 2, a minion killed the player once; bots shoot the nearest enemy,
+      now mostly minions); team 0 keeps more minions alive than team 1 (32 vs 16); 2 team-0 bots flagged "still 15 s"
+      at (-8400,-8400) once (probably fighting in place); **FPS 58** (was 110-150 without minions).
+    - Performance fix: minions re-plan paths every 1.5 s and re-pick targets every 1 s (`SetAutopilotPace`), cap 36.
+    - 6v6 rerun with lighter minions: **FPS 72** (58 before). A guardian reaches 0% (defeated, semi-sealed) at ~180 s,
+      but nobody completes the seal and it comes back (0% -> 59%): bots are always in combat (minions everywhere), and
+      the seal needs the channeler out of passive combat. Main blocker for MOBA progress: owner to decide (e.g. seal
+      allowed in combat but slower, or minions do not count as combat).
+    - Route change: bots go only through ENEMY spots (two bots kept stopping on their own giant guardians at
+      (-8400,-8400)). Third run: that spot is gone; "still 15 s" flags now at (8341,-6672) (2 team-1 bots) and
+      (-2473,8200) (likely fighting in place; the detector cannot tell). Hero kills stay low (bots shoot the
+      nearest enemy, usually a minion).

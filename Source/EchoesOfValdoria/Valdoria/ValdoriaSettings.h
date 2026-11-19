@@ -22,6 +22,13 @@ struct ECHOESOFVALDORIA_API FValdoriaOptions
 	int32 BackgroundFpsLimit = 30;
 	/** Ability effects: 0 low (beams and rings only), 1 medium (+ impact bursts), 2 high (+ area domes). */
 	int32 EffectsQuality = 2;
+	/** NVIDIA DLSS (plugin): 0 off, 1 DLAA, 2 Quality, 3 Balanced, 4 Performance, 5 Ultra Performance. */
+	int32 DlssMode = 0;
+	/** DLSS Frame Generation: 0 off, 1 = 2x, 2 = 3x, 3 = 4x (3x/4x need an RTX 50). */
+	int32 FrameGeneration = 0;
+	/** True when the DLSS / Frame Generation plugins are loaded (otherwise the options do nothing). */
+	static bool IsDlssAvailable();
+	static bool IsFrameGenerationAvailable();
 
 	// Áudio (0 a 1)
 	float MasterVolume = 1.f;

@@ -64,6 +64,10 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "MOBA")
 	float SideLaneOffset = 2500.f;
 
+	/** Side lanes distance as a fraction of half the base-to-base distance, so it follows the map size (0 = use SideLaneOffset). */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "MOBA")
+	float SideLaneRatio = 0.6f;
+
 	/** Spots from the outside in: [0] = spot 1 (first one the enemy meets), [2] = last spot. */
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "MOBA")
 	TArray<FValdoriaSpotRule> Spots;
@@ -118,6 +122,26 @@ public:
 	/** Height of the horizontal part over the lane, and of the vertical start at the base (cm). */
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Bifrost")
 	float TrailHeight = 700.f;
+
+	/** Minions (turn 45): small, weak lane units so heroes and guardians are easy to tell apart. A wave per lane per
+	 *  team every MinionWaveSeconds, first one at MinionFirstWave. MaxMinions caps the total alive (FPS). */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Minions")
+	bool bMinions = true;
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Minions")
+	float MinionFirstWave = 15.f;
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Minions")
+	float MinionWaveSeconds = 30.f;
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Minions")
+	int32 MinionsPerWave = 3;
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Minions")
+	int32 MaxMinions = 36;
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Minions")
+	float MinionHealth = 150.f;
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Minions")
+	float MinionDamage = 6.f;
+	/** Body size compared with a hero (0.55 = a bit over half). */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Minions")
+	float MinionScale = 0.55f;
 };
 
 UCLASS()
@@ -141,6 +165,14 @@ public:
 protected:
 	void BuildLayout();
 	FVector Ground(const FVector& Point) const;
+	/** Nearest free spot at street level (StreetLevel) around Point: not inside buildings, not on roofs (turn 45). */
+	FVector StreetPoint(const FVector& Point) const;
+	/** Height of the streets (Nova Paulicéia: 0). Lane points and spots are kept at this level. */
+	UPROPERTY(EditAnywhere, Category = "MOBA")
+	float StreetLevel = 0.f;
+	/** Highest roof/floor Z under and around a point (Bifrost clearance). */
+	float HighestTop(const FVector& Point, float Radius) const;
+	bool HasRoofAbove(const FVector& Point) const;
 	void EndMatch(uint8 Winner);
 
 	UPROPERTY(Transient) TObjectPtr<UValdoriaMobaRules> Rules;
@@ -158,4 +190,10 @@ protected:
 	void TickComeback();
 	void RunMobaTestStep();
 	int32 MobaTestStep = 0;
+	/** Lane routes per team (0-1) and lane (0 left, 1 middle, 2 right), built once in BuildLayout (turn 45). */
+	TArray<FVector> LaneRoutes[2][3];
+	void BuildLaneRoutes(const FVector& Axis, const FVector& SideDir, const FVector& Centre, float HalfLength, float SideOffset);
+	void SpawnMinionWave();
+	float NextMinionWave = 0.f;
+	UPROPERTY(Transient) TObjectPtr<UValdoriaHeroDefinition> MinionDef;
 };

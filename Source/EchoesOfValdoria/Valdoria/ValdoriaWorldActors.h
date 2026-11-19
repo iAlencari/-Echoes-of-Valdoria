@@ -11,6 +11,7 @@
 class AValdoriaHeroCharacter;
 class USphereComponent;
 class UStaticMeshComponent;
+class UStaticMesh;
 class UProjectileMovementComponent;
 class UMaterialInstanceDynamic;
 
@@ -96,6 +97,42 @@ protected:
 	bool bDone = false;
 };
 
+/** Vex's telekinetic dagger (turn 44). Flies out, sticks in the first enemy or wall (or stops at max range) and
+ *  waits; the next throw recalls it: it flies back to Vex hitting every enemy on the way once. No ammo. */
+UCLASS()
+class ECHOESOFVALDORIA_API AValdoriaTelekinesisDagger : public AActor
+{
+	GENERATED_BODY()
+public:
+	AValdoriaTelekinesisDagger();
+	virtual void Tick(float DeltaSeconds) override;
+
+	static AValdoriaTelekinesisDagger* Throw(AValdoriaHeroCharacter* Owner, UStaticMesh* Mesh, const FVector& Start, const FVector& Direction,
+		float Damage, float ReturnDamage, EValdoriaDamageType DamageType, float Speed, float Range, FLinearColor Color);
+	/** Pulls the dagger back to its owner (damaging enemies on the path). */
+	void Recall();
+	bool IsReturning() const { return State == EState::Returning; }
+
+protected:
+	enum class EState : uint8 { Outgoing, Waiting, Returning };
+	UPROPERTY(VisibleAnywhere) TObjectPtr<UStaticMeshComponent> Visual;
+	void HitAlong(const FVector& From, const FVector& To, float Damage);
+
+	TWeakObjectPtr<AValdoriaHeroCharacter> OwnerHero;
+	TWeakObjectPtr<AActor> StuckIn;
+	FVector StuckOffset = FVector::ZeroVector;
+	FVector Velocity = FVector::ZeroVector;
+	TSet<TWeakObjectPtr<AActor>> HitOnReturn;
+	EState State = EState::Outgoing;
+	float OutDamage = 30.f;
+	float BackDamage = 20.f;
+	EValdoriaDamageType Type = EValdoriaDamageType::Physical;
+	float Speed = 4500.f;
+	float Travelled = 0.f;
+	float Range = 2500.f;
+	float WaitTime = 0.f;
+};
+
 /** Barreira de energia: bloqueia tiros e projéteis inimigos (aliados atravessam). */
 UCLASS()
 class ECHOESOFVALDORIA_API AValdoriaBarrier : public AActor
@@ -107,6 +144,8 @@ public:
 
 	void Setup(AValdoriaHeroCharacter* InOwner, float InHealth, float InWidth, float InHeight, float InDuration, FLinearColor InColor, bool bAttachToOwner);
 	void AbsorbDamage(float Amount);
+	/** Small round shield (flattened sphere) instead of the flat hexagonal wall (Vex's telekinetic hand shield). */
+	void MakeRound();
 
 	uint8 TeamId = 0;
 	float Health = 800.f;
@@ -119,6 +158,7 @@ protected:
 	FLinearColor Color = FLinearColor::White;
 	float EndTime = 0.f;
 	float FlashTime = 0.f;
+	bool bRound = false;
 };
 
 /** Efeito visual simples feito de malhas brilhantes (sem assets de terceiros):

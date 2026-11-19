@@ -90,5 +90,8 @@ protected:
 	void DrawWorldHealthBars(AValdoriaHeroCharacter* Viewer);
 	void DrawPlayerPanel(AValdoriaHeroCharacter* Hero, float W, float H);
 	void DrawAbilities(AValdoriaHeroCharacter* Hero, float W, float H);
+	/** Clock-style cooldown pie (Fraction 1 = full circle) and the small stack icons (turn 45). */
+	void DrawClock(float Cx, float Cy, float Radius, float Fraction, const FLinearColor& Color);
+	void DrawStackIcon(float X, float Y, float Size, const FString& Label, int32 Count, const FLinearColor& Color, bool bEnemyMark);
 	void DrawAmmo(AValdoriaHeroCharacter* Hero, float W, float H);
 };

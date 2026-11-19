@@ -24,6 +24,7 @@ void AValdoriaDeathmatchMode::StartPlay()
 		Rules = NewObject<UValdoriaModeRules>(this); // defaults until the data asset exists
 	}
 	PlayerRespawnDelay = Rules->RespawnDelay;
+	bSpreadRespawns = true; // the player also respawns at a spread spot
 	Super::StartPlay();
 	MatchStart = GetWorld()->GetTimeSeconds();
 	SpawnBots();
@@ -44,11 +45,21 @@ void AValdoriaDeathmatchMode::SpawnBots()
 	for (int32 i = 0; i < Rules->BotCount; ++i)
 	{
 		const float Angle = 2.f * PI * i / FMath::Max(1, Rules->BotCount);
-		FVector Where = Centre + FVector(FMath::Cos(Angle), FMath::Sin(Angle), 0.f) * 1400.f + FVector(0.f, 0.f, 100.f);
-		FHitResult Down;
-		if (GetWorld()->LineTraceSingleByChannel(Down, Where + FVector(0, 0, 2000.f), Where - FVector(0, 0, 5000.f), ECC_WorldStatic))
+		// Turn 44: on Nova Pauliceia part of the 14 m ring is off the map (west of the metro): bots spawned in the
+		// void and fell forever. Look for ground, moving closer to the centre until something is under the point.
+		FVector Where = Centre + FVector(0.f, 0.f, 100.f);
+		// Turn 44 playtest: with every bot around the player start the whole match happened inside the metro and the
+		// player was killed on spawn. Bots now start at random street-level spots spread over the map.
+		const bool bSpread = FindSpreadSpawnPoint(Where);
+		for (float Radius = 1400.f; !bSpread && Radius >= 0.f; Radius -= 350.f)
 		{
-			Where = Down.ImpactPoint + FVector(0.f, 0.f, 110.f);
+			const FVector Try = Centre + FVector(FMath::Cos(Angle), FMath::Sin(Angle), 0.f) * Radius;
+			FHitResult Down;
+			if (GetWorld()->LineTraceSingleByObjectType(Down, Try + FVector(0, 0, 300.f), Try - FVector(0, 0, 3000.f), FCollisionObjectQueryParams(ECC_WorldStatic)))
+			{
+				Where = Down.ImpactPoint + FVector(0.f, 0.f, 110.f);
+				break;
+			}
 		}
 		FActorSpawnParameters P;
 		P.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AdjustIfPossibleButAlwaysSpawn;
@@ -63,6 +74,7 @@ void AValdoriaDeathmatchMode::SpawnBots()
 		Bot->bHunter = true;
 		Bot->BotDifficulty = 0; // no fake shots: the autopilot uses the hero's real weapon and abilities
 		Bot->bNoAutoHeal = true;
+		Bot->bReviveAtSpreadSpot = true;
 		if (PC && Rules->BotHeroes.Num() > 0)
 		{
 			Bot->SetHeroDefinition(PC->FindHero(Rules->BotHeroes[i % Rules->BotHeroes.Num()]));
@@ -140,6 +152,12 @@ void AValdoriaDeathmatchMode::Tick(float DeltaSeconds)
 void AValdoriaDeathmatchMode::EndMatch(bool bPlayerWon)
 {
 	Result = bPlayerWon ? 1 : 2;
+	if (PlaytestSeconds > 0 && PlaytestStep < PlaytestSeconds)
+	{
+		// Playtest: the match is over, write the summary on the next tick and close (the restart reset the counters).
+		UE_LOG(LogValdoria, Display, TEXT("PLAYTEST partida terminou: %s"), bPlayerWon ? TEXT("vitoria do jogador") : TEXT("vitoria de um bot"));
+		PlaytestStep = PlaytestSeconds - 1;
+	}
 	// Show the result for a few seconds, then restart the match on the same map.
 	FTimerHandle Restart;
 	GetWorldTimerManager().SetTimer(Restart, FTimerDelegate::CreateWeakLambda(this, [this]()
