@@ -17,6 +17,11 @@ class ECHOESOFVALDORIA_API AValdoriaHUD : public AHUD
 	GENERATED_BODY()
 
 public:
+	/** Tab: scoreboard; Y: last death recap (turn 46). */
+	bool bShowScoreboard = false;
+	bool bShowDeathRecap = false;
+	/** Alt tap: cooldowns of 1/2/3/4 above allied heroes (turn 46). */
+	bool bShowAllyCooldowns = false;
 	virtual void DrawHUD() override;
 
 	/** Marcador de acerto + número de dano flutuante. */
@@ -30,7 +35,7 @@ public:
 
 	/** Vida por segmento da barra (estilo hero shooter). */
 	UPROPERTY(EditAnywhere, Category = "Valdoria")
-	float HealthPerSegment = 25.f;
+	float HealthPerSegment = 250.f; // turn 46: HP x10
 
 	/** Medidor de dano (DPS) do painel de admin. */
 	UPROPERTY(EditAnywhere, Category = "Valdoria")
@@ -97,6 +102,11 @@ protected:
 	/** Minimap, top-left (turn 46): buildings, lanes, guardians, you, allies, and enemies revealed to your team. */
 	void DrawMinimap(AValdoriaHeroCharacter* Hero, float W, float H);
 	bool bShowMinimap = true;
+	/** Tab: match scoreboard; Y: last death recap; top bar with the heroes of both teams (turn 46). */
+	void DrawScoreboard(AValdoriaHeroCharacter* Hero, float W, float H);
+	void DrawDeathRecap(AValdoriaHeroCharacter* Hero, float W, float H);
+	void DrawTopHeroBar(AValdoriaHeroCharacter* Hero, float W, float H);
+	void DrawLevelInfo(AValdoriaHeroCharacter* Hero, float W, float H);
 	struct FMiniBlock { FBox2D Box; float Height; };
 	TArray<FMiniBlock> MiniBlocks;
 	FBox2D MiniBounds = FBox2D(ForceInit);

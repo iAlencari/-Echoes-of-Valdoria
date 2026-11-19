@@ -29,6 +29,8 @@ public:
 
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Valdoria")
 	float PlayerRespawnDelay = 4.f;
+	/** Seconds until this hero comes back. Base modes: PlayerRespawnDelay. MOBA: level + match time (turn 46). */
+	virtual float GetRespawnDelayFor(const AValdoriaHeroCharacter* Victim) const { return PlayerRespawnDelay; }
 
 	virtual void OnHeroKilled(AValdoriaHeroCharacter* Victim, AValdoriaHeroCharacter* Killer);
 

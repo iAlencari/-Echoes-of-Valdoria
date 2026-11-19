@@ -1,6 +1,7 @@
 // Echoes of Valdoria - controle do jogador.
 
 #include "ValdoriaPlayerController.h"
+#include "ValdoriaHUD.h"
 #include "ValdoriaHeroCharacter.h"
 #include "ValdoriaHeroDefinition.h"
 #include "ValdoriaAudio.h"
@@ -100,7 +101,12 @@ void AValdoriaPlayerController::SetupInputComponent()
 	FInputKeyBinding& Admin = InputComponent->BindKey(EKeys::F10, IE_Pressed, this, &AValdoriaPlayerController::ToggleAdminPanel);
 	Admin.bExecuteWhenPaused = true;
 	InputComponent->BindKey(EKeys::Enter, IE_Pressed, this, &AValdoriaPlayerController::OpenChat);
-	InputComponent->BindKey(EKeys::V, IE_Pressed, this, &AValdoriaPlayerController::ToggleCameraMode);
+	InputComponent->BindKey(EKeys::F5, IE_Pressed, this, &AValdoriaPlayerController::ToggleCameraMode); // was V (owner: V = punch, turn 46)
+	InputComponent->BindKey(EKeys::V, IE_Pressed, this, &AValdoriaPlayerController::MeleePressed);
+	InputComponent->BindKey(EKeys::Tab, IE_Pressed, this, &AValdoriaPlayerController::ScoreboardPressed);
+	InputComponent->BindKey(EKeys::Tab, IE_Released, this, &AValdoriaPlayerController::ScoreboardReleased);
+	InputComponent->BindKey(EKeys::Y, IE_Pressed, this, &AValdoriaPlayerController::RecapPressed);
+	InputComponent->BindKey(EKeys::Y, IE_Released, this, &AValdoriaPlayerController::RecapReleased);
 	InputComponent->BindKey(EKeys::B, IE_Pressed, this, &AValdoriaPlayerController::ToggleShop);
 	InputComponent->BindKey(EKeys::K, IE_Pressed, this, &AValdoriaPlayerController::HelpPressed);
 	InputComponent->BindKey(EKeys::K, IE_Released, this, &AValdoriaPlayerController::HelpReleased);
@@ -156,12 +162,27 @@ void AValdoriaPlayerController::ApplyCursorInput()
 
 void AValdoriaPlayerController::FreeCursorPressed()
 {
-	bAltHeld = true;
-	ApplyCursorInput();
+	// Turn 46 (owner): a quick Alt tap shows/hides the allies' cooldowns without flashing the cursor; holding Alt
+	// still frees the cursor (admin panel), but only after 0.25 s.
+	AltPressTime = GetWorld()->GetTimeSeconds();
+	GetWorldTimerManager().SetTimer(AltHoldTimer, FTimerDelegate::CreateWeakLambda(this, [this]()
+	{
+		bAltHeld = true;
+		ApplyCursorInput();
+	}), 0.25f, false);
 }
 
 void AValdoriaPlayerController::FreeCursorReleased()
 {
+	GetWorldTimerManager().ClearTimer(AltHoldTimer);
+	if (!bAltHeld && GetWorld()->GetTimeSeconds() - AltPressTime < 0.25f)
+	{
+		if (AValdoriaHUD* H = Cast<AValdoriaHUD>(GetHUD()))
+		{
+			H->bShowAllyCooldowns = !H->bShowAllyCooldowns;
+		}
+		return;
+	}
 	bAltHeld = false;
 	RefreshInputMode();
 }
@@ -431,4 +452,46 @@ bool AValdoriaPlayerController::SelectHero(FName HeroId)
 	ApplyShopToHero();
 	ValdoriaAudio::Play2D(this, ValdoriaAudio::Load(TEXT("UI"), TEXT("select_001")), 0.7f);
 	return true;
+}
+
+// ------------------------------------------------------------------ V punch and Tab scoreboard (turn 46)
+
+void AValdoriaPlayerController::MeleePressed()
+{
+	if (AValdoriaHeroCharacter* Hero = Cast<AValdoriaHeroCharacter>(GetPawn()))
+	{
+		Hero->TryMeleePunch();
+	}
+}
+
+void AValdoriaPlayerController::ScoreboardPressed()
+{
+	if (AValdoriaHUD* H = Cast<AValdoriaHUD>(GetHUD()))
+	{
+		H->bShowScoreboard = true;
+	}
+}
+
+void AValdoriaPlayerController::ScoreboardReleased()
+{
+	if (AValdoriaHUD* H = Cast<AValdoriaHUD>(GetHUD()))
+	{
+		H->bShowScoreboard = false;
+	}
+}
+
+void AValdoriaPlayerController::RecapPressed()
+{
+	if (AValdoriaHUD* H = Cast<AValdoriaHUD>(GetHUD()))
+	{
+		H->bShowDeathRecap = true;
+	}
+}
+
+void AValdoriaPlayerController::RecapReleased()
+{
+	if (AValdoriaHUD* H = Cast<AValdoriaHUD>(GetHUD()))
+	{
+		H->bShowDeathRecap = false;
+	}
 }

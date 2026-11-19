@@ -624,3 +624,21 @@ Owner batch ("deixa pra compilar no final"): everything written first, one build
 - **Heimdall** concept (owner's next hero) in `docs/ConceitosHerois.md`, decisions included (supreme B landing
   chosen on a big map with a range circle). Gemini prompts sent in chat (Bifrost without 90-degree corners,
   taller and wide enough for a whole character; Heimdall sheet; two supreme videos). No code yet.
+
+### Turn 46b - Claude Code - 2026-11-19 (system batch: HP x10, levels, scoreboard, death recap, V punch, top bar, Bifrost look)
+- **HP x10** (`ValdoriaStatScale`), out-of-combat regen 2 HP/s. **Levels (MOBA)**: 20 levels, Ctrl+1..4, supreme 5/9/13/16/20,
+  locked abilities "BLOQ.", +6% power / -5% cooldown per upgrade, elevation points at 10 and 20 (effects later).
+  XP/gold/respawn formulas in `docs/RegrasCombate.md`. Player keeps level/stats on respawn (`FProgress`).
+- **Keys**: V punch (all heroes, `MeleeDamage` in the hero data), camera moved to F5, Tab scoreboard, Y death recap,
+  Alt tap = ally cooldowns above allies (hold Alt > 0.25 s still frees the cursor).
+- **HUD**: heroes of both teams at the top (level, respawn timer, health only if seen); level badge + XP bar; rank
+  pips; ally bars green/yellow/red blinking with heart or cross (healers); diamond in the middle of ally bars, green
+  when their supreme is ready; enemy bars without numbers.
+- **Unit kinds**: `IsHeroUnit/IsMinionUnit/IsGuardianUnit`. Fixed: bot heroes (TrainingDummy) were treated as "other"
+  by the bot target priority and had 0 sight in team vision.
+- **Bifrost look** (owner's concept image): Chaikin-smoothed path (no 90-degree corners, riders follow it), 9
+  rainbow strands around and under the rider (instanced; `M_Valdoria_Energia` now allows instanced meshes),
+  round pad at the base, ring portal at the end, TrailHeight 700 -> 900. Picture: `SourceArt/Concepts/Bifrost_NoJogo_T46.png`.
+- **Tests**: 6v6 300 s: runs, FPS 62-73, levels 6-9 at 200 s (XP may be fast - owner to tune), guardians slower to
+  fall (lowest 39% at 300 s; bots start with 1 ability and no supreme until level 5). MOBA test: seal OK, Bifrost OK.
+- Off-topic ideas of the owner saved in `C:\Dev\projetos futuros.md` (outside git).

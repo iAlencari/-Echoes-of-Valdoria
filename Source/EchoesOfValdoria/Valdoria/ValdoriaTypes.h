@@ -5,6 +5,11 @@
 #include "CoreMinimal.h"
 #include "ValdoriaTypes.generated.h"
 
+/** Turn 46 (owner: "raise HP a lot"): every health, armour, shield, damage and heal value in the data is multiplied
+ *  by this at runtime, so the Data Assets keep their numbers (balance ratios unchanged) and 0.05% of a 2000 HP hero
+ *  is a whole point. Change it here only. */
+constexpr float ValdoriaStatScale = 10.f;
+
 class UValdoriaGameplayAbility;
 class UAnimSequenceBase;
 class UTexture2D;

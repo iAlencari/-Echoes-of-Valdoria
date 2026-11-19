@@ -48,8 +48,7 @@ void UValdoriaVisionSubsystem::UpdateVision()
 		{
 			continue;
 		}
-		const AValdoriaTrainingDummy* Dummy = Cast<AValdoriaTrainingDummy>(U);
-		const float Sight = U->IsA<AValdoriaGuardian>() ? GuardianSight : (Dummy && Dummy->bMinion) ? MinionSight : Dummy ? 0.f : HeroSight;
+		const float Sight = U->IsGuardianUnit() ? GuardianSight : U->IsMinionUnit() ? MinionSight : U->IsHeroUnit() ? HeroSight : 0.f;
 		Units.Add({ U, U->GetActorLocation() + FVector(0.f, 0.f, 60.f), Sight, U->TeamId });
 		Teams.Add(U->TeamId);
 	}

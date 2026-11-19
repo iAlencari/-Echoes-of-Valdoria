@@ -351,7 +351,8 @@ void AValdoriaMobaMode::OnHeroKilled(AValdoriaHeroCharacter* Victim, AValdoriaHe
 			Bot->ResetCombatState();
 			Bot->TeleportTo(Home, Bot->GetActorRotation());
 			Bot->RestartAutopilotRoute();
-		}), Rules->RespawnDelay, false);
+		}), GetRespawnDelayFor(Bot), false);
+		Bot->RespawnAt = GetWorld()->GetTimeSeconds() + GetRespawnDelayFor(Bot);
 	}
 	else
 	{
@@ -555,7 +556,8 @@ void AValdoriaMobaMode::RunMobaTestStep()
 	}
 	case 31: Hero->LastHarmedTime = -100.f; PressKey(EKeys::SpaceBar, true); break;
 	case 33: PressKey(EKeys::SpaceBar, false); UE_LOG(LogValdoria, Display, TEXT("MOBATEST bifrost: montado=%d trilha=%s"), Hero->IsRiding(), *Hero->GetRideLaneName()); break;
-	case 36: Shot(TEXT("Moba_Bifrost.png")); UE_LOG(LogValdoria, Display, TEXT("MOBATEST bifrost depois: montado=%d"), Hero->IsRiding()); break;
+	case 35: if (Hero->IsRiding()) { PC->SetControlRotation(FRotator(-22.f, Hero->GetActorRotation().Yaw, 0.f)); } break; // look along the bridge for the picture
+	case 36: UE_LOG(LogValdoria, Display, TEXT("MOBATEST bifrost hero at (%.0f,%.0f,%.0f)"), Hero->GetActorLocation().X, Hero->GetActorLocation().Y, Hero->GetActorLocation().Z); Shot(TEXT("Moba_Bifrost.png")); UE_LOG(LogValdoria, Display, TEXT("MOBATEST bifrost depois: montado=%d"), Hero->IsRiding()); break;
 	case 40:
 		UE_LOG(LogValdoria, Display, TEXT("MOBATEST fim"));
 		MobaTestStep = 100000;
@@ -672,4 +674,16 @@ void AValdoriaMobaMode::SpawnMinionWave()
 			}
 		}
 	}
+}
+
+float AValdoriaMobaMode::GetRespawnDelayFor(const AValdoriaHeroCharacter* Victim) const
+{
+	// Turn 46 (provisional, owner balances): grows with the hero's level and, after 10 minutes, with match time.
+	// Deaths and farm are not counted on their own (farm already becomes level; counting deaths punishes twice).
+	//   seconds = (RespawnDelay + 1.5 x (level - 1)) x (1 + 0.03 x minutes after the 10th), capped at 50 s
+	const float BaseDelay = Rules ? Rules->RespawnDelay : 6.f;
+	const int32 Lvl = Victim && Victim->bUsesLevels ? Victim->Level : 1;
+	const float Minutes = (GetWorld()->GetTimeSeconds() - MatchStart) / 60.f;
+	const float TimeFactor = 1.f + 0.03f * FMath::Max(0.f, Minutes - 10.f);
+	return FMath::Min(50.f, (BaseDelay + 1.5f * (Lvl - 1)) * TimeFactor);
 }

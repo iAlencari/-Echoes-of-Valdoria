@@ -259,3 +259,18 @@ living religions (Smite, 2012). The owner keeps the final word on name, look and
   (after that any damage kills). At the end he dies and respawns at the base after 3 s. Light and ascension, no gore.
 - Elevations (Claude, except 4): 1 -> the ally is also cleansed; 2 -> baskets reveal hidden enemies nearby (fog,
   stealth); 3 -> allies near him also ignore slows; 4 -> **Levanta-te e Anda** (owner).
+
+## Turn 46 - round 4 (owner)
+- **Nazaré execution credit**: the kill goes to the ally who dealt the most damage to that enemy; Nazaré gets the
+  assist. XP and gold of the execution go to the ally who assisted him the most. The kill feed shows a normal kill,
+  then a special effect flies out of the feed to that ally's portrait on the HUD.
+- **3 - Caminhar sobre as Águas elevation** (owner): he really walks on water; immune to control, but control is
+  converted into damage instead (by control type and duration).
+- **2 - Multiplicação dos Pães elevation** (owner, replaces the reveal): he raises a minion from the ground
+  ("temporary revival") that carries the basket to the allies; it can be hit and then drops the basket.
+- **RMB - Acalmar a Tempestade** (owner): now also a wave that SILENCES enemies (no abilities; casts in progress
+  that do not give immunity are cancelled).
+- **Top HUD** (owner): heroes of each team at the top; health bars on allies and on enemies in sight. Allies behind
+  walls keep a bar: green full, yellow at half, red blinking under 25% with a heart icon (a cross-style "needs
+  healing" icon for heroes who can heal). Support/tank heroes see icons of what they can offer (protection,
+  damage share) when it is available.

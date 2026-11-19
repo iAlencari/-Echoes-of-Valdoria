@@ -61,6 +61,11 @@ public:
 	/** Compra o próximo nível do item. Retorna falso se faltar crédito ou espaço. */
 	bool BuyItem(FName ItemId);
 	void AddCredits(float Amount);
+	void MeleePressed();
+	void ScoreboardPressed();
+	void ScoreboardReleased();
+	void RecapPressed();
+	void RecapReleased();
 	int32 GetCredits() const { return FMath::Max(0, FMath::FloorToInt(Credits)); }
 	int32 GetItemLevel(FName ItemId) const { const int32* L = ShopLevels.Find(ItemId); return L ? *L : 0; }
 	void OnHeroDamageDealt(float Damage, bool bKill);
@@ -143,6 +148,8 @@ protected:
 	bool bSavedPosition[3] = { false, false, false };
 	int32 AdminBotDifficulty = 0;
 	bool bAltHeld = false;
+	float AltPressTime = -10.f;
+	FTimerHandle AltHoldTimer;
 
 	UPROPERTY(Transient)
 	TMap<FName, TObjectPtr<UValdoriaHeroDefinition>> HeroCache;

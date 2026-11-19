@@ -417,9 +417,10 @@ TSharedRef<SWidget> AValdoriaPlayerController::BuildAdminPanel()
 	{
 		TSharedRef<SWrapBox> Row = SNew(SWrapBox).PreferredSize(640.f);
 		Row->AddSlot()[Button(LOCTEXT("FillUlt", "Ultimate cheia"), [Hero]() { if (Hero()) Hero()->AdminFillUltimate(); })];
+		Row->AddSlot()[Button(LOCTEXT("LevelUp", "Subir 1 nível (MOBA)"), [Hero]() { if (AValdoriaHeroCharacter* H = Hero()) { H->GainXP(H->XPToNextLevel() - H->XP + 0.1f); } })];
 		Row->AddSlot()[Button(LOCTEXT("Restore", "Vida cheia"), [Hero]() { if (Hero()) Hero()->AdminRestoreAll(); })];
 		Row->AddSlot()[Button(LOCTEXT("ResetCd", "Zerar recargas"), [Hero]() { if (Hero()) Hero()->ResetCombatState(); })];
-		Row->AddSlot()[Button(LOCTEXT("HurtMe", "Tirar 50 de vida de mim"), [Hero]() { if (AValdoriaHeroCharacter* H = Hero()) { const bool bGod = H->bGodMode; H->bGodMode = false; H->DealDamageTo(H, 50.f); H->bGodMode = bGod; } })];
+		Row->AddSlot()[Button(LOCTEXT("HurtMe", "Tirar 500 de vida de mim"), [Hero]() { if (AValdoriaHeroCharacter* H = Hero()) { const bool bGod = H->bGodMode; H->bGodMode = false; H->DealDamageTo(H, 50.f); H->bGodMode = bGod; } })];
 		Box->AddSlot().AutoHeight()[Row];
 	}
 
@@ -483,7 +484,7 @@ TSharedRef<SWidget> AValdoriaPlayerController::BuildAdminPanel()
 				T->HandleDeath(nullptr);
 			}
 		})];
-		Row->AddSlot()[Button(LOCTEXT("HurtTarget", "Tirar 50 de vida (aliado ou inimigo)"), [Hero, Target]() { if (Hero() && Target()) Hero()->DealDamageTo(Target(), 50.f); })];
+		Row->AddSlot()[Button(LOCTEXT("HurtTarget", "Tirar 500 de vida (aliado ou inimigo)"), [Hero, Target]() { if (Hero() && Target()) Hero()->DealDamageTo(Target(), 50.f); })];
 		Row->AddSlot()[Button(LOCTEXT("Revive", "Reviver / curar"), [Target]() { if (AValdoriaHeroCharacter* T = Target()) T->ResetCombatState(); })];
 		Row->AddSlot()[Button(LOCTEXT("TgtGod", "Imortal sim/não"), [Target]() { if (AValdoriaHeroCharacter* T = Target()) T->bGodMode = !T->bGodMode; })];
 		Row->AddSlot()[Button(LOCTEXT("Freeze", "Congelar sim/não"), [Target]()

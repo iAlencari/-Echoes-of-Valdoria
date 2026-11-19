@@ -57,8 +57,8 @@ void AValdoriaGuardian::BeginPlay()
 	}
 	if (HasAuthority())
 	{
-		AbilitySystem->SetNumericAttributeBase(UValdoriaAttributeSet::GetMaxHealthAttribute(), GuardianHealth);
-		AbilitySystem->SetNumericAttributeBase(UValdoriaAttributeSet::GetHealthAttribute(), GuardianHealth);
+		AbilitySystem->SetNumericAttributeBase(UValdoriaAttributeSet::GetMaxHealthAttribute(), GuardianHealth * ValdoriaStatScale);
+		AbilitySystem->SetNumericAttributeBase(UValdoriaAttributeSet::GetHealthAttribute(), GuardianHealth * ValdoriaStatScale);
 	}
 	bNoAutoHeal = true;
 	SetAutopilot(true, 0.6f);
@@ -73,7 +73,7 @@ void AValdoriaGuardian::ScheduleRevive()
 		GetWorldTimerManager().SetTimer(Timer, FTimerDelegate::CreateWeakLambda(this, [this]()
 		{
 			Revive();
-			AbilitySystem->SetNumericAttributeBase(UValdoriaAttributeSet::GetHealthAttribute(), GuardianHealth);
+			AbilitySystem->SetNumericAttributeBase(UValdoriaAttributeSet::GetHealthAttribute(), GuardianHealth * ValdoriaStatScale);
 		}), RespawnSeconds, false);
 	}
 }
@@ -133,8 +133,8 @@ void AValdoriaGuardian::SetupSpot(uint8 Team, float Radius)
 	SetLeash(GetActorLocation(), AreaRadius);
 	if (HasAuthority())
 	{
-		AbilitySystem->SetNumericAttributeBase(UValdoriaAttributeSet::GetMaxHealthAttribute(), GuardianHealth);
-		AbilitySystem->SetNumericAttributeBase(UValdoriaAttributeSet::GetHealthAttribute(), GuardianHealth);
+		AbilitySystem->SetNumericAttributeBase(UValdoriaAttributeSet::GetMaxHealthAttribute(), GuardianHealth * ValdoriaStatScale);
+		AbilitySystem->SetNumericAttributeBase(UValdoriaAttributeSet::GetHealthAttribute(), GuardianHealth * ValdoriaStatScale);
 	}
 }
 void AValdoriaGuardian::StrikeRiders()
@@ -304,19 +304,26 @@ void AValdoriaGuardian::HandleDeath(AValdoriaHeroCharacter* Killer)
 
 void AValdoriaGuardian::GiveTeamCredits(uint8 Team, float Near, float Far) const
 {
-	for (FConstPlayerControllerIterator It = GetWorld()->GetPlayerControllerIterator(); It; ++It)
+	// Every hero of the team (players and bots, turn 46): credits for players, scoreboard gold for all,
+	// and XP = 1.5 x the credits (provisional).
+	for (TActorIterator<AValdoriaHeroCharacter> It(GetWorld()); It; ++It)
 	{
-		AValdoriaPlayerController* PC = Cast<AValdoriaPlayerController>(It->Get());
-		const AValdoriaHeroCharacter* H = PC ? Cast<AValdoriaHeroCharacter>(PC->GetPawn()) : nullptr;
-		if (!H || H->TeamId != Team)
+		AValdoriaHeroCharacter* H = *It;
+		if (!H || H->TeamId != Team || !H->IsHeroUnit())
 		{
 			continue;
 		}
 		const float Amount = FVector::Dist2D(H->GetActorLocation(), StartLocation) <= AreaRadius ? Near : Far;
-		if (Amount > 0.f)
+		if (Amount <= 0.f)
+		{
+			continue;
+		}
+		if (AValdoriaPlayerController* PC = Cast<AValdoriaPlayerController>(H->GetController()))
 		{
 			PC->AddCredits(Amount);
 		}
+		H->Stats.Gold += Amount;
+		H->GainXP(Amount * 1.5f);
 	}
 }
 
@@ -374,6 +381,7 @@ void AValdoriaGuardian::CompleteSeal(AValdoriaHeroCharacter* By)
 	Roar(true);
 	if (By)
 	{
+		++By->Stats.Seals; // scoreboard "objectives": spots finished for good
 		GiveTeamCredits(By->TeamId, CreditsSealNear, CreditsSealTeam);
 	}
 	// Seal mark: a red circle on the ground where the guardian stood.
@@ -441,7 +449,7 @@ void AValdoriaGuardian::TickSpotState(float DeltaSeconds)
 		if (Linked != LinkedSpots)
 		{
 			LinkedSpots = Linked;
-			const float NewMax = GuardianHealth + PerSpotHealth * Linked;
+			const float NewMax = (GuardianHealth + PerSpotHealth * Linked) * ValdoriaStatScale;
 			const float Frac = GetHealth() / FMath::Max(1.f, GetMaxHealth());
 			AbilitySystem->SetNumericAttributeBase(UValdoriaAttributeSet::GetMaxHealthAttribute(), NewMax);
 			AbilitySystem->SetNumericAttributeBase(UValdoriaAttributeSet::GetHealthAttribute(), NewMax * Frac);

@@ -44,4 +44,6 @@ protected:
 	float Reach = 1.f;
 	FLinearColor Color = FLinearColor::White;
 	UPROPERTY() TArray<TObjectPtr<UStaticMeshComponent>> Segments;
+	/** Turn 46 (owner's concept image): one instanced component per light strand (rainbow bands). */
+	UPROPERTY() TArray<TObjectPtr<class UInstancedStaticMeshComponent>> Strands;
 };

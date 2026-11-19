@@ -48,6 +48,10 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Sobrevivência", meta = (ClampMin = "1"))
 	float MaxHealth = 225.f;
 
+	/** V punch damage (design units, x ValdoriaStatScale at runtime). Every hero has the punch (owner, turn 46). */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Sobrevivência", meta = (ClampMin = "0"))
+	float MeleeDamage = 30.f;
+
 	/** Armadura: absorve dano e reduz cada acerto (ver ArmorDamageReduction). */
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Sobrevivência", meta = (ClampMin = "0"))
 	float MaxArmor = 0.f;

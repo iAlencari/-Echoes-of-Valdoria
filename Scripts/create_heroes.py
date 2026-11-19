@@ -46,6 +46,7 @@ if not eal.does_asset_exist(MAT):
     mat.set_editor_property("blend_mode", unreal.BlendMode.BLEND_TRANSLUCENT)
     mat.set_editor_property("shading_model", unreal.MaterialShadingModel.MSM_UNLIT)
     mat.set_editor_property("two_sided", True)
+    mat.set_editor_property("used_with_instanced_static_meshes", True)  # turn 46: Bifrost strands are instanced
     cor = mel.create_material_expression(mat, unreal.MaterialExpressionVectorParameter, -600, 0)
     cor.set_editor_property("parameter_name", "Cor")
     cor.set_editor_property("default_value", unreal.LinearColor(1, 0.5, 0.1, 1))

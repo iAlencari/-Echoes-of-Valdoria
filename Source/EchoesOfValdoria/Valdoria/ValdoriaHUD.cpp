@@ -172,12 +172,25 @@ void AValdoriaHUD::DrawHUD()
 	{
 		DrawMinimap(Hero, W, H);
 	}
+	DrawTopHeroBar(Hero, W, H);
+	if (Hero && Hero->bUsesLevels && !Hero->IsDead())
+	{
+		DrawLevelInfo(Hero, W, H);
+	}
+	if (bShowScoreboard)
+	{
+		DrawScoreboard(Hero, W, H);
+	}
+	if (bShowDeathRecap)
+	{
+		DrawDeathRecap(Hero, W, H);
+	}
 	DrawStatusLine(Hero, W, H);
 	DrawDamageFeedback(Hero, W, H);
 
 	if (Hero->IsDead())
 	{
-		DrawLabel(TEXT("VOCÊ FOI ABATIDO — renascendo..."), W * 0.5f, H * 0.4f, EnemyColor, 1.f * Scale, true, true);
+		DrawLabel(Hero->RespawnAt > GetWorld()->GetTimeSeconds() ? FString::Printf(TEXT("VOCÊ FOI ABATIDO — renasce em %.0f s  (segure Y: resumo da morte)"), FMath::CeilToFloat(Hero->RespawnAt - GetWorld()->GetTimeSeconds())) : FString(TEXT("VOCÊ FOI ABATIDO — renascendo...")), W * 0.5f, H * 0.4f, EnemyColor, 1.f * Scale, true, true);
 	}
 }
 
@@ -280,7 +293,16 @@ void AValdoriaHUD::DrawWorldHealthBars(AValdoriaHeroCharacter* Viewer)
 				continue;
 			}
 		}
-		const FLinearColor Color = bEnemy ? EnemyColor : AllyColor;
+		FLinearColor Color = bEnemy ? EnemyColor : AllyColor;
+		// Allied heroes (owner, turn 46): green above half, yellow down to 25%, red blinking below with a heart
+		// (a cross for viewers who heal: "this one needs you").
+		const float Frac = Other->GetHealth() / FMath::Max(1.f, Other->GetMaxHealth());
+		const bool bAllyHero = !bEnemy && Other->IsHeroUnit();
+		if (bAllyHero)
+		{
+			Color = Frac > 0.5f ? FLinearColor(0.3f, 0.95f, 0.4f) : Frac > 0.25f ? FLinearColor(1.f, 0.85f, 0.2f)
+				: FLinearColor(1.f, 0.2f, 0.2f) * (0.55f + 0.45f * FMath::Abs(FMath::Sin(GetWorld()->GetTimeSeconds() * 6.f)));
+		}
 		const float BarW = FMath::Clamp(140.f * 1200.f / FMath::Max(Dist, 1.f), 70.f, 150.f) * S;
 		const float BarH = 9.f * S;
 		const float X = Screen.X - BarW * 0.5f;
@@ -290,10 +312,66 @@ void AValdoriaHUD::DrawWorldHealthBars(AValdoriaHeroCharacter* Viewer)
 		{
 			DrawSkull(X - 12.f * S, Y + BarH * 0.5f, 11.f * S, Color);
 		}
-		if (const UValdoriaHeroDefinition* Def = Other->GetHeroDefinition())
+		else if (bAllyHero && Frac <= 0.25f)
+		{
+			const bool bHealer = Viewer && Viewer->GetHeroDefinition() && Viewer->GetHeroDefinition()->Roles.Contains(EValdoriaHeroRole::Rearguard);
+			const float Cx = X - 14.f * S;
+			const float Cy = Y + BarH * 0.5f;
+			if (bHealer)
+			{
+				DrawRect(Cx - 2.5f * S, Cy - 8.f * S, 5.f * S, 16.f * S, Color); // cross: "needs your healing"
+				DrawRect(Cx - 8.f * S, Cy - 2.5f * S, 16.f * S, 5.f * S, Color);
+			}
+			else
+			{
+				DrawLabel(TEXT("\u2665"), Cx, Cy - 10.f * S, Color, 1.2f * S, true);
+			}
+		}
+		if (!bEnemy && Other->GetHeroDefinition()) // owner (turn 46): enemy bars show no numbers
 		{
 			DrawLabel(FString::Printf(TEXT("%.0f"), Other->GetHealth() + Other->GetArmor() + Other->GetShield()),
 				Screen.X, Y - 22.f * S, Color, 1.0f * S, true);
+		}
+		if (bAllyHero)
+		{
+			// Diamond in the middle of the bar: dark grey, green when the ally's supreme is ready (owner).
+			const bool bUlt = Other->IsUltimateReady() && !Other->IsSlotLocked(EValdoriaAbilitySlot::Ultimate);
+			const float Cx = X + BarW * 0.5f, Cy = Y + BarH * 0.5f, R = 8.f * S;
+			const FLinearColor Edge(0.18f, 0.18f, 0.2f), Fill = bUlt ? FLinearColor(0.25f, 1.f, 0.4f) : FLinearColor(0.3f, 0.3f, 0.33f);
+			for (int32 Pass = 0; Pass < 2; ++Pass)
+			{
+				const float RR = Pass == 0 ? R : R - 2.5f * S;
+				const FLinearColor C = Pass == 0 ? Edge : Fill;
+				FCanvasTriangleItem Tri(FVector2D(Cx, Cy - RR), FVector2D(Cx + RR, Cy), FVector2D(Cx, Cy + RR), GWhiteTexture);
+				Tri.SetColor(C);
+				Canvas->DrawItem(Tri);
+				FCanvasTriangleItem Tri2(FVector2D(Cx, Cy - RR), FVector2D(Cx - RR, Cy), FVector2D(Cx, Cy + RR), GWhiteTexture);
+				Tri2.SetColor(C);
+				Canvas->DrawItem(Tri2);
+			}
+			if (bShowAllyCooldowns)
+			{
+				// 1/2/3/4 above the name: seconds left, or the key in green when ready; 4 shows the supreme charge.
+				const EValdoriaAbilitySlot Slots[4] = { EValdoriaAbilitySlot::Ability1, EValdoriaAbilitySlot::Ability2, EValdoriaAbilitySlot::Ability3, EValdoriaAbilitySlot::Ultimate };
+				const TCHAR* Keys[4] = { TEXT("1"), TEXT("2"), TEXT("3"), TEXT("4") };
+				const float Box = 22.f * S, BGap = 3.f * S;
+				float BX = Screen.X - (Box * 4.f + BGap * 3.f) * 0.5f;
+				const float BY = Y - 50.f * S;
+				for (int32 i = 0; i < 4; ++i)
+				{
+					const bool bLocked = Other->IsSlotLocked(Slots[i]) || !Other->FindAbilityEntry(Slots[i]);
+					const float Left = Other->GetCooldownRemaining(Slots[i]);
+					FString Txt = Keys[i];
+					FLinearColor C(0.35f, 1.f, 0.45f);
+					if (bLocked) { Txt = TEXT("-"); C = FLinearColor(0.45f, 0.45f, 0.5f); }
+					else if (i == 3 && !Other->IsUltimateReady()) { Txt = FString::Printf(TEXT("%d%%"), FMath::FloorToInt(Other->GetUltimatePercent() * 100.f)); C = FLinearColor(0.9f, 0.9f, 0.95f); }
+					else if (Left > 0.f) { Txt = FString::Printf(TEXT("%.0f"), FMath::CeilToFloat(Left)); C = FLinearColor(1.f, 0.6f, 0.4f); }
+					DrawRect(BX, BY, Box, Box, FLinearColor(0.f, 0.f, 0.f, 0.7f));
+					DrawFrame(BX, BY, Box, Box, C * 0.8f, 1.f);
+					DrawLabel(Txt, BX + Box * 0.5f, BY + 3.f * S, C, 0.7f * S, true);
+					BX += Box + BGap;
+				}
+			}
 		}
 		// Stacks I put on this hero (only I see them), to the right of the bar.
 		float StX = X + BarW + 6.f * S;
@@ -787,7 +865,7 @@ void AValdoriaHUD::DrawDamageFeedback(AValdoriaHeroCharacter* Hero, float W, flo
 		const float Rel = FMath::DegreesToRadians(FRotator::NormalizeAxis(To.Rotation().Yaw - ViewYaw));
 		const float Alpha = 1.f - (Now - D.Time) / 1.2f;
 		const float Radius = 150.f * S;
-		const float Half = FMath::DegreesToRadians(FMath::Clamp(10.f + D.Damage * 0.4f, 12.f, 40.f));
+		const float Half = FMath::DegreesToRadians(FMath::Clamp(10.f + D.Damage / ValdoriaStatScale * 0.4f, 12.f, 40.f));
 		const FLinearColor Color(1.f, 0.15f, 0.1f, 0.85f * Alpha);
 		const int32 Segments = 8;
 		for (int32 i = 0; i < Segments; ++i)
@@ -984,4 +1062,229 @@ void AValdoriaHUD::DrawMinimap(AValdoriaHeroCharacter* Hero, float W, float H)
 		DrawLine(BL.X, BL.Y, BR.X, BR.Y, FLinearColor::White, 2.f * S);
 	}
 	DrawFrame(X0 - 3.f * S, Y0 - 3.f * S, Size + 6.f * S, Size + 6.f * S, FLinearColor(0.97f, 0.83f, 0.48f, 0.6f), 1.5f * S);
+}
+
+// ------------------------------------------------------------------ levels, top bar, scoreboard, death recap (turn 46)
+
+void AValdoriaHUD::DrawLevelInfo(AValdoriaHeroCharacter* Hero, float W, float H)
+{
+	// Same layout math as DrawAbilities: rank pips under 1/2/3/4, "CTRL +" when a point can go there, lock at rank 0.
+	const float S = Scale;
+	const float Size = 64.f * S, Gap = 12.f * S, ExtraSize = 48.f * S, UltSize = 86.f * S;
+	const float Y = H - 112.f * S;
+	const bool bHasExtra = Hero->FindAbilityEntry(EValdoriaAbilitySlot::AbilityExtra) != nullptr;
+	const float TotalW = (bHasExtra ? ExtraSize + Gap : 0.f) + (Size + Gap) * 3.f + UltSize;
+	float X = W * 0.5f - TotalW * 0.5f + (bHasExtra ? ExtraSize + Gap : 0.f);
+	const FLinearColor Gold(0.97f, 0.83f, 0.48f);
+	const float Blink = 0.6f + 0.4f * FMath::Sin(GetWorld()->GetTimeSeconds() * 5.f);
+	auto Pips = [&](EValdoriaAbilitySlot Slot, float SX, float SY, float SSize)
+	{
+		const int32 Rank = Hero->GetAbilityRank(Slot);
+		if (Rank <= 0)
+		{
+			DrawRect(SX, SY, SSize, SSize, FLinearColor(0.f, 0.f, 0.f, 0.65f));
+			DrawLabel(TEXT("BLOQ."), SX + SSize * 0.5f, SY + SSize * 0.38f, FLinearColor(0.7f, 0.7f, 0.75f), 0.8f * S, true);
+		}
+		const float PipW = (SSize - 8.f * S) / 5.f;
+		for (int32 i = 0; i < 5; ++i)
+		{
+			DrawRect(SX + 4.f * S + i * PipW + 1.f * S, SY + SSize + 4.f * S, PipW - 2.f * S, 4.f * S, i < Rank ? Gold : FLinearColor(0.2f, 0.2f, 0.25f, 0.9f));
+		}
+		if (Hero->CanUpgrade(Slot))
+		{
+			DrawRect(SX, SY - 20.f * S, SSize, 16.f * S, FLinearColor(0.f, 0.f, 0.f, 0.6f));
+			DrawLabel(TEXT("CTRL +"), SX + SSize * 0.5f, SY - 20.f * S, Gold * Blink, 0.75f * S, true);
+		}
+	};
+	for (EValdoriaAbilitySlot Slot : { EValdoriaAbilitySlot::Ability1, EValdoriaAbilitySlot::Ability2, EValdoriaAbilitySlot::Ability3 })
+	{
+		Pips(Slot, X, Y, Size);
+		X += Size + Gap;
+	}
+	Pips(EValdoriaAbilitySlot::Ultimate, X, Y - (UltSize - Size) * 0.5f, UltSize);
+
+	// Level badge and XP bar to the left of the row.
+	const float BX = W * 0.5f - TotalW * 0.5f - 70.f * S;
+	const float BY = Y + 6.f * S;
+	DrawRect(BX, BY, 52.f * S, 52.f * S, FLinearColor(0.f, 0.f, 0.f, 0.7f));
+	DrawFrame(BX, BY, 52.f * S, 52.f * S, Gold, 2.f);
+	DrawLabel(FString::Printf(TEXT("%d"), Hero->Level), BX + 26.f * S, BY + 8.f * S, FLinearColor::White, 1.6f * S, true);
+	DrawLabel(TEXT("NÍVEL"), BX + 26.f * S, BY + 36.f * S, Gold, 0.65f * S, true);
+	const float XPFrac = Hero->Level >= 20 ? 1.f : FMath::Clamp(Hero->XP / FMath::Max(1.f, Hero->XPToNextLevel()), 0.f, 1.f);
+	DrawRect(BX, BY + 56.f * S, 52.f * S, 5.f * S, FLinearColor(0.15f, 0.15f, 0.2f, 0.9f));
+	DrawRect(BX, BY + 56.f * S, 52.f * S * XPFrac, 5.f * S, FLinearColor(0.55f, 0.8f, 1.f));
+	if (Hero->AbilityPoints > 0)
+	{
+		DrawLabel(FString::Printf(TEXT("%d ponto(s)"), Hero->AbilityPoints), BX + 26.f * S, BY - 20.f * S, Gold * Blink, 0.75f * S, true);
+	}
+	if (Hero->ElevationPoints > 0)
+	{
+		DrawLabel(FString::Printf(TEXT("%d elevação"), Hero->ElevationPoints), BX + 26.f * S, BY - 36.f * S, FLinearColor(0.8f, 0.6f, 1.f), 0.7f * S, true);
+	}
+}
+
+void AValdoriaHUD::DrawTopHeroBar(AValdoriaHeroCharacter* Hero, float W, float H)
+{
+	// Heroes of each team at the top (owner): allies left, enemies right, under the score line. Health only for
+	// allies and for enemies your team can see; dead = grey.
+	UWorld* World = GetWorld();
+	if (!World || !Hero)
+	{
+		return;
+	}
+	TArray<AValdoriaHeroCharacter*> Allies, Enemies;
+	for (TActorIterator<AValdoriaHeroCharacter> It(World); It; ++It)
+	{
+		if (It->IsHeroUnit())
+		{
+			(Hero->IsEnemy(*It) ? Enemies : Allies).Add(*It);
+		}
+	}
+	if (Allies.Num() + Enemies.Num() <= 1)
+	{
+		return;
+	}
+	const float S = Scale;
+	const float Box = 34.f * S, Gap = 4.f * S, Y = 52.f * S;
+	const UValdoriaVisionSubsystem* Vision = World->GetSubsystem<UValdoriaVisionSubsystem>();
+	auto DrawOne = [&](AValdoriaHeroCharacter* U, float X, bool bEnemy)
+	{
+		const UValdoriaHeroDefinition* Def = U->GetHeroDefinition();
+		const FLinearColor Team = bEnemy ? FLinearColor(1.f, 0.3f, 0.25f) : FLinearColor(0.35f, 0.7f, 1.f);
+		const bool bSeen = !bEnemy || !Vision || Vision->IsRevealedTo(U, Hero->TeamId);
+		DrawRect(X, Y, Box, Box, FLinearColor(0.f, 0.f, 0.f, 0.7f));
+		const FString Initial = Def && !Def->DisplayName.IsEmpty() ? Def->DisplayName.ToString().Left(2) : FString(TEXT("Re"));
+		const FLinearColor C = U->IsDead() ? FLinearColor(0.35f, 0.35f, 0.38f) : (Def ? Def->ThemeColor : FLinearColor::White);
+		DrawLabel(Initial, X + Box * 0.5f, Y + Box * 0.18f, C, 1.1f * S, true);
+		DrawFrame(X, Y, Box, Box, U == Hero ? FLinearColor::White : Team, U == Hero ? 2.f : 1.f);
+		if (U->bUsesLevels)
+		{
+			DrawLabel(FString::Printf(TEXT("%d"), U->Level), X + Box - 6.f * S, Y + Box - 12.f * S, FLinearColor(0.97f, 0.83f, 0.48f), 0.6f * S, true);
+		}
+		if (U->IsDead() && U->RespawnAt > World->GetTimeSeconds())
+		{
+			DrawLabel(FString::Printf(TEXT("%.0f"), FMath::CeilToFloat(U->RespawnAt - World->GetTimeSeconds())), X + Box * 0.5f, Y + Box * 0.55f, FLinearColor::White, 0.7f * S, true);
+		}
+		const float Frac = U->IsDead() ? 0.f : U->GetHealth() / FMath::Max(1.f, U->GetMaxHealth());
+		DrawRect(X, Y + Box + 2.f * S, Box, 4.f * S, FLinearColor(0.1f, 0.1f, 0.12f, 0.9f));
+		if (bSeen)
+		{
+			DrawRect(X, Y + Box + 2.f * S, Box * Frac, 4.f * S, Team);
+		}
+		else
+		{
+			DrawLabel(TEXT("?"), X + Box * 0.5f, Y + Box + 2.f * S, Team, 0.6f * S, true);
+		}
+	};
+	float X = W * 0.5f - 20.f * S - Box;
+	for (AValdoriaHeroCharacter* U : Allies)
+	{
+		DrawOne(U, X, false);
+		X -= Box + Gap;
+	}
+	X = W * 0.5f + 20.f * S;
+	for (AValdoriaHeroCharacter* U : Enemies)
+	{
+		DrawOne(U, X, true);
+		X += Box + Gap;
+	}
+}
+
+void AValdoriaHUD::DrawScoreboard(AValdoriaHeroCharacter* Hero, float W, float H)
+{
+	UWorld* World = GetWorld();
+	if (!World)
+	{
+		return;
+	}
+	TArray<AValdoriaHeroCharacter*> Units;
+	for (TActorIterator<AValdoriaHeroCharacter> It(World); It; ++It)
+	{
+		if (It->IsHeroUnit())
+		{
+			Units.Add(*It);
+		}
+	}
+	const uint8 MyTeam = Hero ? Hero->TeamId : 0;
+	Units.Sort([MyTeam](const AValdoriaHeroCharacter& A, const AValdoriaHeroCharacter& B)
+	{
+		const bool AMine = A.TeamId == MyTeam, BMine = B.TeamId == MyTeam;
+		if (AMine != BMine) return AMine;
+		if (A.TeamId != B.TeamId) return A.TeamId < B.TeamId;
+		return A.Stats.Kills * 2 + A.Stats.Assists > B.Stats.Kills * 2 + B.Stats.Assists;
+	});
+	const float S = Scale;
+	const float RowH = 30.f * S;
+	const float PW = 1100.f * S;
+	const float PH = (Units.Num() + 3) * RowH;
+	const float X0 = W * 0.5f - PW * 0.5f, Y0 = H * 0.5f - PH * 0.5f;
+	DrawRect(X0, Y0, PW, PH, FLinearColor(0.02f, 0.025f, 0.04f, 0.92f));
+	DrawFrame(X0, Y0, PW, PH, FLinearColor(0.97f, 0.83f, 0.48f, 0.7f), 1.5f);
+	const float Cols[] = { 20.f, 300.f, 380.f, 520.f, 640.f, 760.f, 880.f, 1000.f };
+	const TCHAR* Heads[] = { TEXT("HERÓI"), TEXT("NÍVEL"), TEXT("K / D / A"), TEXT("OURO"), TEXT("DANO"), TEXT("CURA"), TEXT("TANQUE"), TEXT("OBJETIVOS") };
+	for (int32 c = 0; c < 8; ++c)
+	{
+		DrawLabel(Heads[c], X0 + Cols[c] * S, Y0 + 10.f * S, FLinearColor(0.97f, 0.83f, 0.48f), 0.85f * S);
+	}
+	float Y = Y0 + RowH * 1.4f;
+	int32 LastTeam = -1;
+	for (AValdoriaHeroCharacter* U : Units)
+	{
+		if (LastTeam != -1 && LastTeam != U->TeamId)
+		{
+			Y += RowH * 0.5f; // gap between teams
+		}
+		LastTeam = U->TeamId;
+		const bool bMine = U->TeamId == MyTeam;
+		const FLinearColor C = U == Hero ? FLinearColor::White : (bMine ? FLinearColor(0.55f, 0.8f, 1.f) : FLinearColor(1.f, 0.5f, 0.45f));
+		if (U == Hero)
+		{
+			DrawRect(X0 + 6.f * S, Y - 3.f * S, PW - 12.f * S, RowH - 2.f * S, FLinearColor(1.f, 1.f, 1.f, 0.06f));
+		}
+		const AValdoriaHeroCharacter::FMatchStats& St = U->Stats;
+		const FString Cells[] = {
+			U->GetUnitName() + (U->IsDead() ? FString(TEXT("  (morto)")) : FString()),
+			U->bUsesLevels ? FString::FromInt(U->Level) : FString(TEXT("-")),
+			FString::Printf(TEXT("%d / %d / %d"), St.Kills, St.Deaths, St.Assists),
+			FString::Printf(TEXT("%.0f"), St.Gold),
+			FString::Printf(TEXT("%.0f"), St.Damage),
+			FString::Printf(TEXT("%.0f"), St.Healing),
+			FString::Printf(TEXT("%.0f"), St.DamageTaken),
+			FString::FromInt(St.Seals) };
+		for (int32 c = 0; c < 8; ++c)
+		{
+			DrawLabel(Cells[c], X0 + Cols[c] * S, Y, C, 0.9f * S);
+		}
+		Y += RowH;
+	}
+	DrawLabel(TEXT("Tanque = dano recebido  •  Objetivos = guardiões selados de vez"), X0 + 20.f * S, Y0 + PH - 24.f * S, FLinearColor(0.6f, 0.62f, 0.68f), 0.75f * S);
+}
+
+void AValdoriaHUD::DrawDeathRecap(AValdoriaHeroCharacter* Hero, float W, float H)
+{
+	const float S = Scale;
+	const AValdoriaHeroCharacter::FDeathRecap* R = Hero ? &Hero->LastDeathRecap : nullptr;
+	const float PW = 620.f * S;
+	const int32 N = R && R->bValid ? FMath::Min(R->Lines.Num(), 10) : 0;
+	const float PH = (N + 4) * 28.f * S;
+	const float X0 = W * 0.5f - PW * 0.5f, Y0 = H * 0.3f;
+	DrawRect(X0, Y0, PW, PH, FLinearColor(0.03f, 0.02f, 0.03f, 0.92f));
+	DrawFrame(X0, Y0, PW, PH, FLinearColor(1.f, 0.4f, 0.35f, 0.8f), 1.5f);
+	if (!R || !R->bValid)
+	{
+		DrawLabel(TEXT("Você ainda não morreu nesta partida."), X0 + PW * 0.5f, Y0 + 20.f * S, FLinearColor::White, 1.f * S, true);
+		return;
+	}
+	DrawLabel(FString::Printf(TEXT("ÚLTIMA MORTE  •  abatido por %s"), *R->Killer), X0 + 20.f * S, Y0 + 12.f * S, FLinearColor(1.f, 0.5f, 0.45f), 1.f * S);
+	DrawLabel(FString::Printf(TEXT("Último golpe: %s  •  dano nos últimos 10 s: %.0f"), *R->KillerSource, R->Total), X0 + 20.f * S, Y0 + 40.f * S, FLinearColor(0.8f, 0.8f, 0.85f), 0.8f * S);
+	float Y = Y0 + 80.f * S;
+	for (int32 i = 0; i < N; ++i)
+	{
+		const AValdoriaHeroCharacter::FDamageLogEntry& L = R->Lines[i];
+		const float Frac = L.Amount / FMath::Max(1.f, R->Total);
+		DrawRect(X0 + 20.f * S, Y + 18.f * S, (PW - 40.f * S) * Frac, 4.f * S, FLinearColor(1.f, 0.35f, 0.3f, 0.8f));
+		DrawLabel(FString::Printf(TEXT("%s  —  %s"), *L.Attacker, *L.Source), X0 + 20.f * S, Y, FLinearColor::White, 0.85f * S);
+		DrawLabel(FString::Printf(TEXT("%.0f  (%.0f%%)"), L.Amount, Frac * 100.f), X0 + PW - 140.f * S, Y, FLinearColor(1.f, 0.85f, 0.6f), 0.85f * S);
+		Y += 28.f * S;
+	}
 }

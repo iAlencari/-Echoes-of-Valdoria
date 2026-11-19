@@ -121,7 +121,7 @@ public:
 
 	/** Height of the horizontal part over the lane, and of the vertical start at the base (cm). */
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Bifrost")
-	float TrailHeight = 700.f;
+	float TrailHeight = 900.f; // turn 46: a bit higher (owner)
 
 	/** Minions (turn 45): small, weak lane units so heroes and guardians are easy to tell apart. A wave per lane per
 	 *  team every MinionWaveSeconds, first one at MinionFirstWave. MaxMinions caps the total alive (FPS). */
@@ -151,6 +151,7 @@ class ECHOESOFVALDORIA_API AValdoriaMobaMode : public AValdoriaGameMode
 public:
 	AValdoriaMobaMode();
 	virtual void StartPlay() override;
+	virtual float GetRespawnDelayFor(const AValdoriaHeroCharacter* Victim) const override;
 	/** Lane route of a team (0-1) and lane (0-2), for the minimap (turn 46). */
 	const TArray<FVector>& GetLaneRoute(int32 InTeam, int32 Lane) const { return LaneRoutes[FMath::Clamp(InTeam, 0, 1)][FMath::Clamp(Lane, 0, 2)]; }
 	virtual void Tick(float DeltaSeconds) override;

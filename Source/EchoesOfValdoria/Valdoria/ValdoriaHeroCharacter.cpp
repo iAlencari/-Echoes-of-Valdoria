@@ -37,6 +37,8 @@
 #include "ValdoriaAudio.h"
 #include "ValdoriaLaneRail.h"
 #include "ValdoriaGuardian.h"
+#include "ValdoriaMobaMode.h"
+#include "ValdoriaShop.h"
 #include "Sound/SoundBase.h"
 #include "EngineUtils.h"
 #include "GameFramework/PlayerStart.h"
@@ -281,12 +283,12 @@ void AValdoriaHeroCharacter::ApplyHeroDefinition()
 
 	if (HasAuthority())
 	{
-		AbilitySystem->SetNumericAttributeBase(UValdoriaAttributeSet::GetMaxHealthAttribute(), Def->MaxHealth + ShopBonus.MaxHealth);
-		AbilitySystem->SetNumericAttributeBase(UValdoriaAttributeSet::GetHealthAttribute(), Def->MaxHealth + ShopBonus.MaxHealth);
-		AbilitySystem->SetNumericAttributeBase(UValdoriaAttributeSet::GetMaxArmorAttribute(), Def->MaxArmor);
-		AbilitySystem->SetNumericAttributeBase(UValdoriaAttributeSet::GetArmorAttribute(), Def->MaxArmor);
-		AbilitySystem->SetNumericAttributeBase(UValdoriaAttributeSet::GetMaxShieldAttribute(), Def->MaxShield);
-		AbilitySystem->SetNumericAttributeBase(UValdoriaAttributeSet::GetShieldAttribute(), Def->MaxShield);
+		AbilitySystem->SetNumericAttributeBase(UValdoriaAttributeSet::GetMaxHealthAttribute(), (Def->MaxHealth + ShopBonus.MaxHealth) * ValdoriaStatScale);
+		AbilitySystem->SetNumericAttributeBase(UValdoriaAttributeSet::GetHealthAttribute(), (Def->MaxHealth + ShopBonus.MaxHealth) * ValdoriaStatScale);
+		AbilitySystem->SetNumericAttributeBase(UValdoriaAttributeSet::GetMaxArmorAttribute(), Def->MaxArmor * ValdoriaStatScale);
+		AbilitySystem->SetNumericAttributeBase(UValdoriaAttributeSet::GetArmorAttribute(), Def->MaxArmor * ValdoriaStatScale);
+		AbilitySystem->SetNumericAttributeBase(UValdoriaAttributeSet::GetMaxShieldAttribute(), Def->MaxShield * ValdoriaStatScale);
+		AbilitySystem->SetNumericAttributeBase(UValdoriaAttributeSet::GetShieldAttribute(), Def->MaxShield * ValdoriaStatScale);
 	}
 	bHasWeaponOverride = false;
 	bPendingSlam = false;
@@ -567,12 +569,25 @@ void AValdoriaHeroCharacter::Input_FirePressed()
 void AValdoriaHeroCharacter::Input_FireReleased() { bFireHeld = false; }
 void AValdoriaHeroCharacter::Input_Secondary() { bSecondaryHeld = true; TryActivateSlot(EValdoriaAbilitySlot::SecondaryFire); }
 void AValdoriaHeroCharacter::Input_SecondaryReleased() { bSecondaryHeld = false; }
-void AValdoriaHeroCharacter::Input_Ability1() { TryActivateSlot(EValdoriaAbilitySlot::Ability1); }
-void AValdoriaHeroCharacter::Input_Ability2() { TryActivateSlot(EValdoriaAbilitySlot::Ability2); }
-void AValdoriaHeroCharacter::Input_Ability3() { TryActivateSlot(EValdoriaAbilitySlot::Ability3); }
+// Ctrl + 1/2/3/4 spends a level point on that ability (MOBA levels, turn 46) instead of casting it.
+static bool ValdoriaCtrlHeld(const AController* C)
+{
+	const APlayerController* PC = Cast<APlayerController>(C);
+	return PC && (PC->IsInputKeyDown(EKeys::LeftControl) || PC->IsInputKeyDown(EKeys::RightControl));
+}
+void AValdoriaHeroCharacter::Input_Ability1() { if (bUsesLevels && ValdoriaCtrlHeld(Controller)) { TryUpgrade(EValdoriaAbilitySlot::Ability1); return; } TryActivateSlot(EValdoriaAbilitySlot::Ability1); }
+void AValdoriaHeroCharacter::Input_Ability2() { if (bUsesLevels && ValdoriaCtrlHeld(Controller)) { TryUpgrade(EValdoriaAbilitySlot::Ability2); return; } TryActivateSlot(EValdoriaAbilitySlot::Ability2); }
+void AValdoriaHeroCharacter::Input_Ability3() { if (bUsesLevels && ValdoriaCtrlHeld(Controller)) { TryUpgrade(EValdoriaAbilitySlot::Ability3); return; } TryActivateSlot(EValdoriaAbilitySlot::Ability3); }
 void AValdoriaHeroCharacter::Input_AbilityExtra() { TryActivateSlot(EValdoriaAbilitySlot::AbilityExtra); }
 void AValdoriaHeroCharacter::Input_Ultimate()
 {
+	if (bUsesLevels && ValdoriaCtrlHeld(Controller))
+	{
+		TryUpgrade(EValdoriaAbilitySlot::Ultimate);
+		bUltUpgradePress = true; // the release must not cast or switch element
+		return;
+	}
+	bUltUpgradePress = false;
 	// Hold-to-cast ultimate (Kay): start counting; a quick tap switches element instead (see Input_UltimateReleased).
 	if (ActiveDefinition && ActiveDefinition->UltimateHoldSeconds > 0.f)
 	{
@@ -706,7 +721,7 @@ void AValdoriaHeroCharacter::SwapToForm(FName FormId)
 		// Ariel passive (turn 45): a bonus on arriving in the new form, from that form's swap entry.
 		if (const FValdoriaAbilityEntry* Swap = Self->FindAbilityEntry(EValdoriaAbilitySlot::AbilityExtra))
 		{
-			if (Swap->Magnitude > 0.f) { Self->AddOverheal(Swap->Magnitude, Swap->Magnitude, Swap->Magnitude / 6.f); }
+			if (Swap->Magnitude > 0.f) { Self->AddOverheal(Swap->Magnitude * ValdoriaStatScale, Swap->Magnitude * ValdoriaStatScale, Swap->Magnitude * ValdoriaStatScale / 6.f); }
 			if (Swap->SecondaryMagnitude > 0.f) { Self->ApplySpeedBuff(Swap->SecondaryMagnitude, 2.f); }
 		}
 		Self->PlayAreaEffect(Self->GetActorLocation(), 220.f, Def->ThemeColor);
@@ -892,7 +907,7 @@ void AValdoriaHeroCharacter::StartCooldown(EValdoriaAbilitySlot Slot, float Seco
 	// Redução de recarga da loja (o ritmo de tiro do botão esquerdo não muda).
 	if (Slot != EValdoriaAbilitySlot::PrimaryFire)
 	{
-		Seconds *= 1.f - FMath::Clamp(ShopBonus.CooldownReduction, 0.f, 0.6f);
+		Seconds *= 1.f - FMath::Clamp(ShopBonus.CooldownReduction, 0.f, 0.3f); // owner: items cap at 30% (50% only with special effects, later)
 	}
 	CooldownEndTimes.Add(Slot, GetWorld()->GetTimeSeconds() + FMath::Max(0.f, Seconds));
 }
@@ -978,10 +993,10 @@ void AValdoriaHeroCharacter::SetShopBonus(const FValdoriaShopBonus& Bonus)
 	if (HasAuthority() && ActiveDefinition)
 	{
 		// Vida máxima nova; a vida atual sobe junto com o que foi ganho.
-		const float NewMax = ActiveDefinition->MaxHealth + ShopBonus.MaxHealth;
+		const float NewMax = (ActiveDefinition->MaxHealth + ShopBonus.MaxHealth) * ValdoriaStatScale;
 		AbilitySystem->SetNumericAttributeBase(UValdoriaAttributeSet::GetMaxHealthAttribute(), NewMax);
 		AbilitySystem->SetNumericAttributeBase(UValdoriaAttributeSet::GetHealthAttribute(),
-			FMath::Clamp(GetHealth() + (ShopBonus.MaxHealth - OldExtraHealth), 1.f, NewMax));
+			FMath::Clamp(GetHealth() + (ShopBonus.MaxHealth - OldExtraHealth) * ValdoriaStatScale, 1.f, NewMax));
 	}
 }
 
@@ -1110,6 +1125,7 @@ void AValdoriaHeroCharacter::HealTarget(AActor* Target, float Amount)
 	UAbilitySystemComponent* TargetASC = UAbilitySystemBlueprintLibrary::GetAbilitySystemComponent(Target);
 	AValdoriaHeroCharacter* Other = Cast<AValdoriaHeroCharacter>(Target);
 	const FValdoriaWeaponStats& MyWeapon = GetWeaponStats();
+	Amount *= ValdoriaStatScale; // data values are design units (see ValdoriaStatScale)
 	if (!HasAuthority() || !TargetASC || Amount <= 0.f || !Other || Other->IsDead()
 		|| (Other->GetHealth() >= Other->GetMaxHealth() && MyWeapon.OverhealMax <= 0.f))
 	{
@@ -1126,6 +1142,7 @@ void AValdoriaHeroCharacter::HealTarget(AActor* Target, float Amount)
 		{
 			Other->AddOverheal(Healed - Missing, Other->GetMaxHealth() * MyWeapon.OverhealMax, MyWeapon.OverhealDecay);
 		}
+		Stats.Healing += FMath::Min(Healed, Missing); // scoreboard: real healing, not overheal
 		Spec.Data->SetSetByCallerMagnitude(ValdoriaTags::Data_Heal, Healed);
 		if (Target != this)
 		{
@@ -1187,18 +1204,18 @@ void AValdoriaHeroCharacter::UpdateStealthVisibility()
 	OffhandComponent->SetOnlyOwnerSee(bStealthHidden);
 }
 
-void AValdoriaHeroCharacter::SetWeaponOverride(const FValdoriaWeaponStats& Stats, float Seconds)
+void AValdoriaHeroCharacter::SetWeaponOverride(const FValdoriaWeaponStats& NewStats, float Seconds)
 {
 	if (!bHasWeaponOverride)
 	{
 		SavedAmmo = CurrentAmmo;
 	}
-	WeaponOverride = Stats;
+	WeaponOverride = NewStats;
 	bHasWeaponOverride = true;
 	WeaponOverrideEndTime = GetWorld()->GetTimeSeconds() + Seconds;
 	bReloading = false;
 	GetWorldTimerManager().ClearTimer(ReloadTimer);
-	CurrentAmmo = Stats.MagazineSize;
+	CurrentAmmo = NewStats.MagazineSize;
 }
 
 void AValdoriaHeroCharacter::StartLeapSlam(float Damage, float Radius, EValdoriaDamageType Type)
@@ -1345,9 +1362,34 @@ void AValdoriaHeroCharacter::TickStatusEffects(float DeltaSeconds)
 	}
 	const float Step = PassiveTimer;
 	PassiveTimer = 0.f;
+	if (!bLevelsChecked)
+	{
+		// Decided here (not in BeginPlay): team and minion flags are set right after spawning.
+		bLevelsChecked = true;
+		bUsesLevels = bUsesLevels || (IsHeroUnit() && GetWorld()->GetAuthGameMode<AValdoriaMobaMode>() != nullptr);
+		if (bUsesLevels && Level == 1 && AbilityPoints == 0 && AbilityRanks[0] + AbilityRanks[1] + AbilityRanks[2] == 0)
+		{
+			AbilityPoints = 1; // level 1 point
+			if (!IsPlayerControlled())
+			{
+				AutoSpendPoints();
+			}
+		}
+	}
+	if (IsHeroUnit())
+	{
+		GainXP(2.f * Step);       // passive XP (provisional)
+		Stats.Gold += 4.f * Step; // same as the shop's credits per second
+	}
 	if (GetTeamRegen() > 0.f)
 	{
 		HealTarget(this, GetTeamRegen() * Step);
+	}
+	// Turn 46 (owner): out of combat every hero regenerates 1 HP every 0.5 s (real HP, so / ValdoriaStatScale).
+	// Minions and guardians have their own rules.
+	if (IsHeroUnit() && GetHealth() < GetMaxHealth() && !IsInPassiveCombat(5.f) && !IsInCombat(5.f))
+	{
+		HealTarget(this, OutOfCombatRegenHP * Step / ValdoriaStatScale);
 	}
 	const FValdoriaPassiveRules& P = GetPassive();
 	if (P.DamageReductionPerAlly <= 0.f && P.AuraHealPerSecond <= 0.f && P.AllyDamageShare <= 0.f)
@@ -1380,9 +1422,34 @@ void AValdoriaHeroCharacter::TickStatusEffects(float DeltaSeconds)
 
 void AValdoriaHeroCharacter::OnDamageDealt(AValdoriaHeroCharacter* Victim, float Damage, bool bHeadshot)
 {
+	if (HasAuthority() && Victim && Victim != this)
+	{
+		Stats.Damage += Damage;
+		Victim->Stats.DamageTaken += Damage;
+		Victim->RecentDamagers.Add(this, GetWorld()->GetTimeSeconds());
+		if (Victim->IsHeroUnit())
+		{
+			FDamageLogEntry E;
+			E.Attacker = GetUnitName();
+			E.Source = !DamageSourceLabel.IsEmpty() ? DamageSourceLabel
+				: (!GetWeaponStats().WeaponName.IsEmpty() ? GetWeaponStats().WeaponName.ToString() : FString(TEXT("Arma / projétil")));
+			E.Amount = Damage;
+			E.Time = GetWorld()->GetTimeSeconds();
+			E.bAttackerIsHero = IsHeroUnit();
+			Victim->DamageLog.Add(E);
+			if (Victim->DamageLog.Num() > 80)
+			{
+				Victim->DamageLog.RemoveAt(0, 20);
+			}
+		}
+		if (const UValdoriaShopCatalog* Catalog = GetDefault<UValdoriaShopCatalog>())
+		{
+			Stats.Gold += Damage / ValdoriaStatScale * Catalog->CreditsPerDamage;
+		}
+	}
 	if (ActiveDefinition && HasAuthority() && !IsUltimateReady())
 	{
-		const float Charge = Attributes->GetUltimateCharge() + Damage * ActiveDefinition->UltimateChargePerDamage;
+		const float Charge = Attributes->GetUltimateCharge() + Damage / ValdoriaStatScale * ActiveDefinition->UltimateChargePerDamage;
 		AbilitySystem->SetNumericAttributeBase(UValdoriaAttributeSet::GetUltimateChargeAttribute(), FMath::Min(Charge, ActiveDefinition->UltimateCost));
 	}
 	const bool bKill = Victim && Victim->GetHealth() <= 0.f;
@@ -1391,11 +1458,11 @@ void AValdoriaHeroCharacter::OnDamageDealt(AValdoriaHeroCharacter* Victim, float
 	{
 		if (ShopBonus.LifeSteal > 0.f)
 		{
-			HealTarget(this, Damage * ShopBonus.LifeSteal);
+			HealTarget(this, Damage / ValdoriaStatScale * ShopBonus.LifeSteal);
 		}
 		if (AValdoriaPlayerController* PC = Cast<AValdoriaPlayerController>(Controller))
 		{
-			PC->OnHeroDamageDealt(Damage, bKill);
+			PC->OnHeroDamageDealt(Damage / ValdoriaStatScale, bKill); // credits use design units
 		}
 	}
 	ClientNotifyHit(Victim ? Victim->GetActorLocation() + FVector(0, 0, 60.f) : GetActorLocation(), Damage, bHeadshot, bKill);
@@ -1422,6 +1489,7 @@ void AValdoriaHeroCharacter::HandleDeath(AValdoriaHeroCharacter* Killer)
 	}
 	bIsDead = true;
 	bFireHeld = false;
+	AwardDeath(Killer);
 	AbilitySystem->CancelAllAbilities();
 	AbilitySystem->AddLooseGameplayTag(ValdoriaTags::State_Dead);
 	OnRep_IsDead();
@@ -1787,7 +1855,7 @@ void AValdoriaHeroCharacter::DealDamageTo(AActor* Target, float Damage, bool bHe
 	FGameplayEffectSpecHandle Spec = AbilitySystem->MakeOutgoingSpec(UValdoriaDamageEffect::StaticClass(), 1.f, Context);
 	if (Spec.IsValid())
 	{
-		Spec.Data->SetSetByCallerMagnitude(ValdoriaTags::Data_Damage, Damage * FMath::Max(0.f, GetDamageMultiplier()));
+		Spec.Data->SetSetByCallerMagnitude(ValdoriaTags::Data_Damage, Damage * ValdoriaStatScale * FMath::Max(0.f, GetDamageMultiplier()));
 		if (bHeadshot)
 		{
 			Spec.Data->AddDynamicAssetTag(ValdoriaTags::Hit_Headshot);
@@ -3137,7 +3205,7 @@ void AValdoriaHeroCharacter::TickAutopilot(float DeltaSeconds)
 		const bool bLaneBrain = LeashRadius <= 0.f;
 		AValdoriaHeroCharacter* Attacker = LastAttacker.Get();
 		if (bLaneBrain && Attacker && Now - LastAttackedTime < 2.f && IsEnemy(Attacker) && !Attacker->IsDead()
-			&& !Attacker->IsA<AValdoriaTrainingDummy>() && !Attacker->IsHiddenByStealth()
+			&& Attacker->IsHeroUnit() && !Attacker->IsHiddenByStealth()
 			&& FVector::Dist(GetActorLocation(), Attacker->GetActorLocation()) < 3000.f && CanSee(Attacker))
 		{
 			AutopilotTarget = Attacker;
@@ -3151,8 +3219,7 @@ void AValdoriaHeroCharacter::TickAutopilot(float DeltaSeconds)
 			{
 				continue;
 			}
-			const AValdoriaTrainingDummy* Dummy = Cast<AValdoriaTrainingDummy>(*It);
-			const int32 Tier = !bLaneBrain ? 1 : (Dummy && Dummy->bMinion) ? 0 : !Dummy ? 1 : 2;
+			const int32 Tier = !bLaneBrain ? 1 : It->IsMinionUnit() ? 0 : It->IsHeroUnit() ? 1 : 2;
 			const float Dist = FVector::Dist(GetActorLocation(), It->GetActorLocation());
 			if (Dist < BestTier[Tier] && CanSee(*It))
 			{
@@ -3353,6 +3420,10 @@ void AValdoriaHeroCharacter::TickAutopilot(float DeltaSeconds)
 	if (Dist <= Weapon.Range && AimError < 12.f && CanSee(Target))
 	{
 		TryActivateSlot(EValdoriaAbilitySlot::PrimaryFire);
+	}
+	if (Dist < 200.f && AimError < 30.f && !IsMinionUnit() && !IsGuardianUnit())
+	{
+		TryMeleePunch(); // V punch up close (turn 46)
 	}
 	if (Weapon.bUsesAmmo && CurrentAmmo <= 0 && !bReloading)
 	{

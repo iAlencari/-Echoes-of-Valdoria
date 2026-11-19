@@ -560,7 +560,9 @@ void AValdoriaGameMode::OnHeroKilled(AValdoriaHeroCharacter* Victim, AValdoriaHe
 	{
 		FTimerHandle Handle;
 		FTimerDelegate Delegate = FTimerDelegate::CreateUObject(this, &AValdoriaGameMode::RespawnPlayer, Controller);
-		GetWorldTimerManager().SetTimer(Handle, Delegate, PlayerRespawnDelay, false);
+		const float Delay = GetRespawnDelayFor(Victim);
+		Victim->RespawnAt = GetWorld()->GetTimeSeconds() + Delay;
+		GetWorldTimerManager().SetTimer(Handle, Delegate, Delay, false);
 	}
 }
 
@@ -571,9 +573,11 @@ void AValdoriaGameMode::RespawnPlayer(AController* Controller)
 		return;
 	}
 	UValdoriaHeroDefinition* Keep = nullptr;
+	AValdoriaHeroCharacter::FProgress Progress; // turn 46: level, ranks and scoreboard survive the respawn
 	if (AValdoriaHeroCharacter* Old = Cast<AValdoriaHeroCharacter>(Controller->GetPawn()))
 	{
 		Keep = Old->HeroDefinition;
+		Progress = Old->TakeProgress();
 		Controller->UnPossess();
 		Old->Destroy();
 	}
@@ -583,6 +587,10 @@ void AValdoriaGameMode::RespawnPlayer(AController* Controller)
 		if (Keep)
 		{
 			NewHero->SetHeroDefinition(Keep);
+		}
+		if (Progress.bValid)
+		{
+			NewHero->ApplyProgress(Progress);
 		}
 		FVector Spot;
 		if (bSpreadRespawns && FindSpreadSpawnPoint(Spot))

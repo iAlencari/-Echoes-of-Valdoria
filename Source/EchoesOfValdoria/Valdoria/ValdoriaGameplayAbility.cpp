@@ -40,9 +40,10 @@ float UValdoriaGameplayAbility::GetEffectiveCooldown() const
 		{
 			if (Entry->Cooldown > 0.f)
 			{
-				return Entry->Cooldown;
+				return Entry->Cooldown * Hero->GetRankCooldownMultiplier(GetSlot());
 			}
 		}
+		return DefaultCooldown * Hero->GetRankCooldownMultiplier(GetSlot());
 	}
 	return DefaultCooldown;
 }
@@ -55,9 +56,10 @@ float UValdoriaGameplayAbility::GetMagnitude() const
 		{
 			if (Entry->Magnitude != 0.f)
 			{
-				return Entry->Magnitude;
+				return Entry->Magnitude * Hero->GetRankPowerMultiplier(GetSlot());
 			}
 		}
+		return DefaultMagnitude * Hero->GetRankPowerMultiplier(GetSlot());
 	}
 	return DefaultMagnitude;
 }
@@ -92,9 +94,9 @@ bool UValdoriaGameplayAbility::CanActivateAbility(const FGameplayAbilitySpecHand
 	const FGameplayAbilitySpec* Spec = ActorInfo->AbilitySystemComponent.IsValid()
 		? ActorInfo->AbilitySystemComponent->FindAbilitySpecFromHandle(Handle) : nullptr;
 	const EValdoriaAbilitySlot Slot = Spec ? static_cast<EValdoriaAbilitySlot>(Spec->InputID % 16) : EValdoriaAbilitySlot::None;
-	if (Hero->GetCooldownRemaining(Slot) > 0.f)
+	if (Hero->GetCooldownRemaining(Slot) > 0.f || Hero->IsSlotLocked(Slot))
 	{
-		return false;
+		return false; // locked = not unlocked yet with a level point (MOBA levels, turn 46)
 	}
 	if (bIsUltimate && !Hero->IsUltimateReady())
 	{
@@ -120,7 +122,10 @@ void UValdoriaGameplayAbility::ApplyDamageTo(AActor* Target, float Damage, bool 
 	// Tipo de dano, poder, resistências e passivas ficam no personagem.
 	if (AValdoriaHeroCharacter* Hero = GetHero())
 	{
+		const FValdoriaAbilityEntry* Entry = GetEntry();
+		Hero->DamageSourceLabel = Entry && !Entry->DisplayName.IsEmpty() ? Entry->DisplayName.ToString() : FString();
 		Hero->DealTypedDamage(Target, Damage, GetDamageType(), GetMagicShare(), bHeadshot);
+		Hero->DamageSourceLabel.Reset(); // projectiles that hit later fall back to the weapon name
 	}
 }
 

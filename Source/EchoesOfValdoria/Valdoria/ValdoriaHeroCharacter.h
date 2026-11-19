@@ -271,6 +271,64 @@ public:
 	bool bCanRideAnyRail = false;
 	/** Combat states: general = hit/healed someone; passive = took damage or control from an enemy. */
 	bool IsInPassiveCombat(float Seconds) const;
+	/** Real HP per second regenerated out of combat (owner: 1 HP every 0.5 s). */
+	float OutOfCombatRegenHP = 2.f;
+
+	// ---------------- Turn 46: unit kinds, levels, match stats, V punch ----------------
+	bool IsMinionUnit() const;
+	bool IsGuardianUnit() const;
+	/** A real hero (player or bot hero), not a minion, guardian or training target. */
+	bool IsHeroUnit() const;
+
+	/** MOBA only: levels 1-20, 1 point per level for abilities 1-4 (see docs/RegrasCombate.md). */
+	bool bUsesLevels = false;
+	int32 Level = 1;
+	float XP = 0.f;
+	int32 AbilityPoints = 0;
+	int32 ElevationPoints = 0;
+	/** Ranks of abilities 1, 2, 3 and the supreme (0 = locked, max 5). */
+	int32 AbilityRanks[4] = { 0, 0, 0, 0 };
+	static int32 RankIndex(EValdoriaAbilitySlot Slot);
+	int32 GetAbilityRank(EValdoriaAbilitySlot Slot) const;
+	bool IsSlotLocked(EValdoriaAbilitySlot Slot) const;
+	bool CanUpgrade(EValdoriaAbilitySlot Slot) const;
+	bool TryUpgrade(EValdoriaAbilitySlot Slot);
+	/** Damage/heal multiplier and cooldown multiplier from the rank (rank 1 = data values). */
+	float GetRankPowerMultiplier(EValdoriaAbilitySlot Slot) const;
+	float GetRankCooldownMultiplier(EValdoriaAbilitySlot Slot) const;
+	float XPToNextLevel() const;
+	void GainXP(float Amount);
+	void AutoSpendPoints();
+
+	/** Match scoreboard (Tab). Damage, healing and damage taken in real HP. */
+	struct FMatchStats { int32 Kills = 0; int32 Deaths = 0; int32 Assists = 0; int32 Seals = 0; float Damage = 0.f; float Healing = 0.f; float DamageTaken = 0.f; float Gold = 0.f; };
+	FMatchStats Stats;
+	/** Who hit this hero recently (assists): attacker -> time. */
+	TMap<TWeakObjectPtr<AValdoriaHeroCharacter>, float> RecentDamagers;
+	/** Death recap (hold Y, owner): damage received, by attacker and source. */
+	struct FDamageLogEntry { FString Attacker; FString Source; float Amount = 0.f; float Time = 0.f; bool bAttackerIsHero = false; };
+	TArray<FDamageLogEntry> DamageLog;
+	struct FDeathRecap { bool bValid = false; FString Killer; FString KillerSource; float Total = 0.f; TArray<FDamageLogEntry> Lines; };
+	FDeathRecap LastDeathRecap;
+	/** Name of what is dealing damage right now (set around ability/punch damage); empty = weapon. */
+	FString DamageSourceLabel;
+	FString GetUnitName() const;
+
+	/** Level, XP, ranks and stats, carried to the new body when the player respawns. */
+	struct FProgress { bool bValid = false; bool bUsesLevels = false; int32 Level = 1; float XP = 0.f; int32 AbilityPoints = 0; int32 ElevationPoints = 0; int32 Ranks[4] = { 0, 0, 0, 0 }; FMatchStats Stats; FDeathRecap Recap; };
+	FProgress TakeProgress() const;
+	void ApplyProgress(const FProgress& P);
+
+	/** V: melee punch, every hero (owner). Damage in design units, from the hero data. */
+	void TryMeleePunch();
+	float NextPunchTime = 0.f;
+	bool bLevelsChecked = false;
+	/** World time when this hero comes back (for the HUD). */
+	float RespawnAt = 0.f;
+	bool bUltUpgradePress = false;
+	/** Kills, deaths, assists and XP when this unit dies (turn 46). */
+	void AwardDeath(AValdoriaHeroCharacter* Killer);
+
 	bool IsInCombat(float Seconds) const { return GetWorld()->GetTimeSeconds() - LastCombatTime < Seconds; }
 	float LastHarmedTime = -100.f;
 	float LastCombatTime = -100.f;
