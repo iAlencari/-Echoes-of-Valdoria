@@ -105,7 +105,10 @@ Waiting for the owner's feedback on the Gemini images/videos before any code.
   Everyone inside is teleported together along a rainbow arc drawn from where he stands to where they land.
   Excluded: guardians (GS), final guardian (GF) and jungle (JG).
 - Decisions (owner left them to Claude, turn 46):
-  - Option B carries allies and allied minions only; enemies inside the area stay behind.
+  - Option B carries EVERYONE inside the area when the horn ends: allies, enemies and minions (owner's idea,
+    like Hela stepping into the Bifrost). Enemies get the 1 s warning (marker + area) to walk out; an enemy who
+    stays lands with Heimdall's team. GS/GF/JG are never carried.
+  - Basic attack idea (owner's other inspiration): thrown axes that fly in an arc, ranged.
   - Heimdall can ride any Bifrost, allied or enemy, and the passive works on all of them.
   - Landing point, option B: hold 4. The horn plays (about 1.5 s) and the minimap opens big in the middle of
     the screen with a circle of the maximum range around Heimdall. Move the mouse to place the rainbow marker,
@@ -115,3 +118,7 @@ Waiting for the owner's feedback on the Gemini images/videos before any code.
     together.
   - Range (provisional numbers): 40 m base, plus up to 60 m for each Bifrost within 30 m (closer = more).
     Next to the 3 bridges at the base it covers the whole map.
+- Bifrost concept image from the owner (Gemini, turn 46): `SourceArt/Concepts/Bifrost_Conceito.png`. Three bridges
+  start from round glowing pads at the base and end in big tube portals at the lane ends; flowing rainbow strands,
+  smooth curves, cyberpunk Heimdall surfing in the inset. In the game the strands need a readable floor (a solid,
+  slightly brighter centre band) so riders do not look like they float in the air.
