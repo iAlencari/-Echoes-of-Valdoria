@@ -63,3 +63,6 @@ Content/Valdoria/Weapons/Fantasy/
 /free_Fantasy_Staffs-*/
 Scripts/__pycache__/
 
+
+# Story/lore in progress: kept local on purpose (owner, turn 46), not in git until the story is solid
+/docs/private/

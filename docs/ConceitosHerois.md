@@ -231,3 +231,31 @@ living religions (Smite, 2012). The owner keeps the final word on name, look and
 - Kay: **Harmônico** (owner's choice). Recruta: **Prelúdio de Valdoria**. Ariel: **Amálgama**.
 - Claude's proposals: Heimdall **O Vigia**; Filho de Nazaré **O Prometido** (owner's options: O Crucificado or
   O Prometido).
+
+## Turn 46 - round 3 (owner)
+- Titles: Filho de Nazaré **O Prometido** (owner: less religious). Heimdall **O Onividente** (Claude's pick from the
+  owner's options; his C stays "O Olho que Tudo Vê").
+- Levels, CDR, vampirism vs life steal, V melee, hybrid damage: see `docs/RegrasCombate.md`.
+
+### Filho de Nazaré "O Prometido" - Tank/Support, kit v2
+- **Passive - Deus do Velho Testamento**: an enemy at 5% HP or less who takes his damage is executed. While an enemy
+  is at <=5% and he is near, that enemy shows a blinking cross-like mark (so both know). Gold/XP go to the nearest
+  ally, he gets a reduced share. On execution: the nearest ally within 12 m (owner: 10-15 m) heals 35% of missing
+  HP; with nobody near, he gets it. Healing above full becomes a temporary green shield; while it lasts, 5% damage
+  reduction. Second part (owner) - **Comunhão**: allies near him receive 10% of every heal he receives.
+- **LMB - Luz** (Claude): short beam; light damage and slow to enemies, heals allies it passes through.
+- **RMB - Acalmar a Tempestade** (Claude): area that removes control from allies and slows enemy projectiles.
+- **V**: punch (every hero).
+- **1 - Cálice e Carne** (owner): channel, he gives his own HP to an ally: 1% of his max HP every 0.25 s, stops at
+  1% (he never kills himself), the player decides when to stop; he can move but not attack while channelling. The
+  ally gets **Ungido de Sangue** for 7 s, renewed while still being healed: 10% damage reduction, 10% life steal,
+  20% vampirism, 5% speed, 10% CDR. Out of combat the ally regenerates 3x faster to full.
+- **2 - Multiplicação dos Pães** (Claude): drops baskets; each ally who takes one heals over time.
+- **3 - Caminhar sobre as Águas** (Claude): crosses gaps, ignores slows, short damage reduction for himself.
+- **C - Rogai por Nós** (owner): stands still / kneels with hands to the sky and recovers a good amount of HP.
+- **4 - Crucificado** (owner): max 3.5 s, immune to control and damage, rises into the sky; heals allies 1.5% max HP
+  every 0.5 s (double under 25% max HP); every 2 s a pulse heals 5% and removes control. A lethal hit only kills an
+  ally if it dealt more than 30% of their max HP; otherwise they fall with 1 HP, 1 s to stand up, immune meanwhile
+  (after that any damage kills). At the end he dies and respawns at the base after 3 s. Light and ascension, no gore.
+- Elevations (Claude, except 4): 1 -> the ally is also cleansed; 2 -> baskets reveal hidden enemies nearby (fog,
+  stealth); 3 -> allies near him also ignore slows; 4 -> **Levanta-te e Anda** (owner).
