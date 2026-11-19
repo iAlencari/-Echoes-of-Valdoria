@@ -3130,19 +3130,50 @@ void AValdoriaHeroCharacter::TickAutopilot(float DeltaSeconds)
 	{
 		AutopilotNextPick = Now + AutopilotPickInterval;
 		AutopilotTarget = nullptr;
-		float Best = 5000.f;
-		for (TActorIterator<AValdoriaHeroCharacter> It(GetWorld()); It; ++It)
+		// Turn 46 (owner, MOBA logic): clear the minion wave first, then fight the heroes, then clear the next wave,
+		// and only then go and seal (sealing breaks when hit, so nobody may be shooting at you).
+		// Priority: 1) a hero who hit me in the last 2 s (self-defence), 2) nearest minion within 2500,
+		// 3) nearest hero, 4) anything else (guardians). Guardians themselves (leashed) keep "nearest".
+		const bool bLaneBrain = LeashRadius <= 0.f;
+		AValdoriaHeroCharacter* Attacker = LastAttacker.Get();
+		if (bLaneBrain && Attacker && Now - LastAttackedTime < 2.f && IsEnemy(Attacker) && !Attacker->IsDead()
+			&& !Attacker->IsA<AValdoriaTrainingDummy>() && !Attacker->IsHiddenByStealth()
+			&& FVector::Dist(GetActorLocation(), Attacker->GetActorLocation()) < 3000.f && CanSee(Attacker))
+		{
+			AutopilotTarget = Attacker;
+		}
+		float BestTier[3] = { 2500.f, 5000.f, 5000.f }; // minion, hero, other
+		AValdoriaHeroCharacter* Pick[3] = { nullptr, nullptr, nullptr };
+		for (TActorIterator<AValdoriaHeroCharacter> It(GetWorld()); It && !AutopilotTarget.IsValid(); ++It)
 		{
 			if (!IsEnemy(*It) || It->IsHiddenByStealth() || It->IsInvulnerable()
 				|| (LeashRadius > 0.f && FVector::Dist2D(It->GetActorLocation(), LeashCenter) > LeashRadius))
 			{
 				continue;
 			}
+			const AValdoriaTrainingDummy* Dummy = Cast<AValdoriaTrainingDummy>(*It);
+			const int32 Tier = !bLaneBrain ? 1 : (Dummy && Dummy->bMinion) ? 0 : !Dummy ? 1 : 2;
 			const float Dist = FVector::Dist(GetActorLocation(), It->GetActorLocation());
-			if (Dist < Best && CanSee(*It))
+			if (Dist < BestTier[Tier] && CanSee(*It))
 			{
-				Best = Dist;
-				AutopilotTarget = *It;
+				BestTier[Tier] = Dist;
+				Pick[Tier] = *It;
+			}
+		}
+		if (!AutopilotTarget.IsValid())
+		{
+			AutopilotTarget = Pick[0] ? Pick[0] : Pick[1] ? Pick[1] : Pick[2];
+			// Wave and heroes cleared: a semi-sealed guardian nearby beats hitting another guardian -> go seal.
+			if (bLaneBrain && !Pick[0] && !Pick[1] && Pick[2])
+			{
+				for (TActorIterator<AValdoriaGuardian> G(GetWorld()); G; ++G)
+				{
+					if (G->CanBeChanneledBy(this) && G->GuardTeam != TeamId && FVector::Dist2D(G->GetActorLocation(), GetActorLocation()) < 2500.f)
+					{
+						AutopilotTarget = nullptr;
+						break;
+					}
+				}
 			}
 		}
 	}

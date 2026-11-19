@@ -827,6 +827,10 @@ void AValdoriaGameMode::RunPlaytestStep()
 			}
 			PlaytestLastPos.Add(Who, P);
 		}
+		if (PlaytestStep == 60 || PlaytestStep == 200) // turn 46: picture with the HUD (minimap) twice per run
+		{
+			FScreenshotRequest::RequestScreenshot(FPaths::ConvertRelativePathToFull(FPaths::ProjectSavedDir() / TEXT("Screenshots/Playtest") / FString::Printf(TEXT("%s_t%d.png"), *PlaytestTag, PlaytestStep)), true, false);
+		}
 		UE_LOG(LogValdoria, Display, TEXT("PLAYTEST t=%d guardioes=%d/%d vida=%.0f%% menor=%.0f%% minions=%d/%d%s"), PlaytestStep, GuardAlive, GuardTotal,
 			GuardMax > 0.f ? GuardHealth / GuardMax * 100.f : 0.f, GuardLowest * 100.f, Minions[0], Minions[1], *Line);
 	}

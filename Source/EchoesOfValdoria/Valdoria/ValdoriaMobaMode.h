@@ -151,6 +151,8 @@ class ECHOESOFVALDORIA_API AValdoriaMobaMode : public AValdoriaGameMode
 public:
 	AValdoriaMobaMode();
 	virtual void StartPlay() override;
+	/** Lane route of a team (0-1) and lane (0-2), for the minimap (turn 46). */
+	const TArray<FVector>& GetLaneRoute(int32 InTeam, int32 Lane) const { return LaneRoutes[FMath::Clamp(InTeam, 0, 1)][FMath::Clamp(Lane, 0, 2)]; }
 	virtual void Tick(float DeltaSeconds) override;
 	virtual void OnHeroKilled(AValdoriaHeroCharacter* Victim, AValdoriaHeroCharacter* Killer) override;
 

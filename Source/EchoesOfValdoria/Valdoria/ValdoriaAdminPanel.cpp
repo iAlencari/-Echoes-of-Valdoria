@@ -767,7 +767,7 @@ TSharedRef<SWidget> AValdoriaPlayerController::BuildAdminPanel()
 			[
 				SNew(SBorder)
 				.BorderImage(FCoreStyle::Get().GetBrush("WhiteBrush"))
-				.BorderBackgroundColor(FLinearColor(0.02f, 0.025f, 0.04f, 0.9f))
+				.BorderBackgroundColor(FLinearColor(0.02f, 0.025f, 0.04f, 1.f)) // owner: 100% opaque
 				.Padding(14.f)
 				[
 					SNew(SVerticalBox)

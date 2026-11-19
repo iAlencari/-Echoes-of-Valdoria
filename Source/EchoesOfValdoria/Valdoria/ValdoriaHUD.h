@@ -94,4 +94,11 @@ protected:
 	void DrawClock(float Cx, float Cy, float Radius, float Fraction, const FLinearColor& Color);
 	void DrawStackIcon(float X, float Y, float Size, const FString& Label, int32 Count, const FLinearColor& Color, bool bEnemyMark);
 	void DrawAmmo(AValdoriaHeroCharacter* Hero, float W, float H);
+	/** Minimap, top-left (turn 46): buildings, lanes, guardians, you, allies, and enemies revealed to your team. */
+	void DrawMinimap(AValdoriaHeroCharacter* Hero, float W, float H);
+	bool bShowMinimap = true;
+	struct FMiniBlock { FBox2D Box; float Height; };
+	TArray<FMiniBlock> MiniBlocks;
+	FBox2D MiniBounds = FBox2D(ForceInit);
+	bool bMiniBuilt = false;
 };

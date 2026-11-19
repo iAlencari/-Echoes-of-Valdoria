@@ -1,6 +1,11 @@
 // Echoes of Valdoria - HUD desenhado em código.
 
 #include "ValdoriaHUD.h"
+#include "ValdoriaVision.h"
+#include "ValdoriaMobaMode.h"
+#include "ValdoriaGuardian.h"
+#include "ValdoriaTrainingDummy.h"
+#include "Engine/StaticMeshActor.h"
 #include "CanvasItem.h"
 #include "Components/CapsuleComponent.h"
 #include "Engine/Canvas.h"
@@ -163,6 +168,10 @@ void AValdoriaHUD::DrawHUD()
 	DrawPlayerPanel(Hero, W, H);
 	DrawAbilities(Hero, W, H);
 	DrawAmmo(Hero, W, H);
+	if (bShowMinimap)
+	{
+		DrawMinimap(Hero, W, H);
+	}
 	DrawStatusLine(Hero, W, H);
 	DrawDamageFeedback(Hero, W, H);
 
@@ -854,4 +863,125 @@ void AValdoriaHUD::DrawModeScore(float W, float H)
 			bWon ? FLinearColor(0.5f, 1.f, 0.6f) : FLinearColor(1.f, 0.4f, 0.35f), 3.f * S, true, true);
 		DrawLabel(TEXT("New match in a few seconds"), W * 0.5f, H * 0.4f + 88.f * S, FLinearColor::White, 1.f * S, true);
 	}
+}
+// ------------------------------------------------------------------ minimap (turn 46)
+
+void AValdoriaHUD::DrawMinimap(AValdoriaHeroCharacter* Hero, float W, float H)
+{
+	UWorld* World = GetWorld();
+	if (!World)
+	{
+		return;
+	}
+	if (!bMiniBuilt)
+	{
+		// Top-down footprint of the level, built once: every collidable static mesh that is not a huge floor.
+		bMiniBuilt = true;
+		for (TActorIterator<AStaticMeshActor> It(World); It; ++It)
+		{
+			FVector Origin, Ext;
+			It->GetActorBounds(false, Origin, Ext);
+			if (FMath::Max(Ext.X, Ext.Y) > 100000.f || (Ext.X < 1.f && Ext.Y < 1.f) || !It->GetActorEnableCollision())
+			{
+				continue;
+			}
+			const FBox2D B(FVector2D(Origin.X - Ext.X, Origin.Y - Ext.Y), FVector2D(Origin.X + Ext.X, Origin.Y + Ext.Y));
+			MiniBounds += B;
+			if (Origin.Z + Ext.Z > 250.f) // taller than a person: a building/wall, drawn on top of the floor
+			{
+				MiniBlocks.Add({ B, float(Origin.Z + Ext.Z) });
+			}
+		}
+	}
+	if (!MiniBounds.bIsValid)
+	{
+		return;
+	}
+	const float S = Scale;
+	const float Size = 250.f * S;
+	const float X0 = 16.f * S;
+	const float Y0 = 36.f * S;
+	// World X goes up on the map, world Y goes right (fixed north). Keep the aspect ratio.
+	const FVector2D Ext = MiniBounds.GetSize();
+	const float Span = FMath::Max(Ext.X, Ext.Y);
+	const float K = Size / FMath::Max(1.f, Span);
+	const FVector2D C = MiniBounds.GetCenter();
+	auto ToMap = [&](const FVector& P)
+	{
+		return FVector2D(X0 + Size * 0.5f + (P.Y - C.Y) * K, Y0 + Size * 0.5f - (P.X - C.X) * K);
+	};
+	DrawRect(X0 - 3.f * S, Y0 - 3.f * S, Size + 6.f * S, Size + 6.f * S, FLinearColor(0.f, 0.f, 0.f, 0.75f));
+	DrawRect(X0 + Size * 0.5f - Ext.Y * K * 0.5f, Y0 + Size * 0.5f - Ext.X * K * 0.5f, Ext.Y * K, Ext.X * K, FLinearColor(0.09f, 0.1f, 0.13f, 0.9f));
+	for (const FMiniBlock& B : MiniBlocks)
+	{
+		const FVector2D A = ToMap(FVector(B.Box.Max.X, B.Box.Min.Y, 0.f));
+		const FVector2D Z = ToMap(FVector(B.Box.Min.X, B.Box.Max.Y, 0.f));
+		const float Shade = FMath::Clamp(0.22f + B.Height / 6000.f, 0.22f, 0.45f);
+		DrawRect(A.X, A.Y, FMath::Max(1.f, Z.X - A.X), FMath::Max(1.f, Z.Y - A.Y), FLinearColor(Shade, Shade, Shade * 1.1f, 0.95f));
+	}
+	const uint8 MyTeam = Hero ? Hero->TeamId : 0;
+	// Lanes (MOBA): thin gold lines along the routes.
+	if (const AValdoriaMobaMode* Moba = World->GetAuthGameMode<AValdoriaMobaMode>())
+	{
+		for (int32 Lane = 0; Lane < 3; ++Lane)
+		{
+			const TArray<FVector>& Route = Moba->GetLaneRoute(0, Lane);
+			for (int32 i = 1; i < Route.Num(); ++i)
+			{
+				const FVector2D A = ToMap(Route[i - 1]);
+				const FVector2D B = ToMap(Route[i]);
+				DrawLine(A.X, A.Y, B.X, B.Y, FLinearColor(0.85f, 0.7f, 0.3f, 0.35f), 2.f * S);
+			}
+		}
+	}
+	const UValdoriaVisionSubsystem* Vision = World->GetSubsystem<UValdoriaVisionSubsystem>();
+	const FLinearColor Ally(0.35f, 0.7f, 1.f);
+	const FLinearColor Enemy(1.f, 0.3f, 0.25f);
+	for (TActorIterator<AValdoriaHeroCharacter> It(World); It; ++It)
+	{
+		AValdoriaHeroCharacter* U = *It;
+		if (!U || U == Hero || U->IsDead() || U->TeamId == 255)
+		{
+			continue;
+		}
+		const bool bAlly = Hero ? !Hero->IsEnemy(U) : true;
+		if (!bAlly && Vision && !Vision->IsRevealedTo(U, MyTeam))
+		{
+			continue; // fog of war: nobody on your team sees it
+		}
+		const FVector2D P = ToMap(U->GetActorLocation());
+		const FLinearColor Col = bAlly ? Ally : Enemy;
+		if (const AValdoriaGuardian* G = Cast<AValdoriaGuardian>(U))
+		{
+			const bool bAllyG = G->GuardTeam == MyTeam;
+			const FLinearColor GC = G->State == EValdoriaSpotState::SemiSealed ? FLinearColor(0.95f, 0.85f, 0.3f) : (bAllyG ? Ally : Enemy);
+			const float R = 5.f * S;
+			DrawRect(P.X - R, P.Y - R, R * 2.f, R * 2.f, FLinearColor::Black);
+			DrawRect(P.X - R + S, P.Y - R + S, R * 2.f - 2.f * S, R * 2.f - 2.f * S, GC);
+			continue;
+		}
+		const AValdoriaTrainingDummy* Dummy = Cast<AValdoriaTrainingDummy>(U);
+		const float R = (Dummy && Dummy->bMinion) ? 1.6f * S : 4.f * S;
+		if (!(Dummy && Dummy->bMinion))
+		{
+			DrawRect(P.X - R - S, P.Y - R - S, R * 2.f + 2.f * S, R * 2.f + 2.f * S, FLinearColor::Black);
+		}
+		DrawRect(P.X - R, P.Y - R, R * 2.f, R * 2.f, Col);
+	}
+	// You: a white arrow pointing where the camera looks.
+	if (Hero)
+	{
+		const FVector2D P = ToMap(Hero->GetActorLocation());
+		const float Yaw = FMath::DegreesToRadians(Hero->GetControlRotation().Yaw);
+		const FVector2D Dir(FMath::Sin(Yaw), -FMath::Cos(Yaw)); // world X up, Y right
+		const FVector2D Side(-Dir.Y, Dir.X);
+		const float L = 8.f * S;
+		const FVector2D Tip = P + Dir * L;
+		const FVector2D BL = P - Dir * L * 0.6f + Side * L * 0.6f;
+		const FVector2D BR = P - Dir * L * 0.6f - Side * L * 0.6f;
+		DrawLine(Tip.X, Tip.Y, BL.X, BL.Y, FLinearColor::White, 2.f * S);
+		DrawLine(Tip.X, Tip.Y, BR.X, BR.Y, FLinearColor::White, 2.f * S);
+		DrawLine(BL.X, BL.Y, BR.X, BR.Y, FLinearColor::White, 2.f * S);
+	}
+	DrawFrame(X0 - 3.f * S, Y0 - 3.f * S, Size + 6.f * S, Size + 6.f * S, FLinearColor(0.97f, 0.83f, 0.48f, 0.6f), 1.5f * S);
 }

@@ -88,3 +88,30 @@ Swaps form with **C**, keeping health %, supreme charge and cooldowns.
 - All numbers are placeholders for the owner.
 - 3D concept prompt: see the turn-45 reply (one character sheet, two forms side by side sharing the same face
   structure, hairstyle and a shared amber-and-blue scar/mark, so the player reads them as one person).
+
+## Turn 46 (2026-11-19): Heimdall - owner's next hero (concept only, no code yet)
+Norse guardian of the Bifrost (mythology, public domain). Our own look: no horned helmet, no comic-book design.
+Waiting for the owner's feedback on the Gemini images/videos before any code.
+- **Passive (owner)**: never falls off a Bifrost while riding it and can attack while riding. Different riding
+  animation: he surfs/slides on it (side stance, knees bent, axe low) instead of the lean pose.
+- **Supreme option A (owner) - Chamado da Bifrost**: raises the axe, then a straight charge. Passes through
+  minions and grabs the FIRST enemy hero. Not a teleport: at the end of the charge the victim is thrown up and
+  back, and the nearest Bifrost "calls" and catches the victim (so a well-aimed charge can drop someone on another
+  lane's bridge). The victim rides that Bifrost to their own base, unable to shoot, use abilities or get off.
+  After arriving, the victim cannot take that same Bifrost back for 8 s (other bridges are fine). Hitting nobody
+  wastes the supreme.
+- **Supreme option B (owner) - Gjallarhorn**: blows a horn while raising the weapon; a small area appears. The
+  closer he is to a Bifrost, the farther the jump reaches (at the base, next to all 3 bridges = maximum range).
+  Everyone inside is teleported together along a rainbow arc drawn from where he stands to where they land.
+  Excluded: guardians (GS), final guardian (GF) and jungle (JG).
+- Decisions (owner left them to Claude, turn 46):
+  - Option B carries allies and allied minions only; enemies inside the area stay behind.
+  - Heimdall can ride any Bifrost, allied or enemy, and the passive works on all of them.
+  - Landing point, option B: hold 4. The horn plays (about 1.5 s) and the minimap opens big in the middle of
+    the screen with a circle of the maximum range around Heimdall. Move the mouse to place the rainbow marker,
+    then confirm with LMB (or release 4). RMB cancels and refunds half the cooldown. A spot inside a building
+    snaps to the nearest street; the enemy base and the GS/GF/JG areas are not allowed. Enemies see the marker
+    and the arc 1 s before the jump (counterplay). The jump takes about 1.5 s along the arc and everyone lands
+    together.
+  - Range (provisional numbers): 40 m base, plus up to 60 m for each Bifrost within 30 m (closer = more).
+    Next to the 3 bridges at the base it covers the whole map.

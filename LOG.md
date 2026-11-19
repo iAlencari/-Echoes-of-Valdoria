@@ -601,3 +601,26 @@ Owner batch ("deixa pra compilar no final"): everything written first, one build
       (-8400,-8400)). Third run: that spot is gone; "still 15 s" flags now at (8341,-6672) (2 team-1 bots) and
       (-2473,8200) (likely fighting in place; the detector cannot tell). Hero kills stay low (bots shoot the
       nearest enemy, usually a minion).
+
+### Turn 46 - Claude Code - 2026-11-19 (git again, minimap + team vision, render radius, lane bot priority, admin opaque, Heimdall concept)
+- **Git**: owner authorized commit + push without asking. Turn 45 committed and pushed (42 commits, 306 MB LFS).
+  Raw downloaded packs at the root (Lincoln Square, London, weapon/staff packs, ~600 MB FBX) are now git-ignored.
+- **Admin panel**: background 100% opaque (was 90%).
+- **Team vision** (`ValdoriaVision.h/.cpp`, `UValdoriaVisionSubsystem`, 5 updates/s): an enemy is revealed to a
+  team when a hero (50 m), minion (18 m) or guardian (25 m) of that team has a clear line to it (only static
+  geometry blocks sight); stealth only seen within 5 m. Provisional numbers.
+- **Minimap** (HUD, top-left, under the FPS line): level footprint (buildings shaded by height), MOBA lane routes
+  (gold), guardians (squares; yellow = semi-sealed), allies blue, enemies red **only when revealed**, minions as
+  small dots, you as a white arrow. Screenshot: `Saved/Screenshots/Playtest/NP_Moba_Moba_kael_t200.png`.
+- **Render radius / CPU cuts** for every unit except the local player's body: meshes beyond 120 m not drawn
+  (cull distance), animation graph paused off screen (montages still play), URO lowers the anim rate with
+  distance. Note for multiplayer: net relevancy + light minimap position data from the server.
+- **Lane bot priority** (owner's MOBA logic): 1) a hero that hit me in the last 2 s, 2) nearest minion within
+  25 m (clear the wave), 3) nearest hero, 4) other (guardians); with no minion/hero in sight and a semi-sealed
+  enemy guardian within 25 m, the bot goes to seal instead of hitting another guardian.
+- Playtest takes HUD screenshots at t=60 and t=200.
+- **6v6 (300 s) result**: lowest guardian 2% at 150 s, **2 guardians sealed** by 300 s (26 -> 24; never happened
+  before), no "still 15 s" flags, FPS 72. Hero kills still low (Vex 1, Brasa 1; minions killed 3).
+- **Heimdall** concept (owner's next hero) in `docs/ConceitosHerois.md`, decisions included (supreme B landing
+  chosen on a big map with a range circle). Gemini prompts sent in chat (Bifrost without 90-degree corners,
+  taller and wide enough for a whole character; Heimdall sheet; two supreme videos). No code yet.
