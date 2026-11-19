@@ -31,6 +31,8 @@ public:
 	FVector GetTangentAt(float Distance) const;
 	/** Closest distance from a ray to the rail; OutAlong = rail distance of that point. */
 	float DistanceToRay(const FVector& Start, const FVector& Dir, float MaxRange, float& OutAlong) const;
+	/** Closest distance from a point to the rail (sampled every 2 m); OutAlong = rail distance of that point. */
+	float DistanceToPoint(const FVector& Point, float& OutAlong) const;
 
 	uint8 Team = 0;
 	FString LaneName;

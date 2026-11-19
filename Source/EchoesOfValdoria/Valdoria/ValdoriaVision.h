@@ -34,6 +34,8 @@ public:
 	bool IsHiddenInFogFrom(const AValdoriaHeroCharacter* Unit, uint8 Team) const;
 	/** Sight inside a fog area (cm). */
 	float FogSight = 800.f;
+	/** Reveal a unit to a team for some seconds (also inside fog): Sentinela, O Olho que Tudo Vê. */
+	void RevealUnit(const AValdoriaHeroCharacter* Unit, uint8 Team, float Seconds);
 
 	/** Sight radius (cm) by unit kind. Provisional numbers; balance is the owner's. */
 	float HeroSight = 5000.f;
@@ -53,4 +55,6 @@ private:
 	void ApplyFogHiding();
 	TSet<TWeakObjectPtr<const AValdoriaHeroCharacter>> InFog;
 	TSet<TWeakObjectPtr<AValdoriaHeroCharacter>> HiddenByFog;
+	/** Forced reveals: unit -> (team -> world time it ends). */
+	TMap<TWeakObjectPtr<const AValdoriaHeroCharacter>, TMap<uint8, float>> ForcedReveals;
 };

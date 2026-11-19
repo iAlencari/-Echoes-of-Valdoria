@@ -224,6 +224,15 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Formas")
 	FName AlternateFormId;
 
+	/** Heimdall's passive (turn 47): rides any Bifrost, never falls off when hit, -30% damage while riding; 15% less
+	 *  damage near a Bifrost (off it); allies near him ride 20% faster; sees everyone riding a Bifrost. */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Passiva")
+	bool bRailGuardian = false;
+
+	/** Enemies within this radius are revealed to the team even behind walls and in fog (Heimdall hears them). 0 = none. */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Passiva", meta = (ClampMin = "0"))
+	float ClairvoyanceRadius = 0.f;
+
 	/** Weapons float by telekinesis (Vex): they bob gently around their socket instead of being held. */
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Visual|Arma")
 	bool bWeaponsFloat = false;

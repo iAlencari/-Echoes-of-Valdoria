@@ -5,6 +5,7 @@
 #include "ValdoriaTrainingDummy.h"
 #include "ValdoriaGuardian.h"
 #include "ValdoriaFog.h"
+#include "ValdoriaHeroDefinition.h"
 #include "GameFramework/PlayerController.h"
 #include "Components/SkeletalMeshComponent.h"
 #include "Components/ShapeComponent.h"
@@ -73,6 +74,28 @@ void UValdoriaVisionSubsystem::UpdateVision()
 		{
 			if (Target.Team == Team || Target.Team == 255)
 			{
+				continue;
+			}
+			if (const TMap<uint8, float>* Forced = ForcedReveals.Find(Target.Actor); Forced && Forced->Contains(Team) && (*Forced)[Team] > World->GetTimeSeconds())
+			{
+				Set.Add(Target.Actor);
+				continue;
+			}
+			// Heimdall: hears enemies within his clairvoyance radius (walls and fog do not matter) and sees every Bifrost rider.
+			bool bHeard = false;
+			for (const FUnit& Eye : Units)
+			{
+				const UValdoriaHeroDefinition* Def = Eye.Team == Team ? Eye.Actor->GetHeroDefinition() : nullptr;
+				if (Def && ((Def->ClairvoyanceRadius > 0.f && FVector::Dist(Eye.Eye, Target.Eye) <= Def->ClairvoyanceRadius)
+					|| (Def->bRailGuardian && Target.Actor->IsRiding())))
+				{
+					bHeard = true;
+					break;
+				}
+			}
+			if (bHeard)
+			{
+				Set.Add(Target.Actor);
 				continue;
 			}
 			// Stealth: only seen from very close.
@@ -160,5 +183,14 @@ void UValdoriaVisionSubsystem::ApplyFogHiding()
 			U->SetActorHiddenInGame(bHide);
 			if (bHide) { HiddenByFog.Add(U); } else { HiddenByFog.Remove(U); }
 		}
+	}
+}
+
+void UValdoriaVisionSubsystem::RevealUnit(const AValdoriaHeroCharacter* Unit, uint8 Team, float Seconds)
+{
+	if (Unit && Seconds > 0.f)
+	{
+		float& Until = ForcedReveals.FindOrAdd(Unit).FindOrAdd(Team);
+		Until = FMath::Max(Until, GetWorld()->GetTimeSeconds() + Seconds);
 	}
 }

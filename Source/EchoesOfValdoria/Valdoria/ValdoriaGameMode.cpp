@@ -1087,7 +1087,7 @@ void AValdoriaGameMode::RunHeroTestStep()
 	}
 	AValdoriaPlayerController* PC = Cast<AValdoriaPlayerController>(GetWorld()->GetFirstPlayerController());
 	AValdoriaHeroCharacter* Hero = PC ? Cast<AValdoriaHeroCharacter>(PC->GetPawn()) : nullptr;
-	static const TCHAR* Ids[] = { TEXT("brasa"), TEXT("kael"), TEXT("iara"), TEXT("vex"), TEXT("lume"), TEXT("kay"), TEXT("ariel") };
+	static const TCHAR* Ids[] = { TEXT("brasa"), TEXT("kael"), TEXT("iara"), TEXT("vex"), TEXT("lume"), TEXT("kay"), TEXT("ariel"), TEXT("heimdall") };
 	const int32 PerHero = 44;
 	const int32 Index = (HeroTestStep - Warmup) / PerHero;
 	const int32 S = (HeroTestStep - Warmup) % PerHero;

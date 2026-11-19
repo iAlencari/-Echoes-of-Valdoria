@@ -36,12 +36,20 @@
 - **Levels (MOBA only)**: start at level 1 with 1 point. **Ctrl + 1/2/3/4** spends a point. Abilities 1-3 rank up
   to (level + 1) / 2; supreme at 5/9/13/16/20. Locked abilities (rank 0) show "BLOQ.". Each upgrade: +6% damage/heal
   (magnitude) and -5% cooldown. Bots spend points on their own (supreme first, then the lowest of 1-3).
-- **XP**: 60 + 30 x (level - 1) per level (level 20 after ~6300). Passive 2/s; minion: killer 40, allied heroes
+- **XP**: 120 + 60 x (level - 1) per level (turn 47: doubled and growing; level 20 after ~12500). Passive 2/s; minion: killer 40, allied heroes
   within 15 m 20; hero kill 200, assist 100; guardian credits x1.5 as XP.
 - **Gold (scoreboard)**: same as the shop credits (4/s, 0.5 per damage point in design units, 100 per kill,
   50 per assist, spot credits).
-- **Respawn (MOBA)**: (6 s + 1.5 s x (level - 1)) x (1 + 3% per minute after minute 10), max 50 s. Deaths and farm
+- **Respawn (MOBA, turn 47)**: (6 s + 2.5 s x (level - 1)) x (1 + 5% per minute after minute 8); cap 60 s before minute 18, 90 s from 18, 120 s from 25. Deaths and farm
   are not counted on their own (farm already becomes level; counting deaths punishes twice).
 - **CDR**: shop CDR capped at 30%.
-- **Keys**: V punch (was camera; camera moved to **F5**), **Tab** scoreboard (K/D/A, gold, damage, healing,
+- **Keys**: V punch (camera on the **mouse wheel click** since turn 47; F keys are taken by the official client), **Tab** scoreboard (K/D/A, gold, damage, healing,
   tank = damage taken, objectives = seals), **Y** last death recap (who, what source, how much, last 10 s).
+
+## Turn 47
+- **Head bars**: no numbers on any bar above heads; floating damage numbers (mine) and green "+N" heals (mine).
+- **Vampirism vs life steal**: vampirism = basic attack + V (weapon LifeSteal + buffs, max 40%); life steal = abilities
+  and passives (shop + buffs, max 30%). Caps provisional.
+- **Neblinas**: `AValdoriaFogArea` (radius 5.5 m, 4 m high). Inside = invisible to everyone outside (render, bars,
+  minimap, bots); seen only by someone in the same fog, or by reveals/clairvoyance. Sight inside 8 m. MOBA: 4 areas on
+  the side lanes at 35% and 65%.

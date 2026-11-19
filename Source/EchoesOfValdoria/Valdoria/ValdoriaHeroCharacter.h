@@ -325,6 +325,23 @@ public:
 	/** Temporary bonuses (buffs such as Ungido de Sangue): vampirism = basic attack and V, life steal = abilities. */
 	float BonusVampirism = 0.f;
 	float BonusLifeSteal = 0.f;
+
+	// Turn 47 (Heimdall and generic): control immunity, timed damage reduction, forced Bifrost ride.
+	float CCImmuneUntil = 0.f;
+	float BuffReduction = 0.f;
+	float BuffReductionUntil = 0.f;
+	/** Heimdall's passive near a Bifrost (off it). */
+	float RailGuardReduction = 0.f;
+	bool IsRailGuardian() const;
+	/** Put this hero on a rail at that distance and direction (shared by mounting and forced rides). */
+	void MountRailAt(class AValdoriaLaneRail* Rail, float Along, float Sign);
+	/** Chamado da Bifrost: the nearest rail within MaxDistance catches this hero and carries it toward its own base for
+	 *  Seconds, helpless (no attacks, no abilities, cannot get off). Returns false if no rail is close. */
+	bool StartForcedRide(float Seconds, float MaxDistance);
+	bool IsForcedRiding() const;
+	float ForcedRideUntil = 0.f;
+	/** Rails this hero may not take again until the time (8 s after a forced ride ends). */
+	TMap<TWeakObjectPtr<class AValdoriaLaneRail>, float> RailLockouts;
 	bool bLevelsChecked = false;
 	/** World time when this hero comes back (for the HUD). */
 	float RespawnAt = 0.f;

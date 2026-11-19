@@ -1,4 +1,4 @@
-// Echoes of Valdoria - chat do jogo (Enter) com comandos de teste.
+﻿// Echoes of Valdoria - chat do jogo (Enter) com comandos de teste.
 // Hoje é local; com multiplayer as mensagens e comandos passam pelo servidor.
 
 #include "ValdoriaPlayerController.h"
@@ -194,7 +194,7 @@ void AValdoriaPlayerController::RunChatCommand(const FString& Command)
 		}
 		else
 		{
-			ChatPrint(TEXT("Heróis: /heroi brasa | kael | iara | vex | lume | kay | ariel | recruta"), Bad);
+			ChatPrint(TEXT("Heróis: /heroi brasa | kael | iara | vex | lume | kay | ariel | heimdall | recruta"), Bad);
 		}
 	}
 	else if (Cmd == TEXT("modo") || Cmd == TEXT("mode"))

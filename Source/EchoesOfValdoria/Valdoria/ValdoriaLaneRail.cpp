@@ -219,3 +219,20 @@ void AValdoriaLaneRail::RebuildVisual()
 		}
 	}
 }
+
+float AValdoriaLaneRail::DistanceToPoint(const FVector& Point, float& OutAlong) const
+{
+	float Best = TNumericLimits<float>::Max();
+	OutAlong = 0.f;
+	const float Usable = GetLength();
+	for (float D = 0.f; D <= Usable; D += 200.f)
+	{
+		const float Dist = FVector::Dist(GetPointAt(D), Point);
+		if (Dist < Best)
+		{
+			Best = Dist;
+			OutAlong = D;
+		}
+	}
+	return Best;
+}

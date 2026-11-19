@@ -253,6 +253,7 @@ void AValdoriaPlayerController::OpenPauseMenu()
 		{ TEXT("lume"), LOCTEXT("PickLume", "Lume"), FLinearColor(1.f, 0.8f, 0.3f) },
 		{ TEXT("kay"), LOCTEXT("PickKay", "Kay"), FLinearColor(0.75f, 0.75f, 0.85f) },
 		{ TEXT("ariel"), LOCTEXT("PickAriel", "Ariel"), FLinearColor(0.85f, 0.5f, 0.2f) },
+		{ TEXT("heimdall"), LOCTEXT("PickHeimdall", "Heimdall"), FLinearColor(0.95f, 0.8f, 0.35f) },
 		{ TEXT("recruta"), LOCTEXT("PickRecruit", "Recruta"), FLinearColor(0.8f, 0.8f, 0.8f) },
 	};
 	for (const FHeroButton& B : HeroButtons)

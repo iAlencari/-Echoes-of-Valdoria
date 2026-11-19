@@ -40,6 +40,7 @@
 #include "ValdoriaMobaMode.h"
 #include "ValdoriaShop.h"
 #include "ValdoriaVision.h"
+#include "ValdoriaLaneRail.h"
 #include "Sound/SoundBase.h"
 #include "EngineUtils.h"
 #include "GameFramework/PlayerStart.h"
@@ -950,7 +951,10 @@ void AValdoriaHeroCharacter::OnDamageTaken(AValdoriaHeroCharacter* DamageInstiga
 		if (IsEnemy(DamageInstigator))
 		{
 			LastHarmedTime = LastDamageTakenTime;
-			StopRiding(); // hit by an enemy: fall off the trail
+			if (!IsRailGuardian() && !IsForcedRiding())
+			{
+				StopRiding(); // hit by an enemy: fall off the trail (Heimdall never falls; forced riders stay on)
+			}
 		}
 		if (const APlayerController* PC = Cast<APlayerController>(Controller))
 		{
@@ -1067,7 +1071,14 @@ float AValdoriaHeroCharacter::DealTypedDamage(AActor* Target, float BaseDamage, 
 	Physical *= 1.f - FMath::Clamp(Victim->GetPhysicalResistance(), 0.f, 0.9f);
 	Magical *= 1.f - FMath::Clamp(Victim->GetMagicResistance(), 0.f, 0.9f);
 	// Reductions stack multiplicatively and are capped at 75% so buffs never make anyone immortal.
-	const float Kept = FMath::Max(0.25f, (1.f - Victim->GetPassiveDamageReduction()) * (1.f - Victim->GetTeamDamageReduction()));
+	const float BuffRed = GetWorld()->GetTimeSeconds() < Victim->BuffReductionUntil ? Victim->BuffReduction : 0.f;
+	const float Kept = FMath::Max(0.25f, (1.f - Victim->GetPassiveDamageReduction()) * (1.f - Victim->GetTeamDamageReduction())
+		* (1.f - BuffRed) * (1.f - Victim->RailGuardReduction));
+	if (IsRiding() && IsRailGuardian())
+	{
+		Physical *= 0.7f; // Heimdall on a Bifrost: -30% damage (owner: so he does not camp on it)
+		Magical *= 0.7f;
+	}
 	float Total = (Physical + Magical) * Scale * Kept * (1.f + GetTeamDamageBonus());
 	if (ShopBonus.AntiHeal > 0.f)
 	{
@@ -1388,6 +1399,19 @@ void AValdoriaHeroCharacter::TickStatusEffects(float DeltaSeconds)
 			if (!IsPlayerControlled())
 			{
 				AutoSpendPoints();
+			}
+		}
+	}
+	RailGuardReduction = 0.f;
+	if (IsRailGuardian() && !IsRiding())
+	{
+		for (TActorIterator<AValdoriaLaneRail> It(GetWorld()); It; ++It)
+		{
+			float Along = 0.f;
+			if (It->Team != 253 && It->DistanceToPoint(GetActorLocation(), Along) < 1500.f)
+			{
+				RailGuardReduction = 0.15f; // near a Bifrost but off it: 15% less damage
+				break;
 			}
 		}
 	}
@@ -2266,7 +2290,10 @@ void AValdoriaHeroCharacter::Input_JumpPressed()
 {
 	if (IsRiding())
 	{
-		StopRiding(); // tap Space again to get off
+		if (!IsForcedRiding())
+		{
+			StopRiding(); // tap Space again to get off (not while carried by Chamado da Bifrost)
+		}
 		return;
 	}
 	JumpPressTime = GetWorld()->GetTimeSeconds();
@@ -2800,6 +2827,11 @@ void AValdoriaHeroCharacter::ApplyStatus(EValdoriaStatus Status, float Seconds)
 	if (Seconds <= 0.f || bGodMode)
 	{
 		return;
+	}
+	if (GetWorld()->GetTimeSeconds() < CCImmuneUntil
+		&& (Status == EValdoriaStatus::Stunned || Status == EValdoriaStatus::Rooted || Status == EValdoriaStatus::Silenced))
+	{
+		return; // control immunity (Gjallarhorn and future casting elevations)
 	}
 	const float End = GetWorld()->GetTimeSeconds() + Seconds;
 	LastHarmedTime = GetWorld()->GetTimeSeconds(); // control counts as passive combat
@@ -3518,9 +3550,13 @@ bool AValdoriaHeroCharacter::TryMountRail()
 	for (TActorIterator<AValdoriaLaneRail> It(GetWorld()); It; ++It)
 	{
 		// Own team's rails only, unless this hero can surf any rail (future hero).
-		if (It->Team != TeamId && !bCanRideAnyRail)
+		if ((It->Team != TeamId && !bCanRideAnyRail && !IsRailGuardian()) || It->Team == 253)
 		{
-			continue;
+			continue; // 253 = Gjallarhorn arc, only a picture
+		}
+		if (const float* Until = RailLockouts.Find(*It); Until && GetWorld()->GetTimeSeconds() < *Until)
+		{
+			continue; // just got carried by this bridge: 8 s before taking it back (owner)
 		}
 		float Along = 0.f;
 		const float Dist = It->DistanceToRay(Start, Dir, 2500.f, Along);
@@ -3535,10 +3571,20 @@ bool AValdoriaHeroCharacter::TryMountRail()
 	{
 		return false;
 	}
+	// Start in the direction the camera looks along the trail.
+	MountRailAt(Best, BestAlong, FVector::DotProduct(Dir.GetSafeNormal2D(), Best->GetTangentAt(BestAlong).GetSafeNormal2D()) >= 0.f ? 1.f : -1.f);
+	return true;
+}
+
+void AValdoriaHeroCharacter::MountRailAt(AValdoriaLaneRail* Best, float BestAlong, float Sign)
+{
+	if (!Best)
+	{
+		return;
+	}
 	RideRail = Best;
 	RideDistance = BestAlong;
-	// Start in the direction the camera looks along the trail.
-	RideSign = FVector::DotProduct(Dir.GetSafeNormal2D(), Best->GetTangentAt(BestAlong).GetSafeNormal2D()) >= 0.f ? 1.f : -1.f;
+	RideSign = Sign;
 	// Weapon goes on the back while riding.
 	if (WeaponComponent->GetStaticMesh() && GetMesh()->DoesSocketExist(TEXT("spine_03")))
 	{
@@ -3553,7 +3599,6 @@ bool AValdoriaHeroCharacter::TryMountRail()
 	GetCharacterMovement()->SetMovementMode(MOVE_Flying);
 	GetCharacterMovement()->StopMovementImmediately();
 	ValdoriaAudio::PlayAt(this, ValdoriaAudio::Load(TEXT("SciFi"), TEXT("forceField_000")), GetActorLocation(), 0.6f);
-	return true;
 }
 
 void AValdoriaHeroCharacter::StopRiding()
@@ -3617,7 +3662,23 @@ void AValdoriaHeroCharacter::TickRiding(float DeltaSeconds)
 	}
 	RideForwardInput = 0.f;
 	const float Sign = RideSign;
-	RideDistance += Sign * RideSpeed * DeltaSeconds;
+	if (ForcedRideUntil > 0.f && GetWorld()->GetTimeSeconds() >= ForcedRideUntil)
+	{
+		RailLockouts.Add(Rail, GetWorld()->GetTimeSeconds() + 8.f);
+		ForcedRideUntil = 0.f;
+		StopRiding(); // dropped near the end of the carry; cannot take this bridge back for 8 s
+		return;
+	}
+	float SpeedMult = 1.f;
+	for (TActorIterator<AValdoriaHeroCharacter> It(GetWorld()); It; ++It)
+	{
+		if (*It != this && !IsEnemy(*It) && It->IsRailGuardian() && !It->IsDead() && FVector::Dist(It->GetActorLocation(), GetActorLocation()) < 3000.f)
+		{
+			SpeedMult = 1.2f; // allies near Heimdall ride 20% faster (owner's idea)
+			break;
+		}
+	}
+	RideDistance += Sign * RideSpeed * SpeedMult * DeltaSeconds;
 	if (RideDistance <= 0.f || RideDistance >= Rail->GetLength())
 	{
 		StopRiding(); // end of the trail: drop off
@@ -3751,4 +3812,53 @@ void AValdoriaHeroCharacter::AddStack(AValdoriaHeroCharacter* Source, FName Key,
 		}
 	}
 	SetStack(Source, Key, Label, Color, FMath::Clamp(Current + Add, 0, MaxCount), Duration);
+}
+
+// ------------------------------------------------------------------ Heimdall helpers (turn 47)
+
+bool AValdoriaHeroCharacter::IsRailGuardian() const
+{
+	return ActiveDefinition && ActiveDefinition->bRailGuardian;
+}
+
+bool AValdoriaHeroCharacter::IsForcedRiding() const
+{
+	return IsRiding() && ForcedRideUntil > 0.f;
+}
+
+bool AValdoriaHeroCharacter::StartForcedRide(float Seconds, float MaxDistance)
+{
+	AValdoriaLaneRail* Best = nullptr;
+	float BestDist = MaxDistance;
+	float BestAlong = 0.f;
+	for (TActorIterator<AValdoriaLaneRail> It(GetWorld()); It; ++It)
+	{
+		if (It->Team == 253)
+		{
+			continue;
+		}
+		float Along = 0.f;
+		const float D = It->DistanceToPoint(GetActorLocation(), Along);
+		if (D < BestDist)
+		{
+			BestDist = D;
+			Best = *It;
+			BestAlong = Along;
+		}
+	}
+	if (!Best)
+	{
+		ApplyStatus(EValdoriaStatus::Stunned, 1.f); // no bridge close: just a short stun
+		return false;
+	}
+	if (IsRiding())
+	{
+		StopRiding();
+	}
+	// Rails start at their team's base: own rail -> back toward the start; enemy rail -> toward its end.
+	MountRailAt(Best, BestAlong, Best->Team == TeamId ? -1.f : 1.f);
+	ForcedRideUntil = GetWorld()->GetTimeSeconds() + Seconds;
+	ApplyStatus(EValdoriaStatus::CannotAttack, Seconds);
+	ApplyStatus(EValdoriaStatus::CannotUseAbilities, Seconds);
+	return true;
 }

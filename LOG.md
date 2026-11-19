@@ -642,3 +642,19 @@ Owner batch ("deixa pra compilar no final"): everything written first, one build
 - **Tests**: 6v6 300 s: runs, FPS 62-73, levels 6-9 at 200 s (XP may be fast - owner to tune), guardians slower to
   fall (lowest 39% at 300 s; bots start with 1 ability and no supreme until level 5). MOBA test: seal OK, Bifrost OK.
 - Off-topic ideas of the owner saved in `C:\Dev\projetos futuros.md` (outside git).
+
+### Turn 47 - Claude Code - 2026-11-19 (owner tweaks, fog areas, vampirism split, Heimdall v1)
+- Respawn harsher with 60/90/120 s caps (minute 18 / 25); XP needed doubled and growing; camera toggle on the mouse
+  wheel click; no numbers on head bars, green heal numbers; Alt tap = ally cooldowns.
+- **Neblinas** (`ValdoriaFog.h/.cpp`) with the owner's rule, wired into team vision, minimap, bars, bots and rendering.
+- **Vampirism / life steal** split with caps. `BonusVampirism` / `BonusLifeSteal` for future buffs (Ungido de Sangue).
+- **Heimdall v1** (`ValdoriaHeimdall.h/.cpp`, preset `heimdall`, `DA_Heimdall`): axes in an arc (LMB), Cem Léguas
+  (RMB piercing), Sentinela (1, reveal 40 m 4 s), Gulltoppr (2, lunge), Chamado da Bifrost (3, charge-grab-throw,
+  forced 3 s ride toward the victim's base, 8 s lockout on that bridge), O Olho que Tudo Vê (C, whole map 3 s),
+  Gjallarhorn (4, horn 1.5 s: control immune + 30% less damage; everyone in 4.5 m jumps along a rainbow arc to the
+  crosshair spot, range 40 m + up to 60 m per nearby Bifrost, snapped to the navmesh). Passive: any Bifrost, never
+  knocked off, -30% damage while riding, 15% less damage near a Bifrost, allies near him ride 20% faster, hears
+  enemies within 20 m (walls/fog) and sees every Bifrost rider. New generic pieces: `CCImmuneUntil`, timed
+  `BuffReduction`, `RevealUnit`, `StartForcedRide`, `RailLockouts`, `LaneRail::DistanceToPoint`.
+- TODO Heimdall: big-map landing picker for Gjallarhorn (now crosshair), enemy warning marker 1 s before, axe mesh
+  (hammer placeholder), surf riding pose, RMB reveal, elevations. Filho de Nazaré: next.

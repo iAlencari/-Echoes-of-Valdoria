@@ -8,6 +8,7 @@
 #include "Engine/Texture2D.h"
 #include "Sound/SoundBase.h"
 #include "ValdoriaHeroAbilities.h"
+#include "ValdoriaHeimdall.h"
 
 #define LOCTEXT_NAMESPACE "ValdoriaHeroes"
 
@@ -44,7 +45,7 @@ namespace
 
 TArray<FName> UValdoriaHeroDefinition::GetPresetIds()
 {
-	return { TEXT("brasa"), TEXT("kael"), TEXT("iara"), TEXT("vex"), TEXT("lume"), TEXT("kay"), TEXT("ariel"), TEXT("ariel_faisca") };
+	return { TEXT("brasa"), TEXT("kael"), TEXT("iara"), TEXT("vex"), TEXT("lume"), TEXT("kay"), TEXT("ariel"), TEXT("ariel_faisca"), TEXT("heimdall") };
 }
 
 UValdoriaHeroDefinition* UValdoriaHeroDefinition::CreatePreset(UObject* Outer, FName PresetId)
@@ -77,6 +78,8 @@ bool UValdoriaHeroDefinition::ApplyPreset(FName PresetId)
 	ElementCount = 0; ElementNames.Reset(); ElementColors.Reset(); ElementDamageTypes.Reset();
 	UltimateHoldSeconds = 0.f; AlternateFormId = NAME_None;
 	bRideEffectPerFoot = false;
+	bRailGuardian = false;
+	ClairvoyanceRadius = 0.f;
 
 	if (Id == TEXT("brasa"))
 	{
@@ -443,6 +446,63 @@ bool UValdoriaHeroDefinition::ApplyPreset(FName PresetId)
 	// Ariel (created by Claude, turn 45): bigender, inspired by a gender-shifting character. C swaps the form.
 	// Owner: refer to Ariel by name (or "de Ariel"); refer to Kay only by name, never o/a.
 	// Forma Rocha (masculine): close-range bruiser. Forma Faísca (feminine): agile ranged energy.
+	if (Id == TEXT("heimdall"))
+	{
+		// Turn 47: owner's hero, kit decided with Claude (docs/ConceitosHerois.md). Placeholder look: mannequin + hammer
+		// until the axe mesh is imported. All numbers provisional (owner balances).
+		HeroId = TEXT("heimdall");
+		DisplayName = LOCTEXT("HeimdallName", "Heimdall");
+		Description = LOCTEXT("HeimdallDesc", "O Onividente. Guardião da Bifrost: arremessa machados de longe, enxerga o que ninguém vê e usa as pontes de arco-íris como arma.");
+		Roles.Add(EValdoriaHeroRole::Warrior);
+		ThemeColor = FLinearColor(0.95f, 0.8f, 0.35f);
+		MaxHealth = 250.f;
+		MaxArmor = 25.f;
+		MoveSpeed = 560.f;
+		MeshScale = 1.08f;
+		Mesh = TSoftObjectPtr<USkeletalMesh>(FSoftObjectPath(Manny));
+		Movement.ShiftMode = EValdoriaShiftMode::Sprint;
+		UltimateCost = 1800.f;
+		bRailGuardian = true;
+		ClairvoyanceRadius = 2000.f; // hears enemies within 20 m
+
+		Weapon.WeaponName = LOCTEXT("HeimdallWeapon", "Machados de Gjallar");
+		Weapon.DamageType = EValdoriaDamageType::Physical;
+		Weapon.Damage = 48.f;
+		Weapon.FireRate = 1.6f;
+		Weapon.MagazineSize = 8;
+		Weapon.ReserveAmmo = 64;
+		Weapon.ReloadTime = 1.8f;
+		Weapon.SpreadDegrees = 0.f;
+		Weapon.Range = 3000.f;
+		Weapon.ProjectileSpeed = 3200.f;
+		Weapon.ProjectileGravity = 0.35f; // thrown axes fly in an arc
+		WeaponMesh = ::Weapon(TEXT("Martelo"));
+
+		PassiveName = LOCTEXT("HeimdallPassive", "Guardião da Ponte");
+		PassiveDescription = LOCTEXT("HeimdallPassiveDesc", "Anda em qualquer Bifrost e nunca cai dela quando é atingido, mas lá em cima causa 30% menos dano. Perto de uma Bifrost (fora dela) recebe 15% menos dano, e os aliados perto dele andam 20% mais rápido nas pontes. Ouve inimigos a até 20 m mesmo atrás de paredes e na neblina, e vê todos que estão em alguma Bifrost.");
+
+		Add(this, EValdoriaAbilitySlot::PrimaryFire, UValdoriaGA_FireProjectile::StaticClass(), LOCTEXT("HeimdallFire", "Machados"),
+			LOCTEXT("HeimdallFireDesc", "Arremessa machados que voam em arco: 48 de dano físico. 8 por carga."));
+		FValdoriaAbilityEntry& Leagues = Add(this, EValdoriaAbilitySlot::SecondaryFire, UValdoriaGA_PiercingBolt::StaticClass(), LOCTEXT("HeimdallRmb", "Cem Léguas"),
+			LOCTEXT("HeimdallRmbDesc", "Arremesso longo e certeiro que atravessa todos na linha (até 40 m): 70 de dano físico. Recarga de 9 s."));
+		Leagues.Cooldown = 9.f; Leagues.Magnitude = 70.f; Leagues.Radius = 4000.f; Leagues.DamageType = EValdoriaDamageType::Physical;
+		FValdoriaAbilityEntry& Sentinel = Add(this, EValdoriaAbilitySlot::Ability1, UValdoriaGA_RevealPulse::StaticClass(), LOCTEXT("HeimdallSentinel", "Sentinela"),
+			LOCTEXT("HeimdallSentinelDesc", "Um pulso revela todos os inimigos a até 40 m por 4 s, para o time todo (minimapa e através da neblina). Recarga de 16 s."));
+		Sentinel.Cooldown = 16.f; Sentinel.Radius = 4000.f; Sentinel.Duration = 4.f;
+		FValdoriaAbilityEntry& Horse = Add(this, EValdoriaAbilitySlot::Ability2, UValdoriaGA_LungeSlash::StaticClass(), LOCTEXT("HeimdallHorse", "Gulltoppr"),
+			LOCTEXT("HeimdallHorseDesc", "Investida curta no cavalo espectral de crina dourada: 40 de dano físico em quem estiver no caminho. Recarga de 10 s."));
+		Horse.Cooldown = 10.f; Horse.Magnitude = 40.f; Horse.Radius = 900.f;
+		FValdoriaAbilityEntry& Call = Add(this, EValdoriaAbilitySlot::Ability3, UValdoriaGA_BifrostCall::StaticClass(), LOCTEXT("HeimdallCall", "Chamado da Bifrost"),
+			LOCTEXT("HeimdallCallDesc", "Investida que atravessa minions e agarra o primeiro herói inimigo: 40 de dano mágico, ele é arremessado para cima e a Bifrost mais próxima o leva indefeso por 3 s em direção à base dele. Depois ele fica 8 s sem poder pegar aquela ponte. Errar gasta a recarga inteira (40 s)."));
+		Call.Cooldown = 40.f; Call.Magnitude = 40.f; Call.Radius = 1600.f; Call.Duration = 3.f; Call.DamageType = EValdoriaDamageType::Magical;
+		FValdoriaAbilityEntry& Eye = Add(this, EValdoriaAbilitySlot::AbilityExtra, UValdoriaGA_RevealPulse::StaticClass(), LOCTEXT("HeimdallEye", "O Olho que Tudo Vê"),
+			LOCTEXT("HeimdallEyeDesc", "Por 3 s, todos os inimigos do mapa aparecem para o seu time. Recarga de 90 s."));
+		Eye.Cooldown = 90.f; Eye.Radius = 0.f; Eye.Duration = 3.f;
+		FValdoriaAbilityEntry& Horn = Add(this, EValdoriaAbilitySlot::Ultimate, UValdoriaGA_Gjallarhorn::StaticClass(), LOCTEXT("HeimdallUlt", "Gjallarhorn"),
+			LOCTEXT("HeimdallUltDesc", "Toca o berrante por 1,5 s (imune a controle, 30% menos dano, mais lento). Todos na área em volta dele (aliados, inimigos e minions; nunca guardiões) viajam juntos por um arco-íris até o ponto mirado. Alcance: 40 m, mais até 60 m por Bifrost perto dele (na base, o mapa todo)."));
+		Horn.Radius = 450.f; Horn.Duration = 1.5f; Horn.SecondaryMagnitude = 0.3f;
+		return true;
+	}
 	if (Id == TEXT("ariel"))
 	{
 		HeroId = TEXT("ariel");
