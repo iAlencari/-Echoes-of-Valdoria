@@ -65,9 +65,7 @@ void UValdoriaGA_BifrostCall::ActivateAbility(const FGameplayAbilitySpecHandle H
 {
 	VALDORIA_BEGIN();
 	StartCooldownAndCost(); // missing still costs the full cooldown (owner)
-	FVector AimStart, AimDir;
-	Hero->GetAimRay(AimStart, AimDir);
-	const FVector Fwd = AimDir.GetSafeNormal2D().IsNearlyZero() ? Hero->GetActorForwardVector() : AimDir.GetSafeNormal2D();
+	const FVector Fwd = FRotator(0.f, Hero->GetControlRotation().Yaw, 0.f).Vector(); // where the player looks (the camera can lag a frame)
 	const float ChargeTime = 0.55f;
 	const float Length = GetRadius();
 	const FVector From = Hero->GetActorLocation();
@@ -92,6 +90,7 @@ void UValdoriaGA_BifrostCall::ActivateAbility(const FGameplayAbilitySpecHandle H
 		}
 	}
 	const float Speed = Length / ChargeTime;
+	UE_LOG(LogTemp, Log, TEXT("CHAMADO auth=%d alvo=%s dist=%.0f dir=%s"), Hero->HasAuthority() ? 1 : 0, Victim ? *Victim->GetName() : TEXT("nenhum"), VictimDist, *Fwd.ToCompactString());
 	Hero->LaunchCharacter(Fwd * Speed + FVector(0.f, 0.f, 120.f), true, true);
 	ValdoriaAudio::PlayAt(Hero, ValdoriaAudio::Load(TEXT("SciFi"), TEXT("forceField_000")), Hero->GetActorLocation(), 0.8f);
 	if (!Victim)
@@ -114,6 +113,7 @@ void UValdoriaGA_BifrostCall::ActivateAbility(const FGameplayAbilitySpecHandle H
 		}
 		H->GetCharacterMovement()->StopMovementImmediately();
 		H->DamageSourceLabel = TEXT("Chamado da Bifrost");
+		UE_LOG(LogTemp, Log, TEXT("CHAMADO agarrou %s vida=%.0f"), *V->GetName(), V->GetHealth());
 		H->DealTypedDamage(V, Damage, EValdoriaDamageType::Magical, 1.f, false);
 		H->DamageSourceLabel.Reset();
 		// Thrown up and away (not a teleport); the nearest Bifrost "calls" the victim at the top of the arc.

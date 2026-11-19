@@ -1242,7 +1242,7 @@ void AValdoriaGameMode::RunHeroTestStep()
 		break;
 	case 23: AimAtEnemy(); Use(EValdoriaAbilitySlot::Ability2, TEXT("2")); break; // aimed abilities (Vex dash) need the target under the crosshair
 	case 27: Report(TEXT("depois do 2")); Shot(4); break;
-	case 28: Use(EValdoriaAbilitySlot::Ability3, TEXT("3")); break; // turn 45: every hero has ability 3
+	case 28: if (Index != 2) { AimAtEnemy(); } Use(EValdoriaAbilitySlot::Ability3, TEXT("3")); break; // turn 45: every hero has ability 3 (turn 48: aimed, not Iara who pulls the ally)
 	case 29:
 		Report(TEXT("depois do 3"));
 		Hero->AdminFillUltimate();
