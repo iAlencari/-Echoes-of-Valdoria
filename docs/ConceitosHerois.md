@@ -192,3 +192,42 @@ living religions (Smite, 2012). The owner keeps the final word on name, look and
 - **C - Bem-aventuranças**: aura for 6 s, allies nearby take 20% less damage.
 - **4 - Levanta-te, Lázaro** (supreme): revives the most recently fallen ally where they died, or, if nobody
   fell, a big heal plus a shield for all allies around him.
+
+## Turn 46 - owner decisions round 2 (replaces earlier drafts where they differ)
+### Levels and Elevação (owner)
+- 20 levels per match. Each ability (LMB, RMB, 1, 2, 3, C, 4) can be upgraded up to 4 times: small damage/buff
+  increase and slightly shorter cooldown.
+- 2 elevation points: one at level 10, one at level 20. Each ability can be elevated only once. Elevations are the
+  big changes: area control, single target becoming area, damage reduction while casting, heal cut, control
+  immunity or damage immunity while casting, etc.
+- Claude's proposal for the points: 1 upgrade point per level except 10 and 20 (they give elevation) = 18 upgrade
+  points for 28 possible upgrades, so nobody maxes everything.
+### Neblinas (owner, final rule)
+- Inside a fog area you are fully invisible to everyone outside (except clairvoyance abilities: Heimdall etc.).
+  To see someone inside you must enter; then both silhouettes show to each other. Sight inside is reduced but OK.
+### Health scale (owner: raise HP a lot)
+- Claude's proposal: multiply every HP, damage and heal by 10 (Kael 200 -> 2000, Brasa 300 -> 3000). Then
+  0.05% of 2000 HP = 1 HP and the owner's percentages become whole numbers. To do as one batch with the tests.
+### General health rules (owner)
+- Out-of-combat regeneration: 1 HP every 0.5 s.
+- Clearing a whole minion wave restores 10% of CURRENT health.
+- Overheal only happens when health is full.
+### Heimdall: owner keeps Claude's kit (Gjallarhorn supreme; Chamado da Bifrost throws onto the bridge, drops nearby,
+  no return on that bridge for 8 s).
+### Filho de Nazaré - Tank/Support (owner's kit; title: see below)
+- **Passive - Deus do Velho Testamento**: an enemy at 5% HP or less hit by him is executed. Gold and XP go to the
+  nearest ally; he gets a reduced share.
+- **Cálice e Carne**: gives his own HP to heal an ally; an ally who drinks it and is out of combat regenerates
+  3x faster until full.
+- **4 - Crucificado** (supreme, max 3.5 s): immune to control and damage, rises into the sky healing allies a
+  little (0.05% max HP every 0.5 s), and every 2 s a pulse heals 5% and removes control from allies. Allies under
+  10% HP get double healing. While it lasts, a lethal hit only kills an ally if it dealt more than 30% of their
+  max HP; otherwise they fall with 1 HP and take 1 s to stand up, immune to damage meanwhile (after that, any
+  damage kills). At the end he dies and respawns at the base 3 s later. Presentation with reverence: light and
+  ascension, no gore.
+- **Elevation of the supreme - Levanta-te e Anda**: for 10 s after an ally falls, getting an assist on or killing
+  that ally's killer revives the ally at the base.
+### Titles
+- Kay: **Harmônico** (owner's choice). Recruta: **Prelúdio de Valdoria**. Ariel: **Amálgama**.
+- Claude's proposals: Heimdall **O Vigia**; Filho de Nazaré **O Prometido** (owner's options: O Crucificado or
+  O Prometido).
