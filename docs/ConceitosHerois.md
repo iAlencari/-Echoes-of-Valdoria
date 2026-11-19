@@ -125,3 +125,30 @@ Waiting for the owner's feedback on the Gemini images/videos before any code.
   start from round glowing pads at the base and end in big tube portals at the lane ends; flowing rainbow strands,
   smooth curves, cyberpunk Heimdall surfing in the inset. Owner wants it exactly like this: loose strands, riders
   look like they float (as in the films). No solid floor band.
+
+### Heimdall - full kit draft (turn 46, Claude's picks from the owner's suggestions; all numbers provisional)
+Lore used (public domain: Poetic Edda, Prose Edda, Rigsthula): watchman of the gods at Himinbjorg by the Bifrost;
+needs less sleep than a bird; sees a hundred leagues by day or night; hears grass and wool growing; blows the
+Gjallarhorn at Ragnarok; golden teeth ("Gullintanni"); golden-maned horse Gulltoppr; son of nine mothers (the
+waves); fought Loki in seal form for the Brisingamen necklace; he and Loki are fated to kill each other.
+- **Passive - Guardião da Ponte**:
+  - Never falls off a Bifrost and can attack while riding (surf pose). On the Bifrost: -30% damage and range
+    (so he does not camp on it).
+  - Near a Bifrost but OFF it (within 15 m): 15% damage reduction; allies in his lane ride the Bifrost 20% faster
+    and are not stunned when knocked off it.
+  - *Ouve a grama crescer*: enemies moving within 20 m show on his minimap even behind walls (uses team vision).
+- **LMB - Machados**: thrown axes in an arc, ranged (owner's other inspiration).
+- **RMB - Cem Léguas**: aimed long throw, slower, more damage at long range; reveals the target for 3 s.
+- **1 - Sentinela**: pulse that reveals every enemy within 40 m for 4 s (silhouettes through walls, on the
+  minimap for the whole team).
+- **2 - Gulltoppr**: short charge on a spectral golden-maned horse; passes through minions and knocks them aside.
+- **3 - Destino de Ragnarök**: marks an enemy hero for 6 s; Heimdall deals +15% damage to that hero and takes
+  -15% from it (the fated duel with Loki).
+- **C - Chamado da Bifrost** (owner's supreme A, moved to his special key): raise the axe, charge, grab the
+  first enemy hero (passes through minions), throw it up and back, the nearest Bifrost catches it and carries it
+  helpless toward its base for 3 s (the full ride to the base was supreme power; C has a 40 s cooldown). The
+  victim cannot take that same Bifrost for 8 s after. Hitting nobody = full cooldown.
+- **4 - Gjallarhorn** (supreme, owner's option B): area on Heimdall that moves with him during the horn (1.5 s);
+  he is immune to control and takes 30% less damage while blowing; everyone inside (allies, enemies, minions;
+  never GS/GF/JG) jumps along a rainbow arc to the spot picked on the big map (anywhere outside buildings).
+  Range: 40 m + up to 60 m per nearby Bifrost (base = whole map).
