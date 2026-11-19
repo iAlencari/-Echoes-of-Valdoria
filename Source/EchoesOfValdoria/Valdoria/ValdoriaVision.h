@@ -30,6 +30,10 @@ public:
 
 	/** True when Unit can be seen by Team: same team, training target (255), or revealed by a unit of that team. */
 	bool IsRevealedTo(const AValdoriaHeroCharacter* Unit, uint8 Team) const;
+	/** Inside a fog area and not seen by that team (turn 47): invisible to it (render, bars, bots). */
+	bool IsHiddenInFogFrom(const AValdoriaHeroCharacter* Unit, uint8 Team) const;
+	/** Sight inside a fog area (cm). */
+	float FogSight = 800.f;
 
 	/** Sight radius (cm) by unit kind. Provisional numbers; balance is the owner's. */
 	float HeroSight = 5000.f;
@@ -46,4 +50,7 @@ private:
 	TMap<TWeakObjectPtr<AValdoriaHeroCharacter>, bool> Tuned;
 	void UpdateVision();
 	void TuneMeshes();
+	void ApplyFogHiding();
+	TSet<TWeakObjectPtr<const AValdoriaHeroCharacter>> InFog;
+	TSet<TWeakObjectPtr<AValdoriaHeroCharacter>> HiddenByFog;
 };

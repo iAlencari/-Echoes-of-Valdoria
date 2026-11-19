@@ -4,6 +4,8 @@
 #include "ValdoriaHeroCharacter.h"
 #include "ValdoriaTrainingDummy.h"
 #include "ValdoriaGuardian.h"
+#include "ValdoriaFog.h"
+#include "GameFramework/PlayerController.h"
 #include "Components/SkeletalMeshComponent.h"
 #include "Components/ShapeComponent.h"
 #include "Engine/World.h"
@@ -19,6 +21,7 @@ void UValdoriaVisionSubsystem::Tick(float DeltaTime)
 	NextUpdate = World->GetTimeSeconds() + 0.2f;
 	UpdateVision();
 	TuneMeshes();
+	ApplyFogHiding();
 }
 
 bool UValdoriaVisionSubsystem::IsRevealedTo(const AValdoriaHeroCharacter* Unit, uint8 Team) const
@@ -38,8 +41,9 @@ bool UValdoriaVisionSubsystem::IsRevealedTo(const AValdoriaHeroCharacter* Unit, 
 void UValdoriaVisionSubsystem::UpdateVision()
 {
 	UWorld* World = GetWorld();
-	struct FUnit { AValdoriaHeroCharacter* Actor; FVector Eye; float Sight; uint8 Team; };
+	struct FUnit { AValdoriaHeroCharacter* Actor; FVector Eye; float Sight; uint8 Team; const AValdoriaFogArea* Fog; };
 	TArray<FUnit> Units;
+	InFog.Reset();
 	TSet<uint8> Teams;
 	for (TActorIterator<AValdoriaHeroCharacter> It(World); It; ++It)
 	{
@@ -49,7 +53,12 @@ void UValdoriaVisionSubsystem::UpdateVision()
 			continue;
 		}
 		const float Sight = U->IsGuardianUnit() ? GuardianSight : U->IsMinionUnit() ? MinionSight : U->IsHeroUnit() ? HeroSight : 0.f;
-		Units.Add({ U, U->GetActorLocation() + FVector(0.f, 0.f, 60.f), Sight, U->TeamId });
+		const AValdoriaFogArea* Fog = AValdoriaFogArea::FindAt(World, U->GetActorLocation());
+		if (Fog)
+		{
+			InFog.Add(U);
+		}
+		Units.Add({ U, U->GetActorLocation() + FVector(0.f, 0.f, 60.f), Fog ? FMath::Min(Sight, FogSight) : Sight, U->TeamId, Fog });
 		Teams.Add(U->TeamId);
 	}
 	Revealed.Reset();
@@ -73,6 +82,10 @@ void UValdoriaVisionSubsystem::UpdateVision()
 				if (Eye.Team != Team || Eye.Sight <= 0.f)
 				{
 					continue;
+				}
+				if (Target.Fog && Eye.Fog != Target.Fog)
+				{
+					continue; // inside fog: only seen by someone inside the same fog
 				}
 				const float DistSq = FVector::DistSquared(Eye.Eye, Target.Eye);
 				const float Range = FMath::Min(Eye.Sight, StealthCap);
@@ -122,6 +135,30 @@ void UValdoriaVisionSubsystem::TuneMeshes()
 			{
 				P->SetCullDistance(bCheap ? RenderRadius : 0.f);
 			}
+		}
+	}
+}
+
+bool UValdoriaVisionSubsystem::IsHiddenInFogFrom(const AValdoriaHeroCharacter* Unit, uint8 Team) const
+{
+	return Unit && InFog.Contains(Unit) && !IsRevealedTo(Unit, Team);
+}
+
+void UValdoriaVisionSubsystem::ApplyFogHiding()
+{
+	// Rendering for the local player's team: enemies hidden in fog disappear; they come back when seen or out.
+	const APlayerController* PC = GetWorld()->GetFirstPlayerController();
+	const AValdoriaHeroCharacter* Me = PC ? Cast<AValdoriaHeroCharacter>(PC->GetPawn()) : nullptr;
+	const uint8 MyTeam = Me ? Me->TeamId : 254;
+	for (TActorIterator<AValdoriaHeroCharacter> It(GetWorld()); It; ++It)
+	{
+		AValdoriaHeroCharacter* U = *It;
+		const bool bHide = Me && U != Me && IsHiddenInFogFrom(U, MyTeam);
+		const bool bWas = HiddenByFog.Contains(U);
+		if (bHide != bWas)
+		{
+			U->SetActorHiddenInGame(bHide);
+			if (bHide) { HiddenByFog.Add(U); } else { HiddenByFog.Remove(U); }
 		}
 	}
 }

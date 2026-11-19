@@ -98,7 +98,7 @@ float AValdoriaHeroCharacter::GetRankCooldownMultiplier(EValdoriaAbilitySlot Slo
 
 float AValdoriaHeroCharacter::XPToNextLevel() const
 {
-	return 60.f + 30.f * (Level - 1); // level 20 after ~6300 XP (provisional)
+	return 120.f + 60.f * (Level - 1); // turn 47 (owner): double, growing each level; level 20 after ~12500 XP
 }
 
 void AValdoriaHeroCharacter::GainXP(float Amount)

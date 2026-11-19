@@ -1,6 +1,7 @@
 // Echoes of Valdoria - 6v6 MOBA with Guardian Spots.
 
 #include "ValdoriaMobaMode.h"
+#include "ValdoriaFog.h"
 #include "EngineUtils.h"
 #include "GameFramework/PlayerStart.h"
 #include "Kismet/GameplayStatics.h"
@@ -280,6 +281,21 @@ void AValdoriaMobaMode::BuildLayout()
 	}
 
 	BuildLaneRoutes(Axis, SideDir, Centre, HalfLength, SideOffset);
+	// Neblinas (turn 47): 4 fog areas on the side lanes, at 1/3 and 2/3 of the way (mirrored for both teams).
+	for (int32 Lane : { 0, 2 })
+	{
+		const TArray<FVector>& Route = LaneRoutes[0][Lane];
+		for (float Frac : { 0.35f, 0.65f })
+		{
+			if (Route.Num() > 3)
+			{
+				const FVector Where = Route[FMath::Clamp(FMath::RoundToInt(Frac * (Route.Num() - 1)), 0, Route.Num() - 1)];
+				FActorSpawnParameters FogParams;
+				FogParams.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
+				GetWorld()->SpawnActor<AValdoriaFogArea>(AValdoriaFogArea::StaticClass(), Where, FRotator::ZeroRotator, FogParams);
+			}
+		}
+	}
 	NextMinionWave = GetWorld()->GetTimeSeconds() + Rules->MinionFirstWave;
 
 	// Heroes: the player + allies in team 0, the enemy team in team 1, spread over the lanes.
@@ -680,10 +696,13 @@ float AValdoriaMobaMode::GetRespawnDelayFor(const AValdoriaHeroCharacter* Victim
 {
 	// Turn 46 (provisional, owner balances): grows with the hero's level and, after 10 minutes, with match time.
 	// Deaths and farm are not counted on their own (farm already becomes level; counting deaths punishes twice).
-	//   seconds = (RespawnDelay + 1.5 x (level - 1)) x (1 + 0.03 x minutes after the 10th), capped at 50 s
+	// Turn 47 (owner: harsher, longer caps late):
+	//   seconds = (RespawnDelay + 2.5 x (level - 1)) x (1 + 0.05 x minutes after the 8th)
+	//   cap 60 s before minute 18, 90 s from minute 18, 120 s from minute 25
 	const float BaseDelay = Rules ? Rules->RespawnDelay : 6.f;
 	const int32 Lvl = Victim && Victim->bUsesLevels ? Victim->Level : 1;
 	const float Minutes = (GetWorld()->GetTimeSeconds() - MatchStart) / 60.f;
-	const float TimeFactor = 1.f + 0.03f * FMath::Max(0.f, Minutes - 10.f);
-	return FMath::Min(50.f, (BaseDelay + 1.5f * (Lvl - 1)) * TimeFactor);
+	const float TimeFactor = 1.f + 0.05f * FMath::Max(0.f, Minutes - 8.f);
+	const float Cap = Minutes >= 25.f ? 120.f : Minutes >= 18.f ? 90.f : 60.f;
+	return FMath::Min(Cap, (BaseDelay + 2.5f * (Lvl - 1)) * TimeFactor);
 }

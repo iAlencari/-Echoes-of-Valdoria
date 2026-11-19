@@ -39,6 +39,7 @@
 #include "ValdoriaGuardian.h"
 #include "ValdoriaMobaMode.h"
 #include "ValdoriaShop.h"
+#include "ValdoriaVision.h"
 #include "Sound/SoundBase.h"
 #include "EngineUtils.h"
 #include "GameFramework/PlayerStart.h"
@@ -1112,10 +1113,14 @@ float AValdoriaHeroCharacter::DealTypedDamage(AActor* Target, float BaseDamage, 
 	{
 		DealDamageTo(Victim, Total, bHeadshot);
 	}
-	// Life steal (weapon): part of the damage heals the attacker (can overheal).
-	if (GetWeaponStats().LifeSteal > 0.f)
+	// Turn 47 (owner): VAMPIRISMO heals from the basic attack and the V punch (weapon value + buffs, max 40%);
+	// ROUBO DE VIDA heals from abilities and passives (shop + buffs, max 30%). Caps are provisional.
+	const bool bFromAbility = !DamageSourceLabel.IsEmpty() && DamageSourceLabel != TEXT("Soco (V)");
+	const float Rate = bFromAbility ? FMath::Min(0.3f, ShopBonus.LifeSteal + BonusLifeSteal)
+		: FMath::Min(0.4f, GetWeaponStats().LifeSteal + BonusVampirism);
+	if (Rate > 0.f)
 	{
-		HealTarget(this, (Total + 0.f) * GetWeaponStats().LifeSteal);
+		HealTarget(this, Total * Rate);
 	}
 	return Total;
 }
@@ -1143,6 +1148,16 @@ void AValdoriaHeroCharacter::HealTarget(AActor* Target, float Amount)
 			Other->AddOverheal(Healed - Missing, Other->GetMaxHealth() * MyWeapon.OverhealMax, MyWeapon.OverhealDecay);
 		}
 		Stats.Healing += FMath::Min(Healed, Missing); // scoreboard: real healing, not overheal
+		if (Target != this && Missing > 1.f && IsLocallyControlled())
+		{
+			if (const APlayerController* MyPC = Cast<APlayerController>(Controller))
+			{
+				if (AValdoriaHUD* MyHUD = Cast<AValdoriaHUD>(MyPC->GetHUD()))
+				{
+					MyHUD->AddHealNumber(Other->GetActorLocation() + FVector(0, 0, 90.f), FMath::Min(Healed, Missing));
+				}
+			}
+		}
 		Spec.Data->SetSetByCallerMagnitude(ValdoriaTags::Data_Heal, Healed);
 		if (Target != this)
 		{
@@ -1456,10 +1471,7 @@ void AValdoriaHeroCharacter::OnDamageDealt(AValdoriaHeroCharacter* Victim, float
 	// Loja: roubo de vida e créditos por dano/abate.
 	if (HasAuthority() && Victim && Victim != this)
 	{
-		if (ShopBonus.LifeSteal > 0.f)
-		{
-			HealTarget(this, Damage / ValdoriaStatScale * ShopBonus.LifeSteal);
-		}
+		// (shop life steal now applies in DealTypedDamage, to abilities only - turn 47)
 		if (AValdoriaPlayerController* PC = Cast<AValdoriaPlayerController>(Controller))
 		{
 			PC->OnHeroDamageDealt(Damage / ValdoriaStatScale, bKill); // credits use design units
@@ -3184,8 +3196,13 @@ void AValdoriaHeroCharacter::TickAutopilot(float DeltaSeconds)
 	}
 	const float Now = GetWorld()->GetTimeSeconds();
 	const FVector Eye = GetActorLocation() + FVector(0.f, 0.f, BaseEyeHeight);
-	auto CanSee = [this, &Eye](const AValdoriaHeroCharacter* Other)
+	const UValdoriaVisionSubsystem* FogVision = GetWorld()->GetSubsystem<UValdoriaVisionSubsystem>();
+	auto CanSee = [this, &Eye, FogVision](const AValdoriaHeroCharacter* Other)
 	{
+		if (FogVision && FogVision->IsHiddenInFogFrom(Other, TeamId))
+		{
+			return false; // hidden in a fog area (turn 47)
+		}
 		FHitResult Hit;
 		FCollisionQueryParams Params(SCENE_QUERY_STAT(ValdoriaAutopilot), false, this);
 		IgnoreFriendlyBarriers(Params);

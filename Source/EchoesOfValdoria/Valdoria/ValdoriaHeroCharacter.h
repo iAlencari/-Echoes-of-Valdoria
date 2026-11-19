@@ -322,6 +322,9 @@ public:
 	/** V: melee punch, every hero (owner). Damage in design units, from the hero data. */
 	void TryMeleePunch();
 	float NextPunchTime = 0.f;
+	/** Temporary bonuses (buffs such as Ungido de Sangue): vampirism = basic attack and V, life steal = abilities. */
+	float BonusVampirism = 0.f;
+	float BonusLifeSteal = 0.f;
 	bool bLevelsChecked = false;
 	/** World time when this hero comes back (for the HUD). */
 	float RespawnAt = 0.f;

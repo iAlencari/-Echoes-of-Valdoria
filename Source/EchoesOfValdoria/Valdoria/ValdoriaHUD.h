@@ -26,6 +26,8 @@ public:
 
 	/** Marcador de acerto + número de dano flutuante. */
 	void AddHitMarker(const FVector& WorldLocation, float Damage, bool bHeadshot, bool bKill);
+	/** Green floating "+N" when the local player heals someone (turn 47). */
+	void AddHealNumber(const FVector& WorldLocation, float Amount);
 	/** Seta de dano recebido: mostra de onde veio o tiro (maior = mais dano). */
 	void AddDamageIndicator(const FVector& FromLocation, float Damage);
 
@@ -59,6 +61,7 @@ protected:
 		float Damage = 0.f;
 		bool bHeadshot = false;
 		float SpawnTime = 0.f;
+		bool bHeal = false;
 	};
 	TArray<FDamageNumber> DamageNumbers;
 	struct FDamageIndicator { FVector From; float Damage; float Time; };

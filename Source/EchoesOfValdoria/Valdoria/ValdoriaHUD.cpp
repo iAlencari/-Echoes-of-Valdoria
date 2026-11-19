@@ -233,7 +233,14 @@ void AValdoriaHUD::DrawCrosshairAndHits(float W, float H)
 		if (Screen.Z > 0.f)
 		{
 			const FLinearColor C = N.bHeadshot ? FLinearColor(1.f, 0.3f, 0.2f, 1.f - Age) : FLinearColor(1.f, 0.95f, 0.8f, 1.f - Age);
-			DrawLabel(N.Damage < 0.f ? FString(TEXT("IMMUNE")) : FString::Printf(TEXT("%d"), FMath::RoundToInt(N.Damage)), Screen.X, Screen.Y, N.Damage < 0.f ? FLinearColor(0.7f, 0.85f, 1.f) : C, (N.bHeadshot ? 1.6f : 1.2f) * S, true);
+			if (N.bHeal)
+			{
+				DrawLabel(FString::Printf(TEXT("+%d"), FMath::RoundToInt(N.Damage)), Screen.X, Screen.Y, FLinearColor(0.35f, 1.f, 0.45f), 1.15f * S, true);
+			}
+			else
+			{
+				DrawLabel(N.Damage < 0.f ? FString(TEXT("IMMUNE")) : FString::Printf(TEXT("%d"), FMath::RoundToInt(N.Damage)), Screen.X, Screen.Y, N.Damage < 0.f ? FLinearColor(0.7f, 0.85f, 1.f) : C, (N.bHeadshot ? 1.6f : 1.2f) * S, true);
+			}
 		}
 	}
 }
@@ -279,6 +286,13 @@ void AValdoriaHUD::DrawWorldHealthBars(AValdoriaHeroCharacter* Viewer)
 			continue;
 		}
 		const bool bEnemy = !Viewer || Viewer->IsEnemy(Other);
+		if (bEnemy && Viewer)
+		{
+			if (const UValdoriaVisionSubsystem* Vis = GetWorld()->GetSubsystem<UValdoriaVisionSubsystem>(); Vis && Vis->IsHiddenInFogFrom(Other, Viewer->TeamId))
+			{
+				continue; // in fog, nobody of my team inside: no bar
+			}
+		}
 		// Inimigo atrás de parede não mostra barra (aliado aparece sempre, estilo hero shooter).
 		if (bEnemy && PlayerOwner)
 		{
@@ -327,7 +341,7 @@ void AValdoriaHUD::DrawWorldHealthBars(AValdoriaHeroCharacter* Viewer)
 				DrawLabel(TEXT("\u2665"), Cx, Cy - 10.f * S, Color, 1.2f * S, true);
 			}
 		}
-		if (!bEnemy && Other->GetHeroDefinition()) // owner (turn 46): enemy bars show no numbers
+		if (false) // owner (turn 47): no numbers on any bar above heads; only the bar and floating damage/heal numbers
 		{
 			DrawLabel(FString::Printf(TEXT("%.0f"), Other->GetHealth() + Other->GetArmor() + Other->GetShield()),
 				Screen.X, Y - 22.f * S, Color, 1.0f * S, true);
@@ -1287,4 +1301,14 @@ void AValdoriaHUD::DrawDeathRecap(AValdoriaHeroCharacter* Hero, float W, float H
 		DrawLabel(FString::Printf(TEXT("%.0f  (%.0f%%)"), L.Amount, Frac * 100.f), X0 + PW - 140.f * S, Y, FLinearColor(1.f, 0.85f, 0.6f), 0.85f * S);
 		Y += 28.f * S;
 	}
+}
+
+void AValdoriaHUD::AddHealNumber(const FVector& WorldLocation, float Amount)
+{
+	FDamageNumber N;
+	N.WorldLocation = WorldLocation;
+	N.Damage = Amount;
+	N.SpawnTime = GetWorld()->GetTimeSeconds();
+	N.bHeal = true;
+	DamageNumbers.Add(N);
 }

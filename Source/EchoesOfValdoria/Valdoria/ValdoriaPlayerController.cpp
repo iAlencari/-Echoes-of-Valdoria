@@ -101,7 +101,7 @@ void AValdoriaPlayerController::SetupInputComponent()
 	FInputKeyBinding& Admin = InputComponent->BindKey(EKeys::F10, IE_Pressed, this, &AValdoriaPlayerController::ToggleAdminPanel);
 	Admin.bExecuteWhenPaused = true;
 	InputComponent->BindKey(EKeys::Enter, IE_Pressed, this, &AValdoriaPlayerController::OpenChat);
-	InputComponent->BindKey(EKeys::F5, IE_Pressed, this, &AValdoriaPlayerController::ToggleCameraMode); // was V (owner: V = punch, turn 46)
+	InputComponent->BindKey(EKeys::MiddleMouseButton, IE_Pressed, this, &AValdoriaPlayerController::ToggleCameraMode); // owner (turn 47): mouse wheel click; F keys are taken by the official client
 	InputComponent->BindKey(EKeys::V, IE_Pressed, this, &AValdoriaPlayerController::MeleePressed);
 	InputComponent->BindKey(EKeys::Tab, IE_Pressed, this, &AValdoriaPlayerController::ScoreboardPressed);
 	InputComponent->BindKey(EKeys::Tab, IE_Released, this, &AValdoriaPlayerController::ScoreboardReleased);
