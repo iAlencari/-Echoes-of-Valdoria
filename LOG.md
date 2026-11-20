@@ -697,3 +697,8 @@ Owner batch ("deixa pra compilar no final"): everything written first, one build
 - Found, not fixed yet: MOBA `?bots=1` turns the PLAYER into a bot too (manual testing there needs it off);
   Devastação visuals are only rings (no tornado/ice look); baskets are grey cylinders; Cálice tether not verified
   on an ally yet (training has no allies).
+- MOBA (manual, normal mode): levels work (admin "Subir 1 nível" -> ult unlocks at 5, Ctrl+number shows on locked
+  1/2/3); Gjallarhorn teleports Heimdall + the ally next to him. Found: the Gjallarhorn arc (team 253, colour White)
+  renders grey, not rainbow; the 1 s warning column was not caught on screen (destination off-camera) - check again.
+- Manual testing tips: launch without `-log` (its console window steals focus), use `-ValdoriaCombatLog`, chat
+  `/adm`, `/ult`, `/mirar`, `/fila`; in MOBA the ult needs level 5 (admin panel button).
