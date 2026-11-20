@@ -114,9 +114,10 @@ void AValdoriaPlayerController::SetupInputComponent()
 
 void AValdoriaPlayerController::RefreshInputMode()
 {
-	// Cursor solto só com menus que pedem clique (pausa, configurações, ajuda, chat) ou com Alt.
-	// O painel de admin NÃO prende o mouse: dá para mirar e andar com ele aberto; Alt para clicar nele.
-	if (PauseWidget.IsValid() || LobbyWidget.IsValid() || HelpWidget.IsValid() || SettingsWidget.IsValid() || ChatWidget.IsValid() || ShopWidget.IsValid() || bAltHeld)
+	// Cursor solto com menus que pedem clique (pausa, configurações, ajuda, chat, loja, painel de admin) ou com Alt.
+	// Owner (turn 48, final): F10 opens the admin panel over the screen with the cursor free - no Alt needed.
+	if (PauseWidget.IsValid() || LobbyWidget.IsValid() || HelpWidget.IsValid() || SettingsWidget.IsValid() || ChatWidget.IsValid() || ShopWidget.IsValid()
+		|| AdminWidget.IsValid() || bAltHeld)
 	{
 		ApplyCursorInput();
 	}

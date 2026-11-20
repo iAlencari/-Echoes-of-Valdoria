@@ -286,3 +286,17 @@ living religions (Smite, 2012). The owner keeps the final word on name, look and
   Águas (gliding dash, cleanse, slow immunity, 25% DR 2.5 s), C Rogai por Nós (kneel 2 s, 25% max HP),
   4 Crucificado (3.5 s rise, immune, ally heals/pulses, 30% lethal-hit guard, dies and respawns in 3 s).
 - Elevations not yet. Look: mannequin placeholder, no weapon.
+
+## Kay - owner's element kit ideas (turn 48, 19/11/2026; NOT implemented yet - owner will decide later)
+Already in the game (turn 48): glide (hold Space falling), elemental air jump (fire = burst up, air = gust forward,
+once per jump), Devastação reworked (Kay loses control 4 s; random fire tornadoes / earthquakes / frost / winds
+around, everyone close is hit, allies take half; Kay incapacitated 2 s after).
+Ideas for each element (owner):
+- **Fire**: basic attacks add burn stacks; at full stacks the enemy catches fire for a while (damage over time).
+- **Water / ice**: basic attacks are ice spears/arrows, preferably **stalactites**; or snowballs that add slow per
+  stack until the enemy freezes briefly. RMB: grabs a nearby water source, throws it on the ground or at enemies;
+  pressing RMB again freezes it.
+- **Earth**: collects pebbles over time / around the map; ability 1 slams the ground (damage, knocks enemies back,
+  cracks the floor visually - the cracks fade); this also creates more pebbles. Basic attacks are the pebbles
+  orbiting Kay; RMB gathers all of them into a bigger rock (size by count) thrown to knock enemies down with heavy damage.
+- **Air**: cutting half-moon gusts; hits stack and with enough cuts apply the bleed passive.

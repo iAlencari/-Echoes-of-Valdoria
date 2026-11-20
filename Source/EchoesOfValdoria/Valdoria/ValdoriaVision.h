@@ -30,6 +30,10 @@ public:
 
 	/** True when Unit can be seen by Team: same team, training target (255), or revealed by a unit of that team. */
 	bool IsRevealedTo(const AValdoriaHeroCharacter* Unit, uint8 Team) const;
+	/** Seen by a special sense (reveal abilities, Heimdall's hearing, Bifrost riders): shown through walls on the HUD.
+	 *  Unlike IsRevealedTo this also covers training dummies (team 255). */
+	bool IsSensedBy(const AValdoriaHeroCharacter* Unit, uint8 Team) const;
+	TMap<uint8, TSet<TWeakObjectPtr<const AValdoriaHeroCharacter>>> Sensed;
 	/** Inside a fog area and not seen by that team (turn 47): invisible to it (render, bars, bots). */
 	bool IsHiddenInFogFrom(const AValdoriaHeroCharacter* Unit, uint8 Team) const;
 	/** Sight inside a fog area (cm). */

@@ -294,7 +294,10 @@ void AValdoriaHUD::DrawWorldHealthBars(AValdoriaHeroCharacter* Viewer)
 			}
 		}
 		// Inimigo atrás de parede não mostra barra (aliado aparece sempre, estilo hero shooter).
-		if (bEnemy && PlayerOwner)
+		// Turn 48: unless my team senses him (Heimdall's reveals/hearing, Bifrost riders): then he shows through walls.
+		const UValdoriaVisionSubsystem* SenseVis = GetWorld()->GetSubsystem<UValdoriaVisionSubsystem>();
+		const bool bSensed = bEnemy && Viewer && SenseVis && SenseVis->IsSensedBy(Other, Viewer->TeamId);
+		if (bEnemy && PlayerOwner && !bSensed)
 		{
 			FVector CamLoc;
 			FRotator CamRot;
@@ -325,6 +328,17 @@ void AValdoriaHUD::DrawWorldHealthBars(AValdoriaHeroCharacter* Viewer)
 		if (bEnemy)
 		{
 			DrawSkull(X - 12.f * S, Y + BarH * 0.5f, 11.f * S, Color);
+			if (bSensed)
+			{
+				// Golden "eye" frame: seen through walls by a sense, not by sight.
+				const FLinearColor Eye(1.f, 0.82f, 0.3f, 0.9f);
+				const float HalfW = FMath::Clamp(60.f * 1200.f / FMath::Max(Dist, 1.f), 18.f, 70.f) * S;
+				const FVector Feet = Project(Other->GetActorLocation() - FVector(0.f, 0.f, HalfHeight));
+				if (Feet.Z > 0.f)
+				{
+					DrawFrame(Screen.X - HalfW, Y + BarH + 4.f * S, HalfW * 2.f, FMath::Max(10.f, Feet.Y - Y - BarH - 4.f * S), Eye, 2.f * S);
+				}
+			}
 			// Deus do Velho Testamento (Nazaré): an enemy hero in execution range shows a blinking golden cross.
 			const float Exec = Viewer ? Viewer->GetPassive().ExecuteThreshold : 0.f;
 			if (Exec > 0.f && Other->IsHeroUnit() && Frac <= Exec && Dist <= 2500.f)

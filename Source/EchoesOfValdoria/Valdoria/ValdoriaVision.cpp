@@ -39,6 +39,12 @@ bool UValdoriaVisionSubsystem::IsRevealedTo(const AValdoriaHeroCharacter* Unit, 
 	return Set && Set->Contains(Unit);
 }
 
+bool UValdoriaVisionSubsystem::IsSensedBy(const AValdoriaHeroCharacter* Unit, uint8 Team) const
+{
+	const TSet<TWeakObjectPtr<const AValdoriaHeroCharacter>>* Set = Sensed.Find(Team);
+	return Unit && Set && Set->Contains(Unit);
+}
+
 void UValdoriaVisionSubsystem::UpdateVision()
 {
 	UWorld* World = GetWorld();
@@ -63,6 +69,7 @@ void UValdoriaVisionSubsystem::UpdateVision()
 		Teams.Add(U->TeamId);
 	}
 	Revealed.Reset();
+	Sensed.Reset();
 	for (uint8 Team : Teams)
 	{
 		if (Team == 255)
@@ -70,15 +77,18 @@ void UValdoriaVisionSubsystem::UpdateVision()
 			continue;
 		}
 		TSet<TWeakObjectPtr<const AValdoriaHeroCharacter>>& Set = Revealed.Add(Team);
+		TSet<TWeakObjectPtr<const AValdoriaHeroCharacter>>& SensedSet = Sensed.Add(Team);
 		for (const FUnit& Target : Units)
 		{
-			if (Target.Team == Team || Target.Team == 255)
+			if (Target.Team == Team)
 			{
 				continue;
 			}
+			const bool bDummy = Target.Team == 255; // training targets: only the special senses below matter
 			if (const TMap<uint8, float>* Forced = ForcedReveals.Find(Target.Actor); Forced && Forced->Contains(Team) && (*Forced)[Team] > World->GetTimeSeconds())
 			{
 				Set.Add(Target.Actor);
+				SensedSet.Add(Target.Actor);
 				continue;
 			}
 			// Heimdall: hears enemies within his clairvoyance radius (walls and fog do not matter) and sees every Bifrost rider.
@@ -96,6 +106,11 @@ void UValdoriaVisionSubsystem::UpdateVision()
 			if (bHeard)
 			{
 				Set.Add(Target.Actor);
+				SensedSet.Add(Target.Actor);
+				continue;
+			}
+			if (bDummy)
+			{
 				continue;
 			}
 			// Stealth: only seen from very close.

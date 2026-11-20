@@ -34,8 +34,11 @@ namespace
 		FCollisionQueryParams Params(SCENE_QUERY_STAT(ValdoriaAim), true, Hero);
 		Hero->IgnoreFriendlyBarriers(Params);
 		FHitResult Hit;
+		// bWorldOnly = only real walls/floors stop it (object type), never characters: the WorldStatic *channel* is
+		// blocked by pawn capsules too, which cut every "passes through everyone in a line" ability at the first body
+		// (turn 48, owner: none of them pierced).
 		const bool bHit = bWorldOnly
-			? Hero->GetWorld()->LineTraceSingleByChannel(Hit, Start, End, ECC_WorldStatic, Params)
+			? Hero->GetWorld()->LineTraceSingleByObjectType(Hit, Start, End, FCollisionObjectQueryParams(ECC_WorldStatic), Params)
 			: Hero->GetWorld()->LineTraceSingleByChannel(Hit, Start, End, ECC_Visibility, Params);
 		if (OutHit)
 		{
@@ -441,6 +444,8 @@ void UValdoriaGA_PiercingBolt::ActivateAbility(const FGameplayAbilitySpecHandle 
 	const FVector End = AimPoint(Hero, GetRadius(), &WallHit, true);
 	FVector Start, Dir;
 	Hero->GetAimRay(Start, Dir);
+	// The line starts level with the hero, not at the camera behind him (so nobody behind him is hit).
+	Start += Dir * FMath::Max(0.f, FVector::DotProduct(Hero->GetActorLocation() - Start, Dir));
 	Hero->PlayShotEffects(End, false);
 	if (Hero->HasAuthority())
 	{
@@ -1234,10 +1239,10 @@ UValdoriaGA_Devastation::UValdoriaGA_Devastation()
 {
 	bIsUltimate = true;
 	DefaultCooldown = 1.f;
-	DefaultMagnitude = 150.f;
-	DefaultRadius = 900.f;
-	DefaultDuration = 2.f;
-	DefaultSecondary = 0.5f;
+	DefaultMagnitude = 30.f;  // damage per elemental hit (design units)
+	DefaultRadius = 900.f;    // area of the chaos around Kay
+	DefaultDuration = 4.f;    // chaos time (Kay out of control)
+	DefaultSecondary = 0.5f;  // fraction of the damage allies take
 	DefaultDamageType = EValdoriaDamageType::Magical;
 }
 
@@ -1246,46 +1251,94 @@ void UValdoriaGA_Devastation::ActivateAbility(const FGameplayAbilitySpecHandle H
 {
 	VALDORIA_BEGIN();
 	StartCooldownAndCost();
-	const FVector Center = Hero->GetActorLocation();
-	const int32 Element = Hero->GetCurrentElement();
-	const FLinearColor Color = GetThemeColor();
-	Hero->PlayAreaEffect(Center, GetRadius(), Color);
-	Hero->PlayAreaEffect(Center, GetRadius() * 0.5f, Color);
-	if (Hero->HasAuthority())
+	// Owner (turn 48): after the 3 s hold Kay LOSES CONTROL: every element goes wild around them - frozen ground,
+	// fire tornadoes, earthquakes that knock people off balance and winds that push in random directions. Everyone
+	// close gets it, allies too (allies take a part of the damage). Afterwards Kay is incapacitated for 2 s.
+	const float Chaos = FMath::Max(1.f, GetDuration());
+	const float Radius = GetRadius();
+	const float Damage = GetMagnitude();
+	const float AllyShare = FMath::Clamp(GetSecondary(), 0.f, 1.f);
+	UWorld* World = Hero->GetWorld();
+	Hero->ApplyStatus(EValdoriaStatus::Rooted, Chaos);
+	Hero->ApplyStatus(EValdoriaStatus::CannotAttack, Chaos);
+	Hero->ApplyStatus(EValdoriaStatus::CannotUseAbilities, Chaos);
+	Hero->PlayAreaEffect(Hero->GetActorLocation(), Radius, FLinearColor(0.9f, 0.9f, 1.f));
+	TWeakObjectPtr<AValdoriaHeroCharacter> WeakHero = Hero;
+	TSharedRef<int32> Step = MakeShared<int32>(0);
+	TSharedRef<FTimerHandle> T = MakeShared<FTimerHandle>();
+	const int32 Steps = FMath::RoundToInt(Chaos / 0.5f);
+	World->GetTimerManager().SetTimer(*T, FTimerDelegate::CreateWeakLambda(Hero, [WeakHero, Step, T, Steps, Radius, Damage, AllyShare]()
 	{
-		if (Element == 0)
+		AValdoriaHeroCharacter* H = WeakHero.Get();
+		if (!H || H->IsDead())
 		{
-			// Fire: the ground keeps burning.
-			FActorSpawnParameters SpawnParams;
-			SpawnParams.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
-			if (AValdoriaZone* Zone = Hero->GetWorld()->SpawnActor<AValdoriaZone>(AValdoriaZone::StaticClass(),
-				Center - FVector(0, 0, 90.f), FRotator::ZeroRotator, SpawnParams))
-			{
-				Zone->Setup(Hero, GetRadius(), FMath::Max(GetDuration(), 3.f), 0.f, GetMagnitude() * 0.15f, GetDamageType(), 0.f, Color); // 15% of the burst per second
-			}
+			if (H) { H->GetWorld()->GetTimerManager().ClearTimer(*T); }
+			return;
 		}
-		for (TActorIterator<AValdoriaHeroCharacter> It(Hero->GetWorld()); It; ++It)
+		UWorld* W = H->GetWorld();
+		const FVector Center = H->GetActorLocation();
+		static const FLinearColor Colors[4] = { FLinearColor(1.f, 0.35f, 0.08f), FLinearColor(0.55f, 0.38f, 0.18f), FLinearColor(0.15f, 0.55f, 1.f), FLinearColor(0.8f, 0.95f, 1.f) };
+		static const EValdoriaDamageType Types[4] = { EValdoriaDamageType::Magical, EValdoriaDamageType::Physical, EValdoriaDamageType::Magical, EValdoriaDamageType::Hybrid };
+		// Hits one unit with one element (enemies full damage, allies a part; Kay is never hit by their own chaos).
+		auto Strike = [H, Damage, AllyShare](AValdoriaHeroCharacter* U, int32 Element)
 		{
-			AValdoriaHeroCharacter* Other = *It;
-			if (!Hero->IsEnemy(Other) || FVector::Dist(Other->GetActorLocation(), Center) > GetRadius())
+			if (U == H || U->IsDead() || U->IsGuardianUnit())
 			{
-				continue;
+				return;
 			}
-			ApplyDamageTo(Other, GetMagnitude());
+			if (H->IsEnemy(U))
+			{
+				H->DamageSourceLabel = TEXT("Devastação");
+				H->DealTypedDamage(U, Damage, Types[Element], 0.5f, false);
+				H->DamageSourceLabel.Reset();
+			}
+			else if (AllyShare > 0.f)
+			{
+				H->DealRawDamageTo(U, Damage * AllyShare * ValdoriaStatScale);
+			}
 			switch (Element)
 			{
-			case 1: Other->ApplyStatus(EValdoriaStatus::Stunned, GetDuration()); break;           // earth
-			case 2: Other->ApplySlow(FMath::Clamp(GetSecondary(), 0.f, 0.9f), GetDuration()); break; // water
-			case 3:                                                                                 // air
-			{
-				const FVector Away = (Other->GetActorLocation() - Center).GetSafeNormal2D();
-				Other->LaunchCharacter(Away * 500.f + FVector(0.f, 0.f, 1100.f), true, true);
-				break;
+			case 0: U->LaunchCharacter(FVector(FMath::FRandRange(-150.f, 150.f), FMath::FRandRange(-150.f, 150.f), 650.f), true, true); break; // fire tornado lifts
+			case 1: U->ApplyStatus(EValdoriaStatus::Stunned, 0.6f); break;                                                                 // earthquake: off balance
+			case 2: U->ApplySlow(0.6f, 1.5f); break;                                                                                       // frozen ground
+			default: U->LaunchCharacter(FRotator(0.f, FMath::FRandRange(0.f, 360.f), 0.f).Vector() * 900.f + FVector(0.f, 0.f, 200.f), true, true); break; // random wind
 			}
-			default: break;
+		};
+		// Every 0.5 s: two elemental outbursts at random spots inside the area (radius 2.5 m each) ...
+		for (int32 k = 0; k < 2; ++k)
+		{
+			const int32 Element = FMath::RandRange(0, 3);
+			const FVector Spot = Center + FRotator(0.f, FMath::FRandRange(0.f, 360.f), 0.f).Vector() * FMath::FRandRange(150.f, Radius * 0.85f);
+			H->PlayAreaEffect(Spot, 250.f, Colors[Element]);
+			for (TActorIterator<AValdoriaHeroCharacter> It(W); It; ++It)
+			{
+				if (FVector::Dist2D(It->GetActorLocation(), Spot) <= 250.f && FMath::Abs(It->GetActorLocation().Z - Spot.Z) < 300.f)
+				{
+					Strike(*It, Element);
+				}
 			}
 		}
-	}
+		// ... and every second the whole area shakes (earthquake) or the frost spreads (alternating).
+		++(*Step);
+		if ((*Step % 2) == 0)
+		{
+			const int32 Wide = ((*Step / 2) % 2 == 0) ? 1 : 2;
+			H->PlayAreaEffect(Center, Radius, Colors[Wide]);
+			for (TActorIterator<AValdoriaHeroCharacter> It(W); It; ++It)
+			{
+				if (*It != H && FVector::Dist(It->GetActorLocation(), Center) <= Radius)
+				{
+					Strike(*It, Wide);
+				}
+			}
+		}
+		if (*Step >= Steps)
+		{
+			W->GetTimerManager().ClearTimer(*T);
+			// The power is spent: Kay is incapacitated for 2 s (owner).
+			H->ApplyStatus(EValdoriaStatus::Stunned, 2.f);
+		}
+	}), 0.5f, true, 0.05f);
 	VALDORIA_END();
 }
 

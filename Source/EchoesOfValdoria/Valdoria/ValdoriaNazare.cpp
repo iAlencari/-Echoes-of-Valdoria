@@ -99,9 +99,9 @@ void UValdoriaGA_Chalice::StopChannel(AValdoriaHeroCharacter* Hero, float Cooldo
 		return;
 	}
 	Hero->GetWorld()->GetTimerManager().ClearTimer(Hero->ChaliceTimer);
-	if (Hero->ChaliceTarget.IsValid() || Cooldown > 0.f)
+	if (Hero->ChaliceTarget.IsValid() && Cooldown > 0.f)
 	{
-		Hero->StartCooldown(EValdoriaAbilitySlot::Ability1, Cooldown);
+		Hero->StartCooldown(EValdoriaAbilitySlot::PrimaryFire, Cooldown);
 	}
 	Hero->ChaliceTarget.Reset();
 }
@@ -110,19 +110,17 @@ void UValdoriaGA_Chalice::ActivateAbility(const FGameplayAbilitySpecHandle Handl
 	const FGameplayAbilityActivationInfo ActivationInfo, const FGameplayEventData* TriggerEventData)
 {
 	VALDORIA_BEGIN();
-	const float Cooldown = GetEffectiveCooldown();
-	// Pressing again while channelling stops it (owner: the player decides when to stop).
+	// Turn 48 (owner): left mouse button, works while held. Aim at an ally to link; the link then follows that ally
+	// and ignores enemies or other allies who pass in front. Releasing the button ends it.
 	if (Hero->ChaliceTarget.IsValid())
 	{
-		StopChannel(Hero, Cooldown);
-		VALDORIA_END();
+		VALDORIA_END(); // already linked (the automatic fire calls this every frame while held)
 		return;
 	}
-	// Target: the ally closest to the crosshair within range (small cone), else the nearest ally.
 	FVector Start, Dir;
 	Hero->GetAimRay(Start, Dir);
 	AValdoriaHeroCharacter* Best = nullptr;
-	float BestScore = -1.f;
+	float BestDot = 0.96f; // must be looking at the ally (about 16 degrees)
 	for (AValdoriaHeroCharacter* A : AlliesAround(Hero, Hero->GetActorLocation(), GetRadius(), false))
 	{
 		if (!A->IsHeroUnit())
@@ -130,24 +128,22 @@ void UValdoriaGA_Chalice::ActivateAbility(const FGameplayAbilitySpecHandle Handl
 			continue;
 		}
 		const float Dot = FVector::DotProduct(Dir, (A->GetActorLocation() - Start).GetSafeNormal());
-		const float Score = Dot > 0.97f ? 2.f + Dot : 1.f - FVector::Dist(A->GetActorLocation(), Hero->GetActorLocation()) / GetRadius();
-		if (Score > BestScore)
+		if (Dot > BestDot)
 		{
-			BestScore = Score;
+			BestDot = Dot;
 			Best = A;
 		}
 	}
 	if (!Best)
 	{
-		StartCooldownAndCost(); // nobody to feed: short penalty only
-		Hero->StartCooldown(EValdoriaAbilitySlot::Ability1, 1.f);
-		VALDORIA_END();
+		VALDORIA_END(); // nobody under the crosshair: nothing happens, no cost
 		return;
 	}
 	Hero->ChaliceTarget = Best;
 	const float Fraction = GetMagnitude();
 	const float Buff = GetDuration();
 	const float BreakRange = GetRadius() * 1.5f;
+	const float Cooldown = GetEffectiveCooldown();
 	TWeakObjectPtr<AValdoriaHeroCharacter> WeakHero = Hero;
 	Hero->GetWorld()->GetTimerManager().SetTimer(Hero->ChaliceTimer, FTimerDelegate::CreateWeakLambda(Hero, [WeakHero, Fraction, Buff, BreakRange, Cooldown]()
 	{
@@ -158,15 +154,18 @@ void UValdoriaGA_Chalice::ActivateAbility(const FGameplayAbilitySpecHandle Handl
 		}
 		AValdoriaHeroCharacter* Ally = H->ChaliceTarget.Get();
 		const float Cost = H->GetMaxHealth() * Fraction;
-		if (!Ally || Ally->IsDead() || H->IsDead() || H->HasStatus(EValdoriaStatus::Stunned)
+		if (!H->IsFireHeld() || !Ally || Ally->IsDead() || H->IsDead() || H->HasStatus(EValdoriaStatus::Stunned)
 			|| FVector::Dist(Ally->GetActorLocation(), H->GetActorLocation()) > BreakRange
 			|| H->GetHealth() - Cost < H->GetMaxHealth() * 0.01f) // he never kills himself (stops at 1%)
 		{
 			StopChannel(H, Cooldown);
 			return;
 		}
-		// He can walk but not attack while pouring.
-		H->ApplyStatus(EValdoriaStatus::CannotAttack, 0.35f);
+		H->PlayShotEffects(Ally->GetActorLocation() + FVector(0.f, 0.f, 40.f), true); // the red link to the ally
+		if (Ally->GetHealth() >= Ally->GetMaxHealth() - 1.f)
+		{
+			return; // owner: an ally at full health costs nothing (the link waits; Ungido is not renewed)
+		}
 		H->GetAbilitySystemComponent()->SetNumericAttributeBase(UValdoriaAttributeSet::GetHealthAttribute(), H->GetHealth() - Cost);
 		H->HealTarget(Ally, ToDesign(Cost));
 		Ally->UngidoUntil = H->GetWorld()->GetTimeSeconds() + Buff; // Ungido de Sangue, renewed while fed

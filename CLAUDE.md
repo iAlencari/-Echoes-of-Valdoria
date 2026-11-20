@@ -135,3 +135,6 @@ português simples. **Leia `LOG.md` inteiro antes de mexer.**
 
 ## Name (owner, 19/11/2026)
 For now the game is called just **Valdoria** (repo and folder names stay). Side projects: `C:\Dev\Contos` (OTS) and `C:\Dev\VoxNumen` (anime RPG), each with its own private repo.
+
+## Admin panel (owner, 19/11/2026, final - do not change)
+F10 opens/closes the admin panel over the screen with the mouse cursor free (clickable at will). No Alt needed.

@@ -193,15 +193,14 @@ void AValdoriaHeroCharacter::TryMeleePunch()
 	NextPunchTime = World->GetTimeSeconds() + 0.8f;
 	if (UValdoriaAnimInstance* Anim = GetMesh() ? Cast<UValdoriaAnimInstance>(GetMesh()->GetAnimInstance()) : nullptr)
 	{
-		Anim->SetUpperPose(LoadObject<UAnimSequenceBase>(nullptr, TEXT("/Game/Characters/Mannequins/Anims/Unarmed/Attack/MM_Attack_01.MM_Attack_01")), 0.3f, 1.f); // frozen "arm out" frame
-		FTimerHandle Clear;
-		World->GetTimerManager().SetTimer(Clear, FTimerDelegate::CreateWeakLambda(this, [this]()
-		{
-			if (UValdoriaAnimInstance* A = GetMesh() ? Cast<UValdoriaAnimInstance>(GetMesh()->GetAnimInstance()) : nullptr)
-			{
-				A->SetUpperPose(nullptr, 0.f, 0.f);
-			}
-		}), 0.4f, false);
+		// Turn 48 (owner: the V animation looked broken for everyone): play the real punch on the upper body, like the
+		// other attacks, instead of a frozen frame (SetUpperPose must be fed every frame, so a single call popped).
+		static int32 PunchIndex = 0;
+		static const TCHAR* Punches[] = {
+			TEXT("/Game/Characters/Mannequins/Anims/Unarmed/Attack/MM_Attack_01.MM_Attack_01"),
+			TEXT("/Game/Characters/Mannequins/Anims/Unarmed/Attack/MM_Attack_02.MM_Attack_02") };
+		PunchIndex = (PunchIndex + 1) % 2; // alternate the two punches
+		Anim->PlayAction(LoadObject<UAnimSequenceBase>(nullptr, Punches[PunchIndex]), 1.5f);
 	}
 	if (!HasAuthority())
 	{

@@ -387,7 +387,7 @@ TSharedRef<SWidget> AValdoriaPlayerController::BuildAdminPanel()
 	];
 	Box->AddSlot().AutoHeight()
 	[
-		SNew(STextBlock).Text(LOCTEXT("Hint", "F10 fecha  •  segure Alt para clicar aqui  •  sem Alt você anda e mira normalmente")).Font(Font(10)).ColorAndOpacity(FLinearColor(0.7f, 0.72f, 0.78f))
+		SNew(STextBlock).Text(LOCTEXT("Hint", "F10 fecha  •  o mouse fica livre enquanto o painel está aberto")).Font(Font(10)).ColorAndOpacity(FLinearColor(0.7f, 0.72f, 0.78f))
 	];
 
 	// --- Herói
@@ -855,6 +855,7 @@ TSharedRef<SWidget> AValdoriaPlayerController::BuildHelpScreen()
 			{ EValdoriaAbilitySlot::Ability1, KeyOpt.GetSlotKeyLabel(EValdoriaAbilitySlot::Ability1) },
 			{ EValdoriaAbilitySlot::Ability2, KeyOpt.GetSlotKeyLabel(EValdoriaAbilitySlot::Ability2) },
 			{ EValdoriaAbilitySlot::Ability3, KeyOpt.GetSlotKeyLabel(EValdoriaAbilitySlot::Ability3) },
+			{ EValdoriaAbilitySlot::AbilityExtra, KeyOpt.GetSlotKeyLabel(EValdoriaAbilitySlot::AbilityExtra) }, // turn 48: C was missing
 			{ EValdoriaAbilitySlot::Ultimate, KeyOpt.GetSlotKeyLabel(EValdoriaAbilitySlot::Ultimate) + TEXT(" (ULT)") },
 		};
 		for (const FSlotKey& K : Keys)

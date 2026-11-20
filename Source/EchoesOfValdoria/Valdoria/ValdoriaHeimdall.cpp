@@ -39,7 +39,7 @@ void UValdoriaGA_RevealPulse::ActivateAbility(const FGameplayAbilitySpecHandle H
 	{
 		for (TActorIterator<AValdoriaHeroCharacter> It(Hero->GetWorld()); It; ++It)
 		{
-			if (Hero->IsEnemy(*It) && !It->IsDead() && It->TeamId != 255
+			if (Hero->IsEnemy(*It) && !It->IsDead() && !It->IsGuardianUnit() // turn 48: training dummies too
 				&& (Radius <= 0.f || FVector::Dist2D(It->GetActorLocation(), Hero->GetActorLocation()) <= Radius))
 			{
 				Vision->RevealUnit(*It, Hero->TeamId, GetDuration());

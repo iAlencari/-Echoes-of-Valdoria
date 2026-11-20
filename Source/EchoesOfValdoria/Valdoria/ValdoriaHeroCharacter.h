@@ -346,6 +346,11 @@ public:
 	FTimerHandle ChaliceTimer;
 	/** Removes control effects and slows. */
 	void Cleanse();
+	bool IsFireHeld() const { return bFireHeld; }
+	/** Ariel: the form-swap arrival bonus (shield / speed) can only happen again after this time. */
+	float NextFormBonusTime = 0.f;
+	/** Kay: the fire/air jump in the air was used (back on landing). */
+	bool bElementJumpUsed = false;
 	/** Deus do Velho Testamento: finishes Victim, credit to the ally who hurt it most, heal to the nearest ally. */
 	void ExecuteEnemy(AValdoriaHeroCharacter* Victim);
 	/** Damage already in real units (no stat scale, no multipliers). */
@@ -527,6 +532,8 @@ protected:
 	bool bFlying = false;
 	float FlightFuel = -1.f;
 	float AbilityFlightEnd = 0.f;
+	/** Vex (turn 48): attacking in the air pauses the flight (hovering still) until this time, then she flies on. */
+	float FlightPauseUntil = 0.f;
 	void StopFlight();
 	bool bFirstPerson = false;
 	bool bJumpHeld = false;

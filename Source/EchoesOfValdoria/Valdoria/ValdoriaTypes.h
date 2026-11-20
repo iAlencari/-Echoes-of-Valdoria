@@ -405,7 +405,8 @@ struct FValdoriaMovementRules
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Voar")
 	bool bUnlimitedFlight = false;
 
-	/** While flying: no attack and no abilities (Vex holds herself up with telekinesis). */
+	/** Vex: attacking or using an ability while flying stops the flight for a moment (she hovers still to attack),
+	 *  then she flies on (turn 48, owner; it used to block every action in the air). */
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Voar")
 	bool bFlightBlocksActions = false;
 
@@ -599,7 +600,7 @@ struct FValdoriaAnimationSet
 	float FlyForwardPoseTime = 0.25f;
 	/** Max body tilt (degrees) when flying at full speed; side roll is 40% of this. */
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Animações|Voo")
-	float FlightLean = 62.f;
+	float FlightLean = 80.f; // turn 48: lying down at full speed (was 62)
 	/** Played when leaving the ground to fly and when landing after a flight. */
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Animações|Voo")
 	TSoftObjectPtr<UAnimSequenceBase> TakeoffAction;

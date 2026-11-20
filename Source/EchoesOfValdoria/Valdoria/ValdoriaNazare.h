@@ -1,8 +1,8 @@
 // Echoes of Valdoria - Filho de Nazaré "O Prometido" (turn 48). Kit: docs/ConceitosHerois.md (kit v2 + round 4).
 // All numbers provisional (owner balances).
 //  - CalmStorm (RMB, Acalmar a Tempestade): area; allies lose control effects, enemies are silenced.
-//  - Chalice (1, Cálice e Carne): channel (press again to stop); 1% of his max HP every 0.25 s goes to the aimed ally,
-//    never below 1%; the ally gets Ungido de Sangue for 7 s (renewed while fed).
+//  - Chalice (LMB, Cálice e Carne): hold on an aimed ally; the link follows him and ignores whoever passes in front;
+//    1% of his max HP every 0.25 s, never below 1%, free while the ally is full; Ungido de Sangue 7 s.
 //  - Baskets (2, Multiplicação dos Pães): drops baskets; an ally who walks over one heals over time.
 //  - WalkOnWater (3, Caminhar sobre as Águas): dash, ignores slows and takes less damage for a short time.
 //  - Pray (C, Rogai por Nós): kneels (cannot move or attack) and recovers health.

@@ -722,8 +722,13 @@ void AValdoriaHeroCharacter::SwapToForm(FName FormId)
 		Self->AbilitySystem->SetNumericAttributeBase(UValdoriaAttributeSet::GetUltimateChargeAttribute(), Def->UltimateCost * Ult);
 		Self->CooldownEndTimes = Cooldowns;
 		// Ariel passive (turn 45): a bonus on arriving in the new form, from that form's swap entry.
-		if (const FValdoriaAbilityEntry* Swap = Self->FindAbilityEntry(EValdoriaAbilitySlot::AbilityExtra))
+		// Turn 48 (owner: spamming C gave endless speed): the arrival bonus has its own 8 s cooldown (provisional),
+		// so swapping back and forth (or with admin no-cooldowns) cannot keep it up forever.
+		const float BonusNow = Self->GetWorld()->GetTimeSeconds();
+		const FValdoriaAbilityEntry* Swap = BonusNow >= Self->NextFormBonusTime ? Self->FindAbilityEntry(EValdoriaAbilitySlot::AbilityExtra) : nullptr;
+		if (Swap)
 		{
+			Self->NextFormBonusTime = BonusNow + 8.f;
 			if (Swap->Magnitude > 0.f) { Self->AddOverheal(Swap->Magnitude * ValdoriaStatScale, Swap->Magnitude * ValdoriaStatScale, Swap->Magnitude * ValdoriaStatScale / 6.f); }
 			if (Swap->SecondaryMagnitude > 0.f) { Self->ApplySpeedBuff(Swap->SecondaryMagnitude, 2.f); }
 		}
@@ -791,6 +796,10 @@ void AValdoriaHeroCharacter::TryActivateSlot(EValdoriaAbilitySlot Slot)
 		{
 			if (AbilitySystem->TryActivateAbility(Spec.Handle))
 			{
+				if (bFlying && GetMovementRules().bFlightBlocksActions)
+				{
+					FlightPauseUntil = GetWorld()->GetTimeSeconds() + 0.6f; // stops in the air to attack, then flies on
+				}
 				PlayActionForSlot(Slot);
 				PlaySlotSound(Slot);
 			}
@@ -2472,6 +2481,25 @@ void AValdoriaHeroCharacter::Input_JumpPressed()
 	{
 		UnCrouch();
 	}
+	// Kay (owner, turn 48): in the air, Space again = an elemental jump with fire (burst up) or air (dash forward),
+	// once until landing. Earth and water have none.
+	if (ActiveDefinition && ActiveDefinition->ElementCount > 0 && GetCharacterMovement()->IsFalling() && !bElementJumpUsed
+		&& (CurrentElement == 0 || CurrentElement == 3))
+	{
+		bElementJumpUsed = true;
+		const FVector Fwd = FRotator(0.f, GetControlRotation().Yaw, 0.f).Vector();
+		if (CurrentElement == 0)
+		{
+			LaunchCharacter(Fwd * 250.f + FVector(0.f, 0.f, 950.f), false, true); // fire: burst upward
+		}
+		else
+		{
+			LaunchCharacter(Fwd * 1100.f + FVector(0.f, 0.f, 450.f), true, true); // air: gust forward
+		}
+		const FLinearColor C = ActiveDefinition->ElementColors.IsValidIndex(CurrentElement) ? ActiveDefinition->ElementColors[CurrentElement] : ActiveDefinition->ThemeColor;
+		PlayAreaEffect(GetActorLocation() - FVector(0.f, 0.f, 80.f), 180.f, C);
+		return;
+	}
 	Jump();
 }
 
@@ -2650,7 +2678,19 @@ void AValdoriaHeroCharacter::TickMovementFeatures(float DeltaSeconds)
 		FlightFuel = FMath::Min(FuelSeconds, FlightFuel + Rules.FlightFuelRegen * DeltaSeconds);
 	}
 	const bool bAbilityFlight = Rules.FlightMode == EValdoriaFlightMode::Ability && Now < AbilityFlightEnd;
-	const bool bFuelFlight = (Rules.FlightMode == EValdoriaFlightMode::Fuel || bAdminFlight) && bJumpHeld && (Move->IsFalling() || bFlying) && FlightFuel > 0.f && !IsFacingWall(45.f);
+	// Turn 48 (owner, Vex): with unlimited flight she keeps levitating after Space is released and comes down the same
+	// way she goes up, until she reaches the ground.
+	bool bNearGround = false;
+	if (bFlying && Rules.bUnlimitedFlight)
+	{
+		FHitResult Down;
+		FCollisionQueryParams Q(SCENE_QUERY_STAT(ValdoriaLevitate), false, this);
+		const float Half = GetCapsuleComponent()->GetScaledCapsuleHalfHeight();
+		bNearGround = GetWorld()->LineTraceSingleByChannel(Down, GetActorLocation(), GetActorLocation() - FVector(0.f, 0.f, Half + 12.f), ECC_WorldStatic, Q);
+	}
+	const bool bLevitating = bFlying && Rules.bUnlimitedFlight && !bAdminFlight && !(bNearGround && !bJumpHeld);
+	const bool bFuelFlight = (Rules.FlightMode == EValdoriaFlightMode::Fuel || bAdminFlight)
+		&& ((bJumpHeld && (Move->IsFalling() || bFlying)) || bLevitating) && FlightFuel > 0.f && !IsFacingWall(45.f);
 	if (bAbilityFlight || bFuelFlight)
 	{
 		if (!bFlying)
@@ -2660,10 +2700,27 @@ void AValdoriaHeroCharacter::TickMovementFeatures(float DeltaSeconds)
 			Move->MaxFlySpeed = bAdminFlight ? FMath::Max(Rules.FlightSpeed, 900.f) : Rules.FlightSpeed;
 			Move->BrakingDecelerationFlying = 1500.f;
 		}
+		if (Now < FlightPauseUntil)
+		{
+			Move->Velocity = FVector::ZeroVector; // hovering still while she attacks from the sky
+			bGliding = false;
+			return;
+		}
 		if (bFuelFlight)
 		{
 			FlightFuel = FMath::Max(0.f, FlightFuel - DeltaSeconds);
-			AddMovementInput(FVector::UpVector, 1.f); // segurar Espaço sobe
+			if (bJumpHeld)
+			{
+				AddMovementInput(FVector::UpVector, 1.f); // segurar Espaço sobe
+			}
+			else if (bCrouchHeld)
+			{
+				AddMovementInput(FVector::UpVector, -1.f);
+			}
+			else
+			{
+				AddMovementInput(FVector::UpVector, -0.6f); // released: comes down levitating, like going up
+			}
 		}
 		else if (bJumpHeld)
 		{
@@ -2725,6 +2782,7 @@ void AValdoriaHeroCharacter::TickMovementFeatures(float DeltaSeconds)
 
 void AValdoriaHeroCharacter::Landed(const FHitResult& Hit)
 {
+	bElementJumpUsed = false;
 	Super::Landed(Hit);
 	WallClimbTimeUsed = 0.f;
 	bWallClimbing = false;
@@ -2997,10 +3055,7 @@ bool AValdoriaHeroCharacter::CanUseSlot(EValdoriaAbilitySlot Slot) const
 	{
 		return false;
 	}
-	if (bFlying && GetMovementRules().bFlightBlocksActions)
-	{
-		return false; // Vex: flying takes all her telekinesis
-	}
+	// Turn 48 (owner): Vex may attack from the sky; the flight pauses for a moment instead (see TryActivateSlot).
 	if (Slot == EValdoriaAbilitySlot::PrimaryFire)
 	{
 		return !HasStatus(EValdoriaStatus::CannotAttack);
@@ -3141,6 +3196,12 @@ void AValdoriaHeroCharacter::TickFootDiscs(float DeltaSeconds)
 	const float DiscZ = Sole + ActiveDefinition->HoverHeight * 0.5f;
 	static const FName Bones[2] = { TEXT("foot_l"), TEXT("foot_r") };
 	UStaticMeshComponent* Discs[2] = { FootDiscL.Get(), FootDiscR.Get() };
+	// Turn 48 (owner): when she runs fast the feet outpace the discs, so the next disc appears ahead of the step
+	// (where the foot is going to land) and a little earlier while the foot is still coming down.
+	const FVector Vel2D = FVector(GetVelocity().X, GetVelocity().Y, 0.f);
+	const float Speed = Vel2D.Size();
+	const FVector Lead = Vel2D * FMath::Clamp(Speed / 1500.f, 0.f, 1.f) * 0.12f;
+	const float LowThreshold = 22.f + FMath::Min(Speed * 0.03f, 30.f);
 	for (int32 i = 0; i < 2; ++i)
 	{
 		UStaticMeshComponent* Disc = Discs[i];
@@ -3150,13 +3211,14 @@ void AValdoriaHeroCharacter::TickFootDiscs(float DeltaSeconds)
 		}
 		const FVector Foot = GetMesh()->GetSocketLocation(Bones[i]);
 		// The ankle bone sits ~10 cm above the sole: "low" = the foot is landing or planted.
-		const bool bLow = bGrounded && Foot.Z - (Sole + ActiveDefinition->HoverHeight) < 22.f;
+		const bool bLow = bGrounded && Foot.Z - (Sole + ActiveDefinition->HoverHeight) < LowThreshold;
 		float& Alpha = FootDiscAlpha[i];
 		if (bLow)
 		{
 			const FVector Target(Foot.X, Foot.Y, DiscZ);
-			// New step: appear right under the foot; while planted, follow it a little (turning in place).
-			const FVector Where = Alpha < 0.05f ? Target : FMath::VInterpTo(Disc->GetComponentLocation(), Target, DeltaSeconds, 10.f);
+			// New step: appear where the foot will land (ahead when running fast); while planted, follow it (fast
+			// enough to keep up at high speed, gently when turning in place).
+			const FVector Where = Alpha < 0.05f ? Target + Lead : FMath::VInterpTo(Disc->GetComponentLocation(), Target + Lead * 0.5f, DeltaSeconds, Speed > 700.f ? 25.f : 10.f);
 			Disc->SetWorldLocation(Where);
 			Alpha = FMath::Min(1.f, Alpha + DeltaSeconds * 14.f);
 		}
@@ -3309,8 +3371,9 @@ void AValdoriaHeroCharacter::TickFlightPose(float DeltaSeconds)
 	const float Target = bSuperhero ? FMath::Clamp(Fwd, 0.f, 1.f) : FMath::Clamp(Fwd, -1.f, 1.f);
 	FlightLeanAlpha = FMath::FInterpTo(FlightLeanAlpha, Target, DeltaSeconds, 4.f);
 
-	// Levitate: stays upright and only leans a little (like floating).
-	const float MaxLean = bSuperhero ? Set.FlightLean : FMath::Min(Set.FlightLean, ActiveDefinition->HoverLean);
+	// Levitate: upright when still, tilts forward/back with the movement (owner, turn 48: the tilt was only 12 degrees,
+	// it looked like no tilt at all). Superhero: lies down flying fast (FlightLean, 80 by default).
+	const float MaxLean = bSuperhero ? Set.FlightLean : FMath::Min(Set.FlightLean, FMath::Max(ActiveDefinition->HoverLean, 32.f));
 	const FRotator Lean(-FlightLeanAlpha * MaxLean, 0.f, Right * MaxLean * 0.4f);
 	const FQuat Rot = Lean.Quaternion() * FRotator(0.f, -90.f, 0.f).Quaternion();
 	// Rotate around the capsule centre: the mesh origin sits at the feet.

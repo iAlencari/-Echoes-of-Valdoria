@@ -402,7 +402,7 @@ bool UValdoriaHeroDefinition::ApplyPreset(FName PresetId)
 	{
 		HeroId = TEXT("kay");
 		DisplayName = LOCTEXT("KayName", "Kay");
-		Description = LOCTEXT("KayDesc", "Agente que dobra os quatro elementos com as mãos, sem arma. Toque no 4 para trocar entre fogo, terra, água e ar; segure o 4 para a Devastação.");
+		Description = LOCTEXT("KayDesc", "Agente que dobra os quatro elementos com as mãos, sem arma. Toque no 4 para trocar entre fogo, terra, água e ar; segure o 4 para a Devastação. Plana segurando Espaço na queda e salta de novo no ar com fogo ou ar.");
 		Roles.Add(EValdoriaHeroRole::Warrior);
 		ThemeColor = FLinearColor(0.75f, 0.75f, 0.85f);
 		MaxHealth = 200.f;
@@ -410,6 +410,8 @@ bool UValdoriaHeroDefinition::ApplyPreset(FName PresetId)
 		Mesh = TSoftObjectPtr<USkeletalMesh>(FSoftObjectPath(Manny));
 		Movement.ShiftMode = EValdoriaShiftMode::SprintAndDash;
 		Movement.DashCharges = 1;
+		// Owner (turn 48): glides (hold Space while falling) and jumps again in the air with fire or air.
+		Movement.bCanGlide = true;
 		UltimateCost = 1700.f;
 
 		ElementCount = 4;
@@ -438,8 +440,8 @@ bool UValdoriaHeroDefinition::ApplyPreset(FName PresetId)
 		Add(this, EValdoriaAbilitySlot::PrimaryFire, UValdoriaGA_FireProjectile::StaticClass(), LOCTEXT("KayFireAtk", "Sopro Elemental"),
 			LOCTEXT("KayFireAtkDesc", "Lança um sopro do elemento atual: 32 de dano. Fogo e água: mágico; terra: físico; ar: híbrido. Sem munição."));
 		FValdoriaAbilityEntry& Ult = Add(this, EValdoriaAbilitySlot::Ultimate, UValdoriaGA_Devastation::StaticClass(), LOCTEXT("KayUlt", "Devastação"),
-			LOCTEXT("KayUltDesc", "Segure o 4 por 3 s com a suprema carregada: explosão de 9 m com 150 de dano do elemento atual. Fogo: o chão queima. Terra: atordoa por 2 s. Água: 50% mais lentos por 2 s. Ar: joga os inimigos para cima. Soltar antes de completar cancela e dá 3 s de recarga. Toque rápido no 4: troca de elemento (recarga de 20 s)."));
-		Ult.Magnitude = 150.f; Ult.Radius = 900.f; Ult.Duration = 2.f; Ult.SecondaryMagnitude = 0.5f;
+			LOCTEXT("KayUltDesc", "Segure o 4 por 3 s com a suprema carregada: Kay perde o controle por 4 s e os quatro elementos devastam tudo num raio de 9 m - chão congelado (lento), tornados de fogo (jogam para cima), terremotos (desequilibram) e ventos que empurram para qualquer lado. Todos perto sofrem, inclusive aliados (que levam metade do dano). Depois Kay fica incapacitado por 2 s."));
+		Ult.Magnitude = 30.f; Ult.Radius = 900.f; Ult.Duration = 4.f; Ult.SecondaryMagnitude = 0.5f;
 		Ult.DamageType = EValdoriaDamageType::Magical;
 		return true;
 	}
@@ -467,7 +469,7 @@ bool UValdoriaHeroDefinition::ApplyPreset(FName PresetId)
 		UltimateCost = 2000.f;
 		UltimateChargePerSecond = 5.f;
 
-		Weapon.WeaponName = LOCTEXT("NazareWeapon", "Luz");
+		Weapon.WeaponName = LOCTEXT("NazareWeapon", "Cálice");
 		Weapon.DamageType = EValdoriaDamageType::Magical;
 		Weapon.Damage = 4.f;          // per pulse: 10 pulses/s = 40 damage per second
 		Weapon.AllyHeal = 5.f;        // 50 healing per second on allies the beam touches
@@ -487,14 +489,15 @@ bool UValdoriaHeroDefinition::ApplyPreset(FName PresetId)
 		Passive.ExecuteHealRadius = 1200.f;
 		Passive.SharedReceivedHeal = 0.1f;
 
-		Add(this, EValdoriaAbilitySlot::PrimaryFire, UValdoriaGA_FireBeam::StaticClass(), LOCTEXT("NazareFire", "Luz"),
-			LOCTEXT("NazareFireDesc", "Feixe curto de luz (12 m): 40 de dano mágico por segundo nos inimigos e 50 de cura por segundo nos aliados que ele toca."));
+		FValdoriaAbilityEntry& Chalice = Add(this, EValdoriaAbilitySlot::PrimaryFire, UValdoriaGA_Chalice::StaticClass(), LOCTEXT("NazareChalice", "Cálice e Carne"),
+			LOCTEXT("NazareChaliceDesc", "Segure mirando num aliado (até 12 m): o elo segue esse aliado e ignora quem passar na frente. A cada 0,25 s, 1% da sua vida máxima vai para ele, sem nunca baixar de 1% e sem gastar nada se ele estiver com a vida cheia. Ele fica Ungido de Sangue por 7 s: 10% menos dano, +10% roubo de vida, +20% vampirismo, +5% velocidade, 10% menos recarga e regeneração fora de combate 3x mais rápida. Solte para parar."));
+		Chalice.Cooldown = 0.f; Chalice.Radius = 1200.f; Chalice.Magnitude = 0.01f; Chalice.Duration = 7.f;
 		FValdoriaAbilityEntry& Calm = Add(this, EValdoriaAbilitySlot::SecondaryFire, UValdoriaGA_CalmStorm::StaticClass(), LOCTEXT("NazareCalm", "Acalmar a Tempestade"),
 			LOCTEXT("NazareCalmDesc", "Onda de 7 m: aliados perdem todos os controles e lentidões; inimigos ficam silenciados (sem habilidades) por 1,5 s. Recarga de 12 s."));
 		Calm.Cooldown = 12.f; Calm.Radius = 700.f; Calm.Duration = 1.5f;
-		FValdoriaAbilityEntry& Chalice = Add(this, EValdoriaAbilitySlot::Ability1, UValdoriaGA_Chalice::StaticClass(), LOCTEXT("NazareChalice", "Cálice e Carne"),
-			LOCTEXT("NazareChaliceDesc", "Canaliza (aperte de novo para parar): a cada 0,25 s, 1% da sua vida máxima vai para o aliado mirado (até 12 m), sem nunca baixar de 1%. Você anda, mas não ataca. O aliado fica Ungido de Sangue por 7 s: 10% menos dano, +10% roubo de vida, +20% vampirismo, +5% velocidade, 10% menos recarga e regeneração fora de combate 3x mais rápida. Recarga de 10 s ao parar."));
-		Chalice.Cooldown = 10.f; Chalice.Radius = 1200.f; Chalice.Magnitude = 0.01f; Chalice.Duration = 7.f;
+		FValdoriaAbilityEntry& Light = Add(this, EValdoriaAbilitySlot::Ability1, UValdoriaGA_PiercingBolt::StaticClass(), LOCTEXT("NazareFire", "Luz"),
+			LOCTEXT("NazareFireDesc", "Raio de luz que atravessa todos na linha (até 15 m): 40 de dano mágico nos inimigos e 50 de cura nos aliados. Recarga de 6 s."));
+		Light.Cooldown = 6.f; Light.Magnitude = 40.f; Light.Radius = 1500.f; Light.SecondaryMagnitude = 50.f; Light.DamageType = EValdoriaDamageType::Magical;
 		FValdoriaAbilityEntry& Bread = Add(this, EValdoriaAbilitySlot::Ability2, UValdoriaGA_Baskets::StaticClass(), LOCTEXT("NazareBread", "Multiplicação dos Pães"),
 			LOCTEXT("NazareBreadDesc", "Deixa 3 cestos à sua frente. Cada aliado que pega um recupera 60 de vida em 4 s. Os cestos duram 15 s. Recarga de 14 s."));
 		Bread.Cooldown = 14.f; Bread.Magnitude = 60.f; Bread.Duration = 4.f; Bread.SecondaryMagnitude = 3.f; Bread.Radius = 250.f;
@@ -611,7 +614,7 @@ bool UValdoriaHeroDefinition::ApplyPreset(FName PresetId)
 			LOCTEXT("ArielWallDesc", "Ergue uma parede de pedra de 4 m na sua frente por 4 s que segura 500 de dano. Recarga de 12 s."));
 		Wall.Cooldown = 12.f; Wall.Magnitude = 500.f; Wall.Radius = 400.f; Wall.Duration = 4.f;
 		FValdoriaAbilityEntry& Swap = Add(this, EValdoriaAbilitySlot::AbilityExtra, UValdoriaGA_FormSwap::StaticClass(), LOCTEXT("ArielSwap", "Trocar de Forma"),
-			LOCTEXT("ArielSwapDesc", "Vira a Forma Faísca (feminina, à distância e ágil). Recarga de 4 s."));
+			LOCTEXT("ArielSwapDesc", "Vira a Forma Faísca (feminina, à distância e ágil). Recarga de 4 s. O bônus de chegar numa forma (escudo ou velocidade) só vale a cada 8 s."));
 		Swap.Cooldown = 4.f;
 		// Passive bonus ON ARRIVING in this form (read by SwapToForm): Magnitude = temporary shield, SecondaryMagnitude = speed for 2 s.
 		Swap.Magnitude = 60.f;
@@ -670,7 +673,7 @@ bool UValdoriaHeroDefinition::ApplyPreset(FName PresetId)
 		Field.Cooldown = 12.f; Field.Magnitude = 30.f; Field.Radius = 350.f; Field.Duration = 4.f; Field.SecondaryMagnitude = 15.f;
 		Field.DamageType = EValdoriaDamageType::Magical;
 		FValdoriaAbilityEntry& Swap = Add(this, EValdoriaAbilitySlot::AbilityExtra, UValdoriaGA_FormSwap::StaticClass(), LOCTEXT("ArielFSwap", "Trocar de Forma"),
-			LOCTEXT("ArielFSwapDesc", "Vira a Forma Rocha (masculina, corpo a corpo e resistente). Recarga de 4 s."));
+			LOCTEXT("ArielFSwapDesc", "Vira a Forma Rocha (masculina, corpo a corpo e resistente). Recarga de 4 s. O bônus de chegar numa forma (escudo ou velocidade) só vale a cada 8 s."));
 		Swap.Cooldown = 4.f;
 		// Passive bonus ON ARRIVING in this form (read by SwapToForm): Magnitude = temporary shield, SecondaryMagnitude = speed for 2 s.
 		Swap.SecondaryMagnitude = 0.25f;
@@ -842,12 +845,12 @@ bool UValdoriaHeroDefinition::ApplyPresetLooks(FName PresetId)
 		WeaponSocket = TEXT("spine_03");
 		OffhandSocket = TEXT("spine_03");
 		WeaponMesh = ::Weapon(TEXT("AdagaA"));
-		WeaponOffset = Grip(FRotator(0.f, 0.f, 25.f), FVector(5.f, 30.f, 18.f), 1.6f);
+		WeaponOffset = Grip(FRotator(0.f, 0.f, 25.f), FVector(8.f, -28.f, 16.f), 1.6f); // turn 48: -Y = behind her back
 		bSilentMovement = true;
 		bRideEffectPerFoot = true;                     // owner (turn 45): a disc under each foot, not one board
 		RideEffectScale = FVector(0.3f, 0.3f, 0.02f);
 		OffhandMesh = ::Weapon(TEXT("AdagaB"));
-		OffhandOffset = Grip(FRotator(0.f, 0.f, -25.f), FVector(5.f, 30.f, -18.f), 1.6f);
+		OffhandOffset = Grip(FRotator(0.f, 0.f, -25.f), FVector(8.f, -28.f, -16.f), 1.6f);
 	}
 	else if (Id == TEXT("lume"))
 	{
