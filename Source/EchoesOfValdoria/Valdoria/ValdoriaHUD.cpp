@@ -297,7 +297,8 @@ void AValdoriaHUD::DrawWorldHealthBars(AValdoriaHeroCharacter* Viewer)
 		// Turn 48: unless my team senses him (Heimdall's reveals/hearing, Bifrost riders): then he shows through walls.
 		const UValdoriaVisionSubsystem* SenseVis = GetWorld()->GetSubsystem<UValdoriaVisionSubsystem>();
 		const bool bSensed = bEnemy && Viewer && SenseVis && SenseVis->IsSensedBy(Other, Viewer->TeamId);
-		if (bEnemy && PlayerOwner && !bSensed)
+		bool bBehindWall = false;
+		if (bEnemy && PlayerOwner)
 		{
 			FVector CamLoc;
 			FRotator CamRot;
@@ -305,7 +306,8 @@ void AValdoriaHUD::DrawWorldHealthBars(AValdoriaHeroCharacter* Viewer)
 			FCollisionQueryParams Params(SCENE_QUERY_STAT(ValdoriaHudLos), false, Viewer);
 			Params.AddIgnoredActor(Other);
 			FHitResult Block;
-			if (GetWorld()->LineTraceSingleByChannel(Block, CamLoc, Head, ECC_Visibility, Params))
+			bBehindWall = GetWorld()->LineTraceSingleByChannel(Block, CamLoc, Head, ECC_Visibility, Params);
+			if (bBehindWall && !bSensed)
 			{
 				continue;
 			}
@@ -328,15 +330,17 @@ void AValdoriaHUD::DrawWorldHealthBars(AValdoriaHeroCharacter* Viewer)
 		if (bEnemy)
 		{
 			DrawSkull(X - 12.f * S, Y + BarH * 0.5f, 11.f * S, Color);
-			if (bSensed)
+			if (bSensed && bBehindWall)
 			{
-				// Golden "eye" frame: seen through walls by a sense, not by sight.
+				// Golden "eye" frame around the body: seen through the wall by a sense (owner, turn 48: only when hidden).
 				const FLinearColor Eye(1.f, 0.82f, 0.3f, 0.9f);
-				const float HalfW = FMath::Clamp(60.f * 1200.f / FMath::Max(Dist, 1.f), 18.f, 70.f) * S;
+				const FVector Top = Project(Other->GetActorLocation() + FVector(0.f, 0.f, HalfHeight));
 				const FVector Feet = Project(Other->GetActorLocation() - FVector(0.f, 0.f, HalfHeight));
-				if (Feet.Z > 0.f)
+				if (Feet.Z > 0.f && Top.Z > 0.f)
 				{
-					DrawFrame(Screen.X - HalfW, Y + BarH + 4.f * S, HalfW * 2.f, FMath::Max(10.f, Feet.Y - Y - BarH - 4.f * S), Eye, 2.f * S);
+					const float BodyH = FMath::Max(12.f, Feet.Y - Top.Y);
+					const float HalfW = BodyH * 0.22f;
+					DrawFrame(Top.X - HalfW, Top.Y, HalfW * 2.f, BodyH, Eye, 2.f * S);
 				}
 			}
 			// Deus do Velho Testamento (Nazaré): an enemy hero in execution range shows a blinking golden cross.

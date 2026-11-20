@@ -12,6 +12,7 @@
 #include "ValdoriaHeroCharacter.h"
 #include "ValdoriaTrainingDummy.h"
 #include "ValdoriaGuardian.h"
+#include "ValdoriaGameMode.h"
 #include "Widgets/Input/SEditableTextBox.h"
 #include "Widgets/Layout/SBox.h"
 
@@ -166,7 +167,7 @@ void AValdoriaPlayerController::RunChatCommand(const FString& Command)
 		bAdminMode = !bAdminMode;
 		if (bAdminMode)
 		{
-			ChatPrint(TEXT("Modo administrador LIGADO: comandos de admin liberados. F10 abre/fecha o painel (segure Alt para clicar nele)."), Ok);
+			ChatPrint(TEXT("Modo administrador LIGADO: comandos de admin liberados. F10 abre/fecha o painel (o mouse fica livre nele)."), Ok);
 			ChatPrint(TEXT("Recruta no modo admin: imortal, sem recarga, munição e impulso infinitos e voo infinito (/voar liga o voo normal em qualquer herói)."), Ok);
 		}
 		else
@@ -178,13 +179,64 @@ void AValdoriaPlayerController::RunChatCommand(const FString& Command)
 	else if (Cmd == TEXT("ajuda") || Cmd == TEXT("help"))
 	{
 		ChatPrint(TEXT("/adm  liga/desliga o modo administrador"), Ok);
-		ChatPrint(TEXT("/heroi brasa | kael | iara | vex | lume | recruta  troca de herói (também no Esc)"), Ok);
+		ChatPrint(TEXT("/heroi brasa | kael | iara | vex | lume | kay | ariel | heimdall | nazare | recruta  troca de herói (também no Esc)"), Ok);
+		ChatPrint(TEXT("/mirar  mira no inimigo mais perto  •  /fila  dois bonecos em fila na sua frente (testa raios que atravessam)"), Ok);
 		ChatPrint(TEXT("/imortal  /recarga  /municao  /voar  (liga/desliga no seu herói)"), Ok);
 		ChatPrint(TEXT("/bots 0-3  bonecos atiram (0 parados, 3 difícil)"), Ok);
 		ChatPrint(TEXT("/dano N  tira N de vida de você  •  /vida  enche a vida  •  /ult  ultimate cheia"), Ok);
 		ChatPrint(TEXT("/creditos N  ganha créditos da loja (B)"), Ok);
 		ChatPrint(TEXT("/modo mm | treino  deathmatch vs bots or training"), Ok);
 		ChatPrint(TEXT("/mapa np | treino  troca de mapa  •  /tempo N  velocidade do jogo"), Ok);
+	}
+	else if (Cmd == TEXT("mirar") || Cmd == TEXT("aim"))
+	{
+		// Test helper (turn 48): turn the camera to the nearest living enemy (/mirar aliado: nearest allied hero).
+		const bool bAlly = Arg == TEXT("aliado") || Arg == TEXT("ally");
+		AValdoriaHeroCharacter* Best = nullptr;
+		float BestDist = 1e9f;
+		for (TActorIterator<AValdoriaHeroCharacter> It(GetWorld()); It; ++It)
+		{
+			const float D = Hero ? FVector::Dist(It->GetActorLocation(), Hero->GetActorLocation()) : 0.f;
+			const bool bWanted = bAlly ? (*It != Hero && It->TeamId == Hero->TeamId && It->IsHeroUnit()) : Hero->IsEnemy(*It);
+			if (Hero && bWanted && !It->IsDead() && D < BestDist)
+			{
+				BestDist = D;
+				Best = *It;
+			}
+		}
+		if (Hero && Best)
+		{
+			// From the hero's head (the camera orbits around it), so the crosshair lands on the target.
+			SetControlRotation((Best->GetActorLocation() + FVector(0.f, 0.f, 20.f) - (Hero->GetActorLocation() + FVector(0.f, 0.f, 60.f))).Rotation());
+			ChatPrint(FString::Printf(TEXT("Mirando em %s (%.0f m)"), *Best->GetName(), BestDist / 100.f), Ok);
+		}
+		else
+		{
+			ChatPrint(TEXT("Nenhum inimigo vivo."), Bad);
+		}
+	}
+	else if (Cmd == TEXT("fila") || Cmd == TEXT("line"))
+	{
+		// Test helper (turn 48): two training dummies in a straight line in front of you (6 m and 9 m).
+		AValdoriaGameMode* GM = GetWorld()->GetAuthGameMode<AValdoriaGameMode>();
+		if (Hero && GM)
+		{
+			// Along the crosshair line (the camera sits over the shoulder), at the hero's feet height.
+			SetControlRotation(FRotator(-2.f, GetControlRotation().Yaw, 0.f));
+			FVector Start, Dir;
+			Hero->GetAimRay(Start, Dir);
+			const FVector Flat = FVector(Dir.X, Dir.Y, 0.f).GetSafeNormal();
+			for (float D : { 700.f, 1000.f })
+			{
+				FVector P = Start + Flat * D;
+				P.Z = Hero->GetActorLocation().Z;
+				GM->SpawnDummyAt(P, (-Flat).Rotation(), 0);
+			}
+			// Tilt the crosshair down to the chest of the first one (the camera is higher than the dummies' heads).
+			const float Drop = Start.Z - (Hero->GetActorLocation().Z + 10.f);
+			SetControlRotation(FRotator(-FMath::RadiansToDegrees(FMath::Atan2(Drop, 700.f)), GetControlRotation().Yaw, 0.f));
+			ChatPrint(TEXT("Dois bonecos em fila na sua frente."), Ok);
+		}
 	}
 	else if (Cmd == TEXT("heroi") || Cmd == TEXT("herói") || Cmd == TEXT("hero"))
 	{

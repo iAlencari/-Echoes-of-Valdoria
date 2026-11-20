@@ -845,12 +845,12 @@ bool UValdoriaHeroDefinition::ApplyPresetLooks(FName PresetId)
 		WeaponSocket = TEXT("spine_03");
 		OffhandSocket = TEXT("spine_03");
 		WeaponMesh = ::Weapon(TEXT("AdagaA"));
-		WeaponOffset = Grip(FRotator(0.f, 0.f, 25.f), FVector(8.f, -28.f, 16.f), 1.6f); // turn 48: -Y = behind her back
+		WeaponOffset = Grip(FRotator(0.f, 0.f, 25.f), FVector(8.f, -26.f, 9.f), 1.6f); // turn 48: -Y = behind her back, crossed
 		bSilentMovement = true;
 		bRideEffectPerFoot = true;                     // owner (turn 45): a disc under each foot, not one board
 		RideEffectScale = FVector(0.3f, 0.3f, 0.02f);
 		OffhandMesh = ::Weapon(TEXT("AdagaB"));
-		OffhandOffset = Grip(FRotator(0.f, 0.f, -25.f), FVector(8.f, -28.f, -16.f), 1.6f);
+		OffhandOffset = Grip(FRotator(0.f, 0.f, -25.f), FVector(8.f, -26.f, -9.f), 1.6f);
 	}
 	else if (Id == TEXT("lume"))
 	{

@@ -794,7 +794,13 @@ void AValdoriaHeroCharacter::TryActivateSlot(EValdoriaAbilitySlot Slot)
 	{
 		if (Spec.InputID == WantedInput)
 		{
-			if (AbilitySystem->TryActivateAbility(Spec.Handle))
+			static const bool bCombatLog = FParse::Param(FCommandLine::Get(), TEXT("ValdoriaCombatLog"));
+			const bool bActivated = AbilitySystem->TryActivateAbility(Spec.Handle);
+			if (bCombatLog && Slot != EValdoriaAbilitySlot::PrimaryFire)
+			{
+				UE_LOG(LogTemp, Log, TEXT("COMBATE habilidade %s slot=%d %s"), *GetName(), static_cast<int32>(Slot), bActivated ? TEXT("usou") : TEXT("NAO usou"));
+			}
+			if (bActivated)
 			{
 				if (bFlying && GetMovementRules().bFlightBlocksActions)
 				{
@@ -1188,6 +1194,11 @@ void AValdoriaHeroCharacter::HealTarget(AActor* Target, float Amount)
 			}
 		}
 		Spec.Data->SetSetByCallerMagnitude(ValdoriaTags::Data_Heal, Healed);
+		static const bool bCombatLogHeal = FParse::Param(FCommandLine::Get(), TEXT("ValdoriaCombatLog"));
+		if (bCombatLogHeal && Target != this)
+		{
+			UE_LOG(LogTemp, Log, TEXT("COMBATE cura %s -> %s %.0f"), *GetName(), *Other->GetName(), Healed);
+		}
 		// Comunhão (Nazaré's passive, owner): allies near him receive a part of every heal he receives.
 		static bool bSharing = false;
 		const float Share = Other->GetPassive().SharedReceivedHeal;

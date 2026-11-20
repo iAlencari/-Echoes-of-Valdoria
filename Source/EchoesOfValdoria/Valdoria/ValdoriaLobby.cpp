@@ -205,7 +205,8 @@ TSharedRef<SWidget> AValdoriaPlayerController::BuildLobby()
 	{
 		const FName Id = Ids[i];
 		const UValdoriaHeroDefinition* Def = FindHero(Id);
-		const FText Name = Def ? Def->DisplayName : FText::FromName(Id);
+		FText Name = Def ? Def->DisplayName : FText::FromString(Id.ToString().Left(1).ToUpper() + Id.ToString().Mid(1));
+		if (Id == TEXT("ariel")) { Name = FText::FromString(TEXT("Ariel")); } // the form (Rocha/Faísca) is chosen with C in game
 		const FLinearColor Color = Def ? Def->ThemeColor : FLinearColor::Gray;
 		HeroGrid->AddSlot(i % 4, i / 4)
 		[
@@ -213,7 +214,8 @@ TSharedRef<SWidget> AValdoriaPlayerController::BuildLobby()
 			[
 				SNew(SButton).HAlign(HAlign_Center).VAlign(VAlign_Center).ButtonColorAndOpacity(Color * 0.6f)
 				.OnClicked_Lambda([this, Id]() { SelectHero(Id); GLobbyHero = Id; return FReply::Handled(); })
-				[ Title(Name, 14, FLinearColor::White) ]
+				[ SNew(STextBlock).Text(Name).Font(FCoreStyle::GetDefaultFontStyle("Bold", 12)).ColorAndOpacity(FLinearColor::White)
+					.AutoWrapText(true).Justification(ETextJustify::Center) ]
 			]
 		];
 	}

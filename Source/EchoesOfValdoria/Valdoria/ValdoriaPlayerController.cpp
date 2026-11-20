@@ -345,7 +345,7 @@ void AValdoriaPlayerController::OpenPauseMenu()
 			+ SVerticalBox::Slot().AutoHeight().HAlign(HAlign_Center).Padding(0.f, 18.f, 0.f, 0.f)
 			[
 				SNew(STextBlock)
-				.Text(LOCTEXT("Hint", "Esc volta ao jogo  •  segure Alt para soltar o mouse"))
+				.Text(LOCTEXT("Hint", "Esc volta ao jogo"))
 				.Font(FCoreStyle::GetDefaultFontStyle("Regular", 11))
 				.ColorAndOpacity(FLinearColor(0.7f, 0.72f, 0.78f))
 			]

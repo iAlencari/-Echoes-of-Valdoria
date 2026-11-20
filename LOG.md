@@ -682,3 +682,18 @@ Owner batch ("deixa pra compilar no final"): everything written first, one build
 - Review fixes: execution respects damage immunity; Crucificado rooted while rising; Caminhar sobre as Águas gravity.
 - Nazaré test was stopped (owner's brother using the PC). **Last fixes not compiled yet**: build + `-ValdoriaHeroTest`
   + MOBA with `-ValdoriaHero=nazare` next.
+
+### Turn 48e - Claude Code - 2026-11-20 (night: compiled the owner's fix list, tested by playing)
+- Built and pushed the 14-item fix list (2a82985). Hero test: all heroes run every button.
+- **Played it myself** (computer use, monitor 2), training map: Brasa (all buttons, hammer cleaves 2, V 300,
+  ult leap), Kael (rifle, RMB 550, all abilities), Nazaré (Luz pierces 2 dummies in a line - pierce fix confirmed,
+  RMB/2/3/C/V/4; Crucificado rises, dies, "renasce em 3 s"), Vex (daggers on the back, disc under the foot when
+  sprinting, flight: release Space = slow descent), Kay (fire air-jump goes high, Devastação hits all 4 dummies every
+  tick), Heimdall (Chamado da Bifrost grabs and throws - fixed with a 2D line check), admin panel F10 + free cursor.
+- New test helpers: `-ValdoriaCombatLog` (every damage/heal/ability in the log as COMBATE ...), chat `/mirar`
+  (`/mirar aliado`), `/fila` (two dummies on the crosshair line). `/ajuda` hero list updated.
+- Fixed while testing: sensed (Heimdall) gold frame only for enemies behind walls and sized to the body; lobby hero
+  names wrap (Ariel, Filho de Nazaré, Recruta capitalised); pause hint without the Alt text; Vex second dagger closer.
+- Found, not fixed yet: MOBA `?bots=1` turns the PLAYER into a bot too (manual testing there needs it off);
+  Devastação visuals are only rings (no tornado/ice look); baskets are grey cylinders; Cálice tether not verified
+  on an ally yet (training has no allies).

@@ -114,6 +114,12 @@ void UValdoriaAttributeSet::PostGameplayEffectExecute(const FGameplayEffectModCa
 	}
 
 	const bool bHeadshot = Data.EffectSpec.GetDynamicAssetTags().HasTagExact(ValdoriaTags::Hit_Headshot);
+	static const bool bCombatLog = FParse::Param(FCommandLine::Get(), TEXT("ValdoriaCombatLog"));
+	if (bCombatLog && Target)
+	{
+		UE_LOG(LogTemp, Log, TEXT("COMBATE dano %s -> %s %.0f (%s)%s vida=%.0f/%.0f"), Source ? *Source->GetName() : TEXT("?"), *Target->GetName(), TotalDamage,
+			Source && !Source->DamageSourceLabel.IsEmpty() ? *Source->DamageSourceLabel : TEXT("ataque"), bHeadshot ? TEXT(" CABECA") : TEXT(""), GetHealth(), GetMaxHealth());
+	}
 
 	if (Source && Source != Target)
 	{

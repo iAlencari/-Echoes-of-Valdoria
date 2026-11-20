@@ -81,9 +81,12 @@ void UValdoriaGA_BifrostCall::ActivateAbility(const FGameplayAbilitySpecHandle H
 		{
 			continue;
 		}
-		const FVector Closest = FMath::ClosestPointOnSegment(V->GetActorLocation(), From, To);
+		// 2D line check (the target may stand a bit higher or lower than Heimdall).
+		const FVector Flat(V->GetActorLocation().X, V->GetActorLocation().Y, From.Z);
+		const FVector Closest = FMath::ClosestPointOnSegment(Flat, From, To);
 		const float Along = FVector::Dist2D(Closest, From);
-		if (FVector::Dist(Closest, V->GetActorLocation()) < 170.f && Along < VictimDist)
+		UE_LOG(LogTemp, Log, TEXT("CHAMADO candidato %s lado=%.0f ao_longo=%.0f dz=%.0f"), *V->GetName(), FVector::Dist2D(Closest, Flat), Along, V->GetActorLocation().Z - From.Z);
+		if (FVector::Dist2D(Closest, Flat) < 170.f && FMath::Abs(V->GetActorLocation().Z - From.Z) < 300.f && Along < VictimDist)
 		{
 			Victim = V;
 			VictimDist = Along;
