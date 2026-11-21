@@ -591,6 +591,10 @@ protected:
 	TObjectPtr<UStaticMeshComponent> FootDiscR;
 	float FootDiscAlpha[2] = { 0.f, 0.f };
 	void TickFootDiscs(float DeltaSeconds);
+	/** Turn 49: with a VRoid body the weapons follow the VISIBLE hands (the Mannequin's hands are elsewhere). */
+	void TickVisualAttachments();
+	FVector VisualBaseRel[2] = { FVector::ZeroVector, FVector::ZeroVector };
+	FVector VisualWrittenRel[2] = { FVector(1e9f), FVector(1e9f) };
 
 	UPROPERTY()
 	TObjectPtr<UValdoriaAttributeSet> Attributes;

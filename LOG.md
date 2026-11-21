@@ -725,3 +725,13 @@ Owner batch ("deixa pra compilar no final"): everything written first, one build
 - Mãos e armas: a arma ainda segue o socket do Mannequin, então pode ficar um pouco fora da mão do modelo.
 - Ajustar os braços (diferença entre A-pose e T-pose) se ficarem abertos demais.
 - Outros heróis com outros modelos.
+
+### Turno 49b — 21/11/2026 (modelos VRoid: Kai, Vex e Iara)
+**Fala do dono:** "usa esse modelo em Kai, ele não é muito compatível com a lore real do personagem, … adiciona os modelos femininos que se encaixarem"
+- **Kai:** HairSample_Male (saiu da Nazaré, que volta ao Mannequin). O `ApplyPreset` agora limpa o `VisualMesh`.
+- **Vex:** AvatarSample_D (cabelo branco, capa preta). **Iara:** Vita (azul, combina com água).
+- **Bibi:** importada, mas sem herói (vestido verde, não combina com ninguém por enquanto).
+- **Lume:** continua no Mannequin, porque nenhum dos modelos combinou com ela.
+- `Scripts/import_vrm.py`: importa todos os `.vrm` de `ArtSource/VRoid`. Helper `SetVroidBody` nos presets.
+- **Bug corrigido:** as armas seguiam a mão do Mannequin escondido e flutuavam longe do modelo. O novo `TickVisualAttachments` move cada item pela diferença entre o osso escondido e o osso do VRoid (mãos, peito, cabeça).
+- **Testado jogando:** o cajado da Iara fica na mão (parada e atacando), as adagas da Vex ficam nas costas e o salto de fogo do Kai funciona.

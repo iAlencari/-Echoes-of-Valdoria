@@ -42,6 +42,14 @@ namespace
 
 	const TCHAR* Manny = TEXT("/Game/Characters/Mannequins/Meshes/SKM_Manny_Simple.SKM_Manny_Simple");
 	const TCHAR* Quinn = TEXT("/Game/Characters/Mannequins/Meshes/SKM_Quinn_Simple.SKM_Quinn_Simple");
+
+	/** Turn 49: visible VRoid body (imported by Scripts/import_vrm.py + setup_vrm_retarget.py); the Mannequin animates hidden. */
+	void SetVroidBody(UValdoriaHeroDefinition* D, const TCHAR* Folder, const TCHAR* Name)
+	{
+		const FString Base = FString::Printf(TEXT("/Game/Valdoria/Characters/VRoid/%s/"), Folder);
+		D->VisualMesh = TSoftObjectPtr<USkeletalMesh>(FSoftObjectPath(Base + FString::Printf(TEXT("SK_%s.SK_%s"), Name, Name)));
+		D->VisualRetargeter = TSoftObjectPtr<UIKRetargeter>(FSoftObjectPath(Base + FString::Printf(TEXT("RTG_Manny_%s.RTG_Manny_%s"), Name, Name)));
+	}
 }
 
 TArray<FName> UValdoriaHeroDefinition::GetPresetIds()
@@ -66,6 +74,8 @@ bool UValdoriaHeroDefinition::ApplyPreset(FName PresetId)
 	const FString Id = PresetId.ToString().ToLower();
 	Abilities.Reset();
 	Roles.Reset();
+	VisualMesh.Reset(); // turn 49: only heroes that call SetVroidBody keep a visible VRoid body
+	VisualRetargeter.Reset();
 	Weapon = FValdoriaWeaponStats();
 	Movement = FValdoriaMovementRules();
 	Movement.bCanProne = true; // X deita (animações do pacote Free Crawl, turno 44); desligue por herói no Data Asset
@@ -207,6 +217,7 @@ bool UValdoriaHeroDefinition::ApplyPreset(FName PresetId)
 		MagicResistance = 0.1f;
 		MoveSpeed = 550.f;
 		Mesh = TSoftObjectPtr<USkeletalMesh>(FSoftObjectPath(Quinn));
+		SetVroidBody(this, TEXT("Vita"), TEXT("Vita")); // turn 49: female VRoid sample (blue, water)
 		Movement.ShiftMode = EValdoriaShiftMode::SprintAndDash;
 		Movement.DashCharges = 1;
 		Movement.bCanGlide = true;
@@ -270,6 +281,7 @@ bool UValdoriaHeroDefinition::ApplyPreset(FName PresetId)
 		MoveSpeed = 600.f;
 		MeshScale = 0.95f;
 		Mesh = TSoftObjectPtr<USkeletalMesh>(FSoftObjectPath(Quinn));
+		SetVroidBody(this, TEXT("AvatarSampleD"), TEXT("AvatarSample_D")); // turn 49: female VRoid sample
 		Movement.ShiftMode = EValdoriaShiftMode::SprintAndDash;
 		Movement.DashCharges = 3;
 		Movement.MaxJumps = 1;            // holding Space in the air = telekinetic flight
@@ -408,6 +420,7 @@ bool UValdoriaHeroDefinition::ApplyPreset(FName PresetId)
 		MaxHealth = 200.f;
 		MoveSpeed = 560.f;
 		Mesh = TSoftObjectPtr<USkeletalMesh>(FSoftObjectPath(Manny));
+		SetVroidBody(this, TEXT("HairSampleMale"), TEXT("HairSample_Male")); // owner (turn 49): this model is Kai
 		Movement.ShiftMode = EValdoriaShiftMode::SprintAndDash;
 		Movement.DashCharges = 1;
 		// Owner (turn 48): glides (hold Space while falling) and jumps again in the air with fire or air.
@@ -465,10 +478,6 @@ bool UValdoriaHeroDefinition::ApplyPreset(FName PresetId)
 		MoveSpeed = 540.f;
 		MeshScale = 1.05f;
 		Mesh = TSoftObjectPtr<USkeletalMesh>(FSoftObjectPath(Manny));
-		// Turn 49 test (owner OK): visible body = VRoid "HairSample_Male" (VRoid Project sample, free for commercial
-		// use, imported with VRM4U); the Mannequin keeps animating hidden. See Scripts/setup_vrm_retarget.py.
-		VisualMesh = TSoftObjectPtr<USkeletalMesh>(FSoftObjectPath(TEXT("/Game/Valdoria/Characters/VRoid/HairSampleMale/SK_HairSample_Male.SK_HairSample_Male")));
-		VisualRetargeter = TSoftObjectPtr<UIKRetargeter>(FSoftObjectPath(TEXT("/Game/Valdoria/Characters/VRoid/HairSampleMale/RTG_Manny_HairSample_Male.RTG_Manny_HairSample_Male")));
 		Movement.ShiftMode = EValdoriaShiftMode::Sprint;
 		UltimateCost = 2000.f;
 		UltimateChargePerSecond = 5.f;

@@ -1850,6 +1850,7 @@ void AValdoriaHeroCharacter::TickMapBounds()
 void AValdoriaHeroCharacter::Tick(float DeltaSeconds)
 {
 	Super::Tick(DeltaSeconds);
+	TickVisualAttachments();
 	if (Overheal > 0.f)
 	{
 		Overheal = FMath::Max(0.f, Overheal - OverhealDecayRate * DeltaSeconds);
@@ -3225,6 +3226,61 @@ void AValdoriaHeroCharacter::TickHover(float DeltaSeconds)
 	const FQuat Target = Lean.Quaternion() * FRotator(0.f, -90.f, 0.f).Quaternion();
 	const FQuat Current = GetMesh()->GetRelativeRotation().Quaternion();
 	GetMesh()->SetRelativeLocationAndRotation(Base + FVector(0.f, 0.f, Bob), FQuat::Slerp(Current, Target, FMath::Min(1.f, DeltaSeconds * 6.f)));
+}
+
+void AValdoriaHeroCharacter::TickVisualAttachments()
+{
+	// Mannequin bone -> VRoid (VRM humanoid) bone, for the sockets the heroes use.
+	auto ToVroid = [](FName Bone) -> FName
+	{
+		const FString B = Bone.ToString().ToLower();
+		if (B == TEXT("hand_r")) return TEXT("J_Bip_R_Hand");
+		if (B == TEXT("hand_l")) return TEXT("J_Bip_L_Hand");
+		if (B == TEXT("lowerarm_r")) return TEXT("J_Bip_R_LowerArm");
+		if (B == TEXT("lowerarm_l")) return TEXT("J_Bip_L_LowerArm");
+		if (B == TEXT("spine_01") || B == TEXT("spine_02")) return TEXT("J_Bip_C_Spine");
+		if (B == TEXT("spine_03")) return TEXT("J_Bip_C_Chest");
+		if (B == TEXT("spine_04") || B == TEXT("spine_05")) return TEXT("J_Bip_C_UpperChest");
+		if (B == TEXT("neck_01") || B == TEXT("neck_02")) return TEXT("J_Bip_C_Neck");
+		if (B == TEXT("head")) return TEXT("J_Bip_C_Head");
+		if (B == TEXT("pelvis")) return TEXT("J_Bip_C_Hips");
+		return NAME_None;
+	};
+	const bool bVisual = VisualMesh && VisualMesh->IsVisible() && VisualMesh->GetSkeletalMeshAsset() != nullptr;
+	UStaticMeshComponent* Items[2] = { WeaponComponent, OffhandComponent };
+	for (int32 i = 0; i < 2; ++i)
+	{
+		UStaticMeshComponent* C = Items[i];
+		if (!C || C->GetAttachParent() != GetMesh())
+		{
+			continue;
+		}
+		// Someone else (attach, ability, pose) placed the item: that is the new base offset.
+		const FVector Rel = C->GetRelativeLocation();
+		if (!Rel.Equals(VisualWrittenRel[i], 0.01f))
+		{
+			VisualBaseRel[i] = Rel;
+		}
+		FVector Want = VisualBaseRel[i];
+		if (bVisual)
+		{
+			const FName Socket = C->GetAttachSocketName();
+			const FName Bone = GetMesh()->GetSocketBoneName(Socket);
+			const FName VBone = ToVroid(Bone);
+			if (!VBone.IsNone() && VisualMesh->GetBoneIndex(VBone) != INDEX_NONE && GetMesh()->GetBoneIndex(Bone) != INDEX_NONE)
+			{
+				// Same orientation (the retargeter copies rotations), only the position differs: move by the gap
+				// between the hidden hand and the visible hand, expressed in the socket's space.
+				const FVector Gap = VisualMesh->GetBoneLocation(VBone) - GetMesh()->GetBoneLocation(Bone);
+				Want += GetMesh()->GetSocketTransform(Socket).InverseTransformVector(Gap);
+			}
+		}
+		if (!Want.Equals(Rel, 0.01f))
+		{
+			C->SetRelativeLocation(Want);
+		}
+		VisualWrittenRel[i] = Want;
+	}
 }
 
 void AValdoriaHeroCharacter::TickFootDiscs(float DeltaSeconds)
