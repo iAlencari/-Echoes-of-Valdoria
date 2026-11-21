@@ -24,7 +24,7 @@
 
 namespace
 {
-	const FLinearColor Gold(1.f, 0.88f, 0.55f);
+	const FLinearColor NazareGold(1.f, 0.88f, 0.55f);
 
 	/** Allied hero units around a spot (optionally including the caster). */
 	TArray<AValdoriaHeroCharacter*> AlliesAround(AValdoriaHeroCharacter* Hero, const FVector& Where, float Radius, bool bIncludeSelf)
@@ -275,7 +275,7 @@ void AValdoriaBasket::Tick(float DeltaSeconds)
 			}
 			GG->HealTarget(AA, PerTick);
 		}), 0.5f, true, 0.01f);
-		G->PlayAreaEffect(GetActorLocation(), 150.f, Gold);
+		G->PlayAreaEffect(GetActorLocation(), 150.f, NazareGold);
 		Destroy();
 		return;
 	}
@@ -355,7 +355,7 @@ void UValdoriaGA_Pray::ActivateAbility(const FGameplayAbilitySpecHandle Handle, 
 		}
 		H->HealTarget(H, PerTick);
 	}), 0.25f, true);
-	Hero->PlayAreaEffect(Hero->GetActorLocation(), 200.f, Gold);
+	Hero->PlayAreaEffect(Hero->GetActorLocation(), 200.f, NazareGold);
 	VALDORIA_END();
 }
 
@@ -391,7 +391,7 @@ void UValdoriaGA_Crucified::ActivateAbility(const FGameplayAbilitySpecHandle Han
 	Move->SetMovementMode(MOVE_Flying);
 	Move->StopMovementImmediately();
 	Move->Velocity = FVector(0.f, 0.f, 160.f);
-	Hero->PlayAreaEffect(Hero->GetActorLocation(), GetRadius() * 0.5f, Gold);
+	Hero->PlayAreaEffect(Hero->GetActorLocation(), GetRadius() * 0.5f, NazareGold);
 
 	const float Radius = GetRadius();
 	const float TickFrac = GetMagnitude();
@@ -430,7 +430,7 @@ void UValdoriaGA_Crucified::ActivateAbility(const FGameplayAbilitySpecHandle Han
 		}
 		if (bPulse)
 		{
-			H->PlayAreaEffect(H->GetActorLocation(), Radius * 0.5f, Gold);
+			H->PlayAreaEffect(H->GetActorLocation(), Radius * 0.5f, NazareGold);
 		}
 		if (*Step >= Steps)
 		{

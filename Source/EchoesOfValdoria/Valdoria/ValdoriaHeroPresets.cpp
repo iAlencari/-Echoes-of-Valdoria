@@ -465,6 +465,10 @@ bool UValdoriaHeroDefinition::ApplyPreset(FName PresetId)
 		MoveSpeed = 540.f;
 		MeshScale = 1.05f;
 		Mesh = TSoftObjectPtr<USkeletalMesh>(FSoftObjectPath(Manny));
+		// Turn 49 test (owner OK): visible body = VRoid "HairSample_Male" (VRoid Project sample, free for commercial
+		// use, imported with VRM4U); the Mannequin keeps animating hidden. See Scripts/setup_vrm_retarget.py.
+		VisualMesh = TSoftObjectPtr<USkeletalMesh>(FSoftObjectPath(TEXT("/Game/Valdoria/Characters/VRoid/HairSampleMale/SK_HairSample_Male.SK_HairSample_Male")));
+		VisualRetargeter = TSoftObjectPtr<UIKRetargeter>(FSoftObjectPath(TEXT("/Game/Valdoria/Characters/VRoid/HairSampleMale/RTG_Manny_HairSample_Male.RTG_Manny_HairSample_Male")));
 		Movement.ShiftMode = EValdoriaShiftMode::Sprint;
 		UltimateCost = 2000.f;
 		UltimateChargePerSecond = 5.f;

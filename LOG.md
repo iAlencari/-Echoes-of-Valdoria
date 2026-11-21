@@ -702,3 +702,26 @@ Owner batch ("deixa pra compilar no final"): everything written first, one build
   renders grey, not rainbow; the 1 s warning column was not caught on screen (destination off-camera) - check again.
 - Manual testing tips: launch without `-log` (its console window steals focus), use `-ValdoriaCombatLog`, chat
   `/adm`, `/ult`, `/mirar`, `/fila`; in MOBA the ult needs level 5 (admin panel button).
+
+### Turno 49 — Claude Code — 21/11/2026 (modelo VRoid na Nazaré, scripts revisados)
+**Falas do dono:**
+> "o vox numen conseguiu modelos 3d de uso gratis já funcionando com fisica, pq voce não consegue?" · "pode ser não tem problema"
+
+**Feito:**
+- Scripts de teste revisados (`c034e27`): os 10 heróis no playtest, sem `-log` (o console roubava o foco), Deadlock vigiado durante cada partida.
+- **Plugin VRM4U** (MIT, github.com/ruyo/VRM4U, release `v1.2026.10.17`, VRM4U_5_8) em `Plugins/VRM4U/`, instalado localmente e **fora do git**, como o DLSS. Para instalar em outro PC: extraia o zip da release na raiz do projeto.
+- **Modelo:** VRoid `HairSample_Male` (amostra oficial do VRoid, uso comercial liberado, crédito desnecessário). Importado em `Content/Valdoria/Characters/VRoid/HairSampleMale/` pela função `VrmImporterBPFunctionLibrary.ImportVRMFileWithOptions`, rodando no editor completo com `-ExecutePythonScript` (o commandlet quebra porque o importador abre janelas). O `ABP_Post_*` é o balanço de cabelo e roupa (spring bones) e roda sozinho.
+- `Scripts/setup_vrm_retarget.py`: cria o `IK_<modelo>` (as cadeias J_Bip_* montadas na mão, com os nomes do IK_Mannequin) e o `RTG_Manny_<modelo>`.
+- **Código:**
+  - Novo `UValdoriaRetargetAnimInstance`: o nó Retarget Pose From Mesh rodando em C++.
+  - Herói ganhou o `VisualMesh`. A ficha (definição) ganhou `VisualMesh`, `VisualRetargeter` e `VisualOffset`.
+  - Com isso, o Mannequin fica escondido mas continua animando (hitbox, armas, ragdoll), e o modelo visível copia a pose dele.
+  - Invisibilidade e câmera em 1ª pessoa refletem no `VisualMesh`.
+- Nazaré usa o modelo (preset + DA refeito). **Testado jogando:** aparece, anda e as habilidades animam (`docs/concepts/nazare_vroid_teste.jpg`).
+- Unity build: o `Gold` da Nazaré virou `NazareGold`, porque colidia com outro arquivo.
+
+**Pendente:**
+- O dono escolhe se o estilo anime fica.
+- Mãos e armas: a arma ainda segue o socket do Mannequin, então pode ficar um pouco fora da mão do modelo.
+- Ajustar os braços (diferença entre A-pose e T-pose) se ficarem abertos demais.
+- Outros heróis com outros modelos.

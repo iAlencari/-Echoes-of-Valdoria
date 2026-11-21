@@ -1,4 +1,4 @@
-{
+﻿{
     "FileVersion":  3,
     "EngineAssociation":  "{8AC1780A-4333-C61D-9CA4-82B49F015826}",
     "Category":  "",
@@ -56,6 +56,14 @@
                     },
                     {
                         "Name":  "StreamlineReflex",
+                        "Enabled":  true
+                    },
+                    {
+                        "Name":  "VRM4U",
+                        "Enabled":  true
+                    },
+                    {
+                        "Name":  "IKRig",
                         "Enabled":  true
                     }
                 ]

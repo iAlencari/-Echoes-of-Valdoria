@@ -11,6 +11,7 @@ class USkeletalMesh;
 class UStaticMesh;
 class UAnimInstance;
 class UTexture2D;
+class UIKRetargeter;
 class USoundBase;
 
 /**
@@ -155,6 +156,18 @@ public:
 	 *  (CapsuleRadius = largura, CapsuleHalfHeight = metade da altura) para a hitbox acompanhar. */
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Visual")
 	float MeshScale = 1.f;
+
+	/** Turn 49: optional VISIBLE body (e.g. a VRoid model imported with VRM4U). The Mannequin above keeps running
+	 *  the animation hidden and this model copies its pose through VisualRetargeter (Mannequin -> this model). */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Visual")
+	TSoftObjectPtr<USkeletalMesh> VisualMesh;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Visual")
+	TSoftObjectPtr<UIKRetargeter> VisualRetargeter;
+
+	/** Rotation/offset of the visible body relative to the Mannequin (models may face another axis). */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Visual")
+	FTransform VisualOffset;
 
 	/** Proporções do corpo (1 = normal): largura dos ombros/quadril, profundidade (peito/costas) e
 	 *  altura. Para corpos diferentes; ajuste a cápsula (hitbox) junto. */

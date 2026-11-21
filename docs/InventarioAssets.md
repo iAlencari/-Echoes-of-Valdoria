@@ -82,3 +82,9 @@ Legend: **USE** = use it, **USED** = already in the game, **LATER** = keep for a
 3. AbsorbtionFX on Lume's absorb and on the sealing ritual.
 4. First-person arms (FirstPersonRifleAnimations) for the V view.
 5. Lume concept art (Gemini) and new icons for the new Vex kit.
+
+## VRoid models (turn 49)
+| Asset | Source | Licence | Used as |
+|---|---|---|---|
+| HairSample_Male (VRoid Project) | VRoid Studio sample, via opengameart.org/content/vroid-studio-cc0-models | VRoid Hub terms embedded in the VRM: everyone, commercial use allowed, credit unnecessary | Filho de Nazaré visible body (test) |
+| VRM4U plugin (ruyo) | github.com/ruyo/VRM4U | MIT | VRM import + spring bones (installed locally, not in git) |

@@ -35,6 +35,8 @@
 #include "ValdoriaWorldActors.h"
 #include "ValdoriaPlayerController.h"
 #include "ValdoriaAnimInstance.h"
+#include "ValdoriaRetargetAnimInstance.h"
+#include "Retargeter/IKRetargeter.h"
 #include "ValdoriaAudio.h"
 #include "ValdoriaLaneRail.h"
 #include "ValdoriaGuardian.h"
@@ -89,6 +91,12 @@ AValdoriaHeroCharacter::AValdoriaHeroCharacter()
 	FollowCamera->SetupAttachment(CameraBoom, USpringArmComponent::SocketName);
 	FollowCamera->bUsePawnControlRotation = false;
 	FollowCamera->SetFieldOfView(95.f);
+
+	VisualMesh = CreateDefaultSubobject<USkeletalMeshComponent>(TEXT("VisualMesh"));
+	VisualMesh->SetupAttachment(GetMesh());
+	VisualMesh->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+	VisualMesh->SetVisibility(false);
+	VisualMesh->SetComponentTickEnabled(false);
 
 	WeaponComponent = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("Weapon"));
 	WeaponComponent->SetupAttachment(GetMesh());
@@ -233,6 +241,29 @@ void AValdoriaHeroCharacter::ApplyHeroDefinition()
 	else if (UClass* Anim = Def->AnimClass.LoadSynchronous())
 	{
 		GetMesh()->SetAnimInstanceClass(Anim);
+	}
+	// Turn 49: optional visible body (VRoid etc.) driven by the hidden Mannequin through an IK Retargeter.
+	{
+		USkeletalMesh* Body = Def->VisualMesh.IsNull() ? nullptr : Def->VisualMesh.LoadSynchronous();
+		UIKRetargeter* Rtg = Def->VisualRetargeter.IsNull() ? nullptr : Def->VisualRetargeter.LoadSynchronous();
+		const bool bVisual = Body && Rtg;
+		VisualMesh->SetComponentTickEnabled(bVisual);
+		VisualMesh->SetSkeletalMesh(bVisual ? Body : nullptr);
+		VisualMesh->SetVisibility(bVisual);
+		// The Mannequin stays (hitboxes, sockets for the weapons, ragdoll) but is not drawn; its bones must
+		// keep updating while hidden so the visible body and the weapons follow it.
+		GetMesh()->SetVisibility(!bVisual, false);
+		GetMesh()->VisibilityBasedAnimTickOption = bVisual ? EVisibilityBasedAnimTickOption::AlwaysTickPoseAndRefreshBones : EVisibilityBasedAnimTickOption::AlwaysTickPose;
+		if (bVisual)
+		{
+			VisualMesh->SetRelativeTransform(Def->VisualOffset);
+			VisualMesh->AddTickPrerequisiteComponent(GetMesh());
+			VisualMesh->SetAnimInstanceClass(UValdoriaRetargetAnimInstance::StaticClass());
+			if (UValdoriaRetargetAnimInstance* RA = Cast<UValdoriaRetargetAnimInstance>(VisualMesh->GetAnimInstance()))
+			{
+				RA->Retargeter = Rtg;
+			}
+		}
 	}
 	// Malha: X = largura, Y = profundidade (o modelo olha para +Y), Z = altura.
 	GetMesh()->SetRelativeScale3D(FVector(Def->BodyWidth, Def->BodyDepth, Def->BodyHeight) * Def->MeshScale);
@@ -1275,6 +1306,7 @@ void AValdoriaHeroCharacter::UpdateStealthVisibility()
 	// Invisível = só o próprio jogador vê o corpo (os outros e os bots não).
 	const bool bStealthHidden = IsHiddenByStealth();
 	GetMesh()->SetOnlyOwnerSee(bStealthHidden);
+	VisualMesh->SetOnlyOwnerSee(bStealthHidden);
 	WeaponComponent->SetOnlyOwnerSee(bStealthHidden);
 	OffhandComponent->SetOnlyOwnerSee(bStealthHidden);
 }
@@ -1907,6 +1939,7 @@ void AValdoriaHeroCharacter::SetFirstPerson(bool bEnable)
 		CameraBoom->SocketOffset = ActiveDefinition->CameraOffset * FVector(1.f, 1.f, ActiveDefinition->CapsuleHalfHeight / 96.f) + FVector(0.f, 0.f, ActiveDefinition->HoverHeight);
 	}
 	GetMesh()->SetOwnerNoSee(bEnable);
+	VisualMesh->SetOwnerNoSee(bEnable);
 	WeaponComponent->SetOwnerNoSee(bEnable);
 	OffhandComponent->SetOwnerNoSee(bEnable);
 }

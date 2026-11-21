@@ -573,6 +573,10 @@ protected:
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Componentes")
 	TObjectPtr<UStaticMeshComponent> WeaponComponent;
 
+	/** Turn 49: visible body when the hero definition has a VisualMesh (the Mannequin is then hidden). */
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Componentes")
+	TObjectPtr<USkeletalMeshComponent> VisualMesh;
+
 	/** Item in the other hand (shield, second dagger). */
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Valdoria")
 	TObjectPtr<UStaticMeshComponent> OffhandComponent;

@@ -13,6 +13,7 @@ public class EchoesOfValdoria : ModuleRules
 			"CoreUObject",
 			"Engine",
 			"InputCore",
+			"IKRig",
 			"EnhancedInput",
 			"AIModule",
 			"StateTreeModule",
