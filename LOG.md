@@ -735,3 +735,10 @@ Owner batch ("deixa pra compilar no final"): everything written first, one build
 - `Scripts/import_vrm.py`: importa todos os `.vrm` de `ArtSource/VRoid`. Helper `SetVroidBody` nos presets.
 - **Bug corrigido:** as armas seguiam a mão do Mannequin escondido e flutuavam longe do modelo. O novo `TickVisualAttachments` move cada item pela diferença entre o osso escondido e o osso do VRoid (mãos, peito, cabeça).
 - **Testado jogando:** o cajado da Iara fica na mão (parada e atacando), as adagas da Vex ficam nas costas e o salto de fogo do Kai funciona.
+
+### Pendente (21/11/2026): cargos e comandos de staff (pedido do dono via Vox Numen)
+A especificação comum aos três jogos está em `C:\Users\Pichau\AppData\Local\Claude-Data\claude_pzs8sxrjxfjjc\side-session-notes\local_946aec70-b8b8-42c7-9da4-c9aab1c527af\staff-roles-and-admin-commands.md`.
+- **Cargos:** Jogador < GM < Moderador < GOD. Offline, o cargo local padrão é GOD, para o `/adm` e o F10 continuarem iguais (regra final do F10).
+- **Comandos:** auditoria em arquivo, `/pos` e `/reportar`, `/tp`, `/info`, `/buscar`, `/freecam`, `/call` e `/liberar` (nos bots), `/manutencao` (congela tudo menos a equipe, faixa vermelha), `/avisar`, punições, `/congelar`, `/spawn`, `/matar`, `/curar`, `/nivel`, `/dar`, `/deus`, `/papel` e `/terminal` (propostas; o dono aprova sozinho).
+- **Interface:** menu de engrenagem com as abas de configuração e de staff.
+- **Onde mexer:** os comandos ficam em `ValdoriaChat.cpp` (`RunChatCommand`).
