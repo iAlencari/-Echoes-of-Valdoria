@@ -851,3 +851,4 @@ O dono encerrou o turno desta conta ("salve tudo e deixe pronto pra outra começ
 - Janela de uso do PC movida para `C:\Dev\pc_status.ps1` (a cópia antiga estava na pasta temporária de uma sessão).
 - Compilado. **Não testado na tela ainda:** a janela marcava "em uso".
 - Lista de heróis no lobby: o lobby já recebe o foco do controle (turno 50); falta o dono confirmar se ainda há algo que não dá para escolher.
+- Turno 52 (madrugada): bateria `Scripts/test_all.ps1` iniciada no monitor 2; o painel admin passou em todos os heróis (troca de herói, imortal, recarga, munição, ultimate, todos ligam e desligam). O dono pediu para parar antes do fim (voo, Lume, geral, teclas e playtest ficaram sem resultado). Próximo: rodar `test_all.ps1` de novo e conferir `Saved/Logs/t44_summary.txt`.
