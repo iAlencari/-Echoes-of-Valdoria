@@ -1,4 +1,4 @@
-// Echoes of Valdoria - Filho de Nazaré "O Prometido" (turn 48). Kit: docs/ConceitosHerois.md (kit v2 + round 4).
+// Echoes of Valdoria - O Nazareno "O Prometido" (turn 48). Kit: docs/ConceitosHerois.md (kit v2 + round 4).
 // All numbers provisional (owner balances).
 //  - CalmStorm (RMB, Acalmar a Tempestade): area; allies lose control effects, enemies are silenced.
 //  - Chalice (LMB, Cálice e Carne): hold on an aimed ally; the link follows him and ignores whoever passes in front;

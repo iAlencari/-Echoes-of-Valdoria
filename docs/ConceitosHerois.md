@@ -176,7 +176,7 @@ waves); fought Loki in seal form for the Brisingamen necklace; he and Loki are f
   to ~8 m). Fits the team vision system (`UValdoriaVisionSubsystem`). Heimdall's sight and Sentinela elevation
   reveal them.
 
-## Filho de Nazaré - Tank/Support (turn 46, owner's idea; mythology/Gospel stories, public domain)
+## O Nazareno - Tank/Support (turn 46, owner's idea; mythology/Gospel stories, public domain)
 Approach (Claude's decision, owner agreed to let Claude decide): a **pacifist protector**. His power never kills:
 his damage cannot take an enemy hero below 1 HP (assists only), and he wins fights by healing, protecting and
 controlling. No crucifixion or sacrifice as a gameplay effect, no mockery, no weapon. White and earth-tone robe,
@@ -214,7 +214,7 @@ living religions (Smite, 2012). The owner keeps the final word on name, look and
 - Overheal only happens when health is full.
 ### Heimdall: owner keeps Claude's kit (Gjallarhorn supreme; Chamado da Bifrost throws onto the bridge, drops nearby,
   no return on that bridge for 8 s).
-### Filho de Nazaré - Tank/Support (owner's kit; title: see below)
+### O Nazareno - Tank/Support (owner's kit; title: see below)
 - **Passive - Deus do Velho Testamento**: an enemy at 5% HP or less hit by him is executed. Gold and XP go to the
   nearest ally; he gets a reduced share.
 - **Cálice e Carne**: gives his own HP to heal an ally; an ally who drinks it and is out of combat regenerates
@@ -229,15 +229,15 @@ living religions (Smite, 2012). The owner keeps the final word on name, look and
   that ally's killer revives the ally at the base.
 ### Titles
 - Kay: **Harmônico** (owner's choice). Recruta: **Prelúdio de Valdoria**. Ariel: **Amálgama**.
-- Claude's proposals: Heimdall **O Vigia**; Filho de Nazaré **O Prometido** (owner's options: O Crucificado or
+- Claude's proposals: Heimdall **O Vigia**; O Nazareno **O Prometido** (owner's options: O Crucificado or
   O Prometido).
 
 ## Turn 46 - round 3 (owner)
-- Titles: Filho de Nazaré **O Prometido** (owner: less religious). Heimdall **O Onividente** (Claude's pick from the
+- Titles: O Nazareno **O Prometido** (owner: less religious). Heimdall **O Onividente** (Claude's pick from the
   owner's options; his C stays "O Olho que Tudo Vê").
 - Levels, CDR, vampirism vs life steal, V melee, hybrid damage: see `docs/RegrasCombate.md`.
 
-### Filho de Nazaré "O Prometido" - Tank/Support, kit v2
+### O Nazareno "O Prometido" - Tank/Support, kit v2
 - **Passive - Deus do Velho Testamento**: an enemy at 5% HP or less who takes his damage is executed. While an enemy
   is at <=5% and he is near, that enemy shows a blinking cross-like mark (so both know). Gold/XP go to the nearest
   ally, he gets a reduced share. On execution: the nearest ally within 12 m (owner: 10-15 m) heals 35% of missing
@@ -261,7 +261,7 @@ living religions (Smite, 2012). The owner keeps the final word on name, look and
   stealth); 3 -> allies near him also ignore slows; 4 -> **Levanta-te e Anda** (owner).
 
 ## Turn 46 - round 4 (owner)
-- **Nazaré execution credit**: the kill goes to the ally who dealt the most damage to that enemy; Nazaré gets the
+- **O Nazareno execution credit**: the kill goes to the ally who dealt the most damage to that enemy; O Nazareno gets the
   assist. XP and gold of the execution go to the ally who assisted him the most. The kill feed shows a normal kill,
   then a special effect flies out of the feed to that ally's portrait on the HUD.
 - **3 - Caminhar sobre as Águas elevation** (owner): he really walks on water; immune to control, but control is
@@ -275,7 +275,7 @@ living religions (Smite, 2012). The owner keeps the final word on name, look and
   healing" icon for heroes who can heal). Support/tank heroes see icons of what they can offer (protection,
   damage share) when it is available.
 
-## Turn 48 - Filho de Nazaré "O Prometido" v1 in the game (`ValdoriaNazare.h/.cpp`, preset `nazare`, `DA_Nazare`)
+## Turn 48 - O Nazareno "O Prometido" v1 in the game (`ValdoriaNazare.h/.cpp`, preset `nazare`, `DA_Nazare`)
 - Passive: execution at <=5% (golden blinking cross above the enemy bar for him), kill to the ally who hurt that
   enemy most in the last 10 s, heal 35% of missing HP to the nearest ally within 12 m (else himself), Comunhão 10%.
   Not yet: execution XP/gold to the ally who assisted most (kill credit only), feed effect to the HUD portrait,

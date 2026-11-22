@@ -467,7 +467,7 @@ bool UValdoriaHeroDefinition::ApplyPreset(FName PresetId)
 		// Turn 48: owner's hero (kit in docs/ConceitosHerois.md, kit v2 + round 4). Placeholder look: mannequin, no
 		// weapon (light from the hands). Presentation with reverence: light and ascension, no gore. Numbers provisional.
 		HeroId = TEXT("nazare");
-		DisplayName = LOCTEXT("NazareName", "Filho de Nazaré");
+		DisplayName = LOCTEXT("NazareName", "O Nazareno");
 		Description = LOCTEXT("NazareDesc", "O Prometido. Tanque e suporte: cura, protege e dá a própria vida pelo time, e não perdoa quem está por um fio.");
 		Roles.Add(EValdoriaHeroRole::Vanguard);
 		Roles.Add(EValdoriaHeroRole::Rearguard);

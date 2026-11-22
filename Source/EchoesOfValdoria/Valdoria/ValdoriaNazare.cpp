@@ -1,4 +1,4 @@
-// Echoes of Valdoria - Filho de Nazaré "O Prometido" (turn 48). See ValdoriaNazare.h.
+// Echoes of Valdoria - O Nazareno "O Prometido" (turn 48). See ValdoriaNazare.h.
 
 #include "ValdoriaNazare.h"
 #include "ValdoriaHeroCharacter.h"

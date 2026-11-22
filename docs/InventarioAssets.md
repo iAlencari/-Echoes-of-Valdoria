@@ -86,5 +86,5 @@ Legend: **USE** = use it, **USED** = already in the game, **LATER** = keep for a
 ## VRoid models (turn 49)
 | Asset | Source | Licence | Used as |
 |---|---|---|---|
-| HairSample_Male (VRoid Project) | VRoid Studio sample, via opengameart.org/content/vroid-studio-cc0-models | VRoid Hub terms embedded in the VRM: everyone, commercial use allowed, credit unnecessary | Filho de Nazaré visible body (test) |
+| HairSample_Male (VRoid Project) | VRoid Studio sample, via opengameart.org/content/vroid-studio-cc0-models | VRoid Hub terms embedded in the VRM: everyone, commercial use allowed, credit unnecessary | O Nazareno visible body (test) |
 | VRM4U plugin (ruyo) | github.com/ruyo/VRM4U | MIT | VRM import + spring bones (installed locally, not in git) |

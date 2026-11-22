@@ -1071,7 +1071,30 @@ void AValdoriaGameMode::RunInputTestStep()
 	{
 		PressKey(EKeys::SpaceBar, false);
 	}
-	if (S >= 112)
+	// Gamepad (DualShock 4 via XInput): Options opens the pause menu with a button focused, the D-pad moves the
+	// focus, O closes it; the left stick walks.
+	auto FocusName = []()
+	{
+		const TSharedPtr<SWidget> F = FSlateApplication::Get().GetUserFocusedWidget(0);
+		return F.IsValid() ? F->GetTypeAsString() + TEXT(" ") + F->GetReadableLocation() : FString(TEXT("nenhum"));
+	};
+	if (S == 104) { PressKey(EKeys::Gamepad_Special_Right, true); PressKey(EKeys::Gamepad_Special_Right, false); }
+	if (S == 106) { UE_LOG(LogValdoria, Display, TEXT("INPUTTEST controle Options: pausa=%d foco=%s"), PC && PC->IsPauseMenuOpen(), *FocusName()); Shot(TEXT("Input_ControlePausa.png")); }
+	if (S == 107) { PressKey(EKeys::Gamepad_DPad_Down, true); PressKey(EKeys::Gamepad_DPad_Down, false); }
+	if (S == 108) { UE_LOG(LogValdoria, Display, TEXT("INPUTTEST controle direcional baixo: foco=%s"), *FocusName()); Shot(TEXT("Input_ControleNavegar.png")); }
+	if (S == 109) { PressKey(EKeys::Gamepad_FaceButton_Right, true); PressKey(EKeys::Gamepad_FaceButton_Right, false); }
+	if (S == 111) { UE_LOG(LogValdoria, Display, TEXT("INPUTTEST controle O: pausa=%d"), PC && PC->IsPauseMenuOpen()); }
+	if (S >= 112 && S <= 118 && Hero)
+	{
+		if (S == 112) { InputTestStartLoc = Hero->GetActorLocation(); }
+		FSlateApplication::Get().ProcessAnalogInputEvent(FAnalogInputEvent(EKeys::Gamepad_LeftY, FModifierKeysState(), 0, false, 0, 0, 1.f));
+	}
+	if (S == 119)
+	{
+		FSlateApplication::Get().ProcessAnalogInputEvent(FAnalogInputEvent(EKeys::Gamepad_LeftY, FModifierKeysState(), 0, false, 0, 0, 0.f));
+		UE_LOG(LogValdoria, Display, TEXT("INPUTTEST controle analogico: andou %.0f cm"), Hero ? FVector::Dist2D(Hero->GetActorLocation(), InputTestStartLoc) : -1.f);
+	}
+	if (S >= 122)
 	{
 		UE_LOG(LogValdoria, Display, TEXT("INPUTTEST fim"));
 		InputTestStep = 100000;

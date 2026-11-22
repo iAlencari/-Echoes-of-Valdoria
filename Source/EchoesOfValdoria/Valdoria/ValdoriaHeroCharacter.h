@@ -327,7 +327,7 @@ public:
 	float BonusVampirism = 0.f;
 	float BonusLifeSteal = 0.f;
 
-	// Turn 48 (Filho de Nazaré and generic).
+	// Turn 48 (O Nazareno and generic).
 	float DamageImmuneUntil = 0.f;
 	/** Ungido de Sangue (Cálice e Carne): 10% less damage, +10% life steal, +20% vampirism, +5% speed (speed buff),
 	 *  10% shorter cooldowns, 3x out-of-combat regeneration. */
@@ -471,6 +471,8 @@ protected:
 	// Entrada
 	void Input_Move(const FInputActionValue& Value);
 	void Input_Look(const FInputActionValue& Value);
+	/** Gamepad right stick: a rate (degrees per second), not a mouse delta. */
+	void Input_LookStick(const FInputActionValue& Value);
 	bool IsCursorFree() const;
 	void Input_FirePressed();
 	void Input_FireReleased();
@@ -607,6 +609,7 @@ protected:
 	UPROPERTY(Transient) TObjectPtr<UInputMappingContext> DefaultMapping;
 	UPROPERTY(Transient) TObjectPtr<UInputAction> MoveAction;
 	UPROPERTY(Transient) TObjectPtr<UInputAction> LookAction;
+	UPROPERTY(Transient) TObjectPtr<UInputAction> LookStickAction;
 	UPROPERTY(Transient) TObjectPtr<UInputAction> JumpAction;
 	UPROPERTY(Transient) TObjectPtr<UInputAction> FireAction;
 	UPROPERTY(Transient) TObjectPtr<UInputAction> SecondaryAction;

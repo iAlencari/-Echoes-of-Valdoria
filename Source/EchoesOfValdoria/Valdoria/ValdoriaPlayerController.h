@@ -91,6 +91,12 @@ protected:
 	void ApplyGameInput();
 	void ApplyCursorInput();
 	void RefreshInputMode();
+	/** Gamepad O (Circle / FaceButton_Right): closes the top menu, like Esc, but never opens the pause menu. */
+	void MenuBackPressed();
+	/** First button of a menu: it gets the gamepad focus so the D-pad / left stick can navigate. */
+	static TSharedPtr<SWidget> FindMenuFocus(const TSharedPtr<SWidget>& Menu);
+	/** Pause menu button that gets the gamepad focus first ("Continuar"). */
+	TWeakPtr<SWidget> PauseFirstFocus;
 
 	FReply OnResumeClicked();
 	FReply OnRestartClicked();

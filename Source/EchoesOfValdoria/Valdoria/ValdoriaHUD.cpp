@@ -343,7 +343,7 @@ void AValdoriaHUD::DrawWorldHealthBars(AValdoriaHeroCharacter* Viewer)
 					DrawFrame(Top.X - HalfW, Top.Y, HalfW * 2.f, BodyH, Eye, 2.f * S);
 				}
 			}
-			// Deus do Velho Testamento (Nazaré): an enemy hero in execution range shows a blinking golden cross.
+			// Deus do Velho Testamento (O Nazareno): an enemy hero in execution range shows a blinking golden cross.
 			const float Exec = Viewer ? Viewer->GetPassive().ExecuteThreshold : 0.f;
 			if (Exec > 0.f && Other->IsHeroUnit() && Frac <= Exec && Dist <= 2500.f)
 			{

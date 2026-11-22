@@ -742,3 +742,58 @@ A especificação comum aos três jogos está em `C:\Users\Pichau\AppData\Local\
 - **Comandos:** auditoria em arquivo, `/pos` e `/reportar`, `/tp`, `/info`, `/buscar`, `/freecam`, `/call` e `/liberar` (nos bots), `/manutencao` (congela tudo menos a equipe, faixa vermelha), `/avisar`, punições, `/congelar`, `/spawn`, `/matar`, `/curar`, `/nivel`, `/dar`, `/deus`, `/papel` e `/terminal` (propostas; o dono aprova sozinho).
 - **Interface:** menu de engrenagem com as abas de configuração e de staff.
 - **Onde mexer:** os comandos ficam em `ValdoriaChat.cpp` (`RunChatCommand`).
+
+### Turno 50 — Claude Code — 22/11/2026 (controle, "O Nazareno", passagem de bastão)
+**Fala do dono:** "Religue as outras duas sessões … o Nome do personagem é O Nazareno não nazaré, mande todas as sessões habilitarem os jogos deles (inclusive a sua) a aceitarem controle (uso uma imitação de controle de PS4 com touch funcionando) … por enquanto se preocupem mais na movimentação, menus e interação do controle, atualize tudo, salve o log de todas as alterações que meu filho irá continuar depois"
+
+**Feito:**
+- As sessões Contos e Vox Numen foram religadas com o mesmo pedido:
+  - conferir o que parou por limite de uso;
+  - ligar o controle;
+  - registrar tudo para o filho;
+  - fazer commit e push.
+- **O Nazareno:**
+  - Nome no preset, no menu de pausa, nos comentários e em `docs/ConceitosHerois.md` e `docs/InventarioAssets.md`.
+  - `DA_Nazare` refeito pelo `create_heroes.py`.
+  - O id `nazare` e os nomes de arquivo continuam iguais.
+  - O histórico antigo deste log ficou com o nome antigo, porque o log é só de acréscimo.
+- **Controle (DS4 via XInput):** os botões estão em `docs/Controle.md`.
+  - **No herói:**
+    - Analógico esquerdo anda; o direito gira a câmera, com a nova opção "Sensibilidade do controle".
+    - X pula, O agacha, Quadrado recarrega, L3 corre.
+    - R2 e L2 atiram; L1, R1 e Triângulo são as habilidades 1, 2 e 3.
+    - Direcional: cima = ultimate, esquerda = extra, direita = interagir.
+  - **No PlayerController:**
+    - Options pausa e O volta nos menus.
+    - Share mostra o placar; Share + habilidade gasta um ponto de nível.
+    - R3 dá o soco e o direcional para baixo troca entre 1ª e 3ª pessoa.
+  - **Menus:**
+    - O primeiro botão recebe o foco (na pausa, "Continuar") e o botão em foco fica dourado.
+    - O direcional e o analógico navegam, X confirma.
+    - O painel F10 não pega o foco, para o analógico continuar andando.
+  - Os botões de herói da pausa ficaram um pouco mais largos e com fonte menor, para caber "O Nazareno" em 1280 px.
+- **Teste automático** (`-ValdoriaInputTest`, passos "controle"): passou.
+  - Options abre a pausa com o foco no SButton, e o direcional para baixo leva o foco para "Configurações" (captura `Input_ControleNavegar.png`).
+  - O fecha a pausa.
+  - O analógico esquerdo andou 957 cm.
+  - Os passos antigos do teste continuam passando.
+- **Para o filho do dono:**
+  - `docs/PassagemDeBastao.md`, com cópia em `C:\Dev\LEIA-ME-PROJETOS.md`: pastas dos três jogos, sessões, regras e como retomar.
+  - `docs/StaffCargosComandos.md`: cópia da especificação de staff, que antes só existia na pasta de notas das sessões.
+
+**Pendente:**
+- **Testar com o controle de verdade.** O Windows vê o controle como "Wireless Controller" (HID) pelo Bluetooth.
+  - Ele precisa de Steam Input, DS4Windows ou x360ce para virar XInput. ViGEmBus, x360ce e Steam já estão no PC.
+  - Se isso incomodar, testar o plugin `GameInputWindows` (beta) da UE 5.8.
+- **Botões que faltam no controle:** chat, loja (B), deitar, ajuda (K), recapitulação da morte (Y), lista de heróis no lobby. O touchpad como mouse cobre os menus com cursor.
+- **Habilidades no controle:** a distribuição é provisória. O dono disse que acerta depois.
+- **Teste antigo desatualizado:** o passo "V: primeira pessoa" do `-ValdoriaInputTest` espera câmera, mas desde o turno 46 o V é soco e a câmera foi para o botão do meio.
+- **Seguem pendentes:**
+  - Staff (cargos e comandos, menu de engrenagem, modo manutenção).
+  - Deathmatch e mapa NP.
+  - Arco do Gjallarhorn (de cinza para arco-íris).
+  - Visual da Devastação e dos cestos.
+  - Remover os logs de depuração CHAMADO.
+  - LoadErrors dos VA_ do VRM4U.
+  - Pose dos braços VRoid.
+  - Modelos para Brasa, Lume, Heimdall, Ariel e O Nazareno.

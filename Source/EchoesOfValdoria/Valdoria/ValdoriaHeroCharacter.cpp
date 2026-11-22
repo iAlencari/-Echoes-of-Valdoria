@@ -21,6 +21,7 @@
 #include "InputAction.h"
 #include "InputMappingContext.h"
 #include "InputModifiers.h"
+#include "GameFramework/InputSettings.h"
 #include "Net/UnrealNetwork.h"
 #include "TimerManager.h"
 #include "ValdoriaAttributeSet.h"
@@ -417,6 +418,7 @@ void AValdoriaHeroCharacter::BuildDefaultInput()
 	};
 	MoveAction = MakeAction(TEXT("IA_Valdoria_Move"), EInputActionValueType::Axis2D);
 	LookAction = MakeAction(TEXT("IA_Valdoria_Look"), EInputActionValueType::Axis2D);
+	LookStickAction = MakeAction(TEXT("IA_Valdoria_LookStick"), EInputActionValueType::Axis2D);
 	JumpAction = MakeAction(TEXT("IA_Valdoria_Jump"), EInputActionValueType::Boolean);
 	FireAction = MakeAction(TEXT("IA_Valdoria_Fire"), EInputActionValueType::Boolean);
 	SecondaryAction = MakeAction(TEXT("IA_Valdoria_Secondary"), EInputActionValueType::Boolean);
@@ -456,6 +458,20 @@ void AValdoriaHeroCharacter::BuildDefaultInput()
 	DefaultMapping->MapKey(CrouchAction, EKeys::LeftControl);
 	DefaultMapping->MapKey(ReloadAction, EKeys::R);
 	DefaultMapping->MapKey(InteractAction, EKeys::G); // hold: seal / reverse-seal a guardian
+
+	// Gamepad (XInput names; on a DualShock 4: Bottom = X, Right = O, Left = Square, Top = Triangle).
+	// A DS4 shows up as XInput through Steam Input, DS4Windows or x360ce (see docs/Controle.md).
+	{
+		FEnhancedActionKeyMapping& Stick = DefaultMapping->MapKey(MoveAction, EKeys::Gamepad_Left2D);
+		Stick.Modifiers.Add(NewObject<UInputModifierDeadZone>(DefaultMapping));
+		FEnhancedActionKeyMapping& Look = DefaultMapping->MapKey(LookStickAction, EKeys::Gamepad_Right2D);
+		Look.Modifiers.Add(NewObject<UInputModifierDeadZone>(DefaultMapping));
+	}
+	DefaultMapping->MapKey(JumpAction, EKeys::Gamepad_FaceButton_Bottom);
+	DefaultMapping->MapKey(SprintAction, EKeys::Gamepad_LeftThumbstick);
+	DefaultMapping->MapKey(CrouchAction, EKeys::Gamepad_FaceButton_Right);
+	DefaultMapping->MapKey(ReloadAction, EKeys::Gamepad_FaceButton_Left);
+	DefaultMapping->MapKey(InteractAction, EKeys::Gamepad_DPad_Right);
 }
 
 void AValdoriaHeroCharacter::MapAbilityKeys()
@@ -470,6 +486,14 @@ void AValdoriaHeroCharacter::MapAbilityKeys()
 	DefaultMapping->MapKey(UltimateAction, Opt.GetSlotKey(EValdoriaAbilitySlot::Ultimate));
 	DefaultMapping->MapKey(AbilityExtraAction, Opt.GetSlotKey(EValdoriaAbilitySlot::AbilityExtra));
 	DefaultMapping->MapKey(ProneAction, EKeys::X);
+	// Gamepad abilities (fixed for now; the owner said skill layout on the pad can be tuned later).
+	DefaultMapping->MapKey(FireAction, EKeys::Gamepad_RightTrigger);
+	DefaultMapping->MapKey(SecondaryAction, EKeys::Gamepad_LeftTrigger);
+	DefaultMapping->MapKey(Ability1Action, EKeys::Gamepad_LeftShoulder);
+	DefaultMapping->MapKey(Ability2Action, EKeys::Gamepad_RightShoulder);
+	DefaultMapping->MapKey(Ability3Action, EKeys::Gamepad_FaceButton_Top);
+	DefaultMapping->MapKey(UltimateAction, EKeys::Gamepad_DPad_Up);
+	DefaultMapping->MapKey(AbilityExtraAction, EKeys::Gamepad_DPad_Left);
 }
 
 void AValdoriaHeroCharacter::RefreshKeyScheme()
@@ -520,6 +544,7 @@ void AValdoriaHeroCharacter::SetupPlayerInputComponent(UInputComponent* PlayerIn
 	}
 	Input->BindAction(MoveAction, ETriggerEvent::Triggered, this, &AValdoriaHeroCharacter::Input_Move);
 	Input->BindAction(LookAction, ETriggerEvent::Triggered, this, &AValdoriaHeroCharacter::Input_Look);
+	Input->BindAction(LookStickAction, ETriggerEvent::Triggered, this, &AValdoriaHeroCharacter::Input_LookStick);
 	Input->BindAction(JumpAction, ETriggerEvent::Started, this, &AValdoriaHeroCharacter::Input_JumpPressed);
 	Input->BindAction(JumpAction, ETriggerEvent::Completed, this, &AValdoriaHeroCharacter::Input_JumpReleased);
 	Input->BindAction(SprintAction, ETriggerEvent::Started, this, &AValdoriaHeroCharacter::Input_SprintPressed);
@@ -579,6 +604,33 @@ void AValdoriaHeroCharacter::Input_Look(const FInputActionValue& Value)
 	AddControllerPitchInput((Options.bInvertY ? Axis.Y : -Axis.Y) * Options.MouseSensitivity);
 }
 
+void AValdoriaHeroCharacter::Input_LookStick(const FInputActionValue& Value)
+{
+	if (IsCursorFree())
+	{
+		return;
+	}
+	// A stick is held, so it is a turn rate: scale by frame time. Squared response gives finer aim near the centre.
+	FVector2D Axis = Value.Get<FVector2D>();
+	Axis = FVector2D(Axis.X * FMath::Abs(Axis.X), Axis.Y * FMath::Abs(Axis.Y));
+	const FValdoriaOptions& Options = FValdoriaOptions::Get();
+	const float Dt = GetWorld() ? GetWorld()->GetDeltaSeconds() : 0.016f;
+	const float Rate = 200.f * Options.GamepadSensitivity * Dt;
+	// AddController*Input is multiplied by the PlayerController's input scale (2.5 by default for mouse);
+	// divide it out so the rate above is in degrees.
+	float YawScale = 1.f, PitchScale = 1.f;
+	const APlayerController* PC = Cast<APlayerController>(Controller);
+	if (PC && GetDefault<UInputSettings>()->bEnableLegacyInputScales)
+	{
+PRAGMA_DISABLE_DEPRECATION_WARNINGS
+		YawScale = FMath::IsNearlyZero(PC->GetDeprecatedInputYawScale()) ? 1.f : PC->GetDeprecatedInputYawScale();
+		PitchScale = FMath::IsNearlyZero(PC->GetDeprecatedInputPitchScale()) ? 1.f : FMath::Abs(PC->GetDeprecatedInputPitchScale());
+PRAGMA_ENABLE_DEPRECATION_WARNINGS
+	}
+	AddControllerYawInput(Axis.X * Rate / YawScale);
+	AddControllerPitchInput((Options.bInvertY ? -Axis.Y : Axis.Y) * -Rate / PitchScale);
+}
+
 bool AValdoriaHeroCharacter::IsCursorFree() const
 {
 	// Cursor solto (Alt ou menu de pausa): cliques e mouse não mexem no jogo.
@@ -607,7 +659,8 @@ void AValdoriaHeroCharacter::Input_SecondaryReleased() { bSecondaryHeld = false;
 static bool ValdoriaCtrlHeld(const AController* C)
 {
 	const APlayerController* PC = Cast<APlayerController>(C);
-	return PC && (PC->IsInputKeyDown(EKeys::LeftControl) || PC->IsInputKeyDown(EKeys::RightControl));
+	// Gamepad: hold Share (Back) + the ability button.
+	return PC && (PC->IsInputKeyDown(EKeys::LeftControl) || PC->IsInputKeyDown(EKeys::RightControl) || PC->IsInputKeyDown(EKeys::Gamepad_Special_Left));
 }
 void AValdoriaHeroCharacter::Input_Ability1() { if (bUsesLevels && ValdoriaCtrlHeld(Controller)) { TryUpgrade(EValdoriaAbilitySlot::Ability1); return; } TryActivateSlot(EValdoriaAbilitySlot::Ability1); }
 void AValdoriaHeroCharacter::Input_Ability2() { if (bUsesLevels && ValdoriaCtrlHeld(Controller)) { TryUpgrade(EValdoriaAbilitySlot::Ability2); return; } TryActivateSlot(EValdoriaAbilitySlot::Ability2); }
@@ -1230,7 +1283,7 @@ void AValdoriaHeroCharacter::HealTarget(AActor* Target, float Amount)
 		{
 			UE_LOG(LogTemp, Log, TEXT("COMBATE cura %s -> %s %.0f"), *GetName(), *Other->GetName(), Healed);
 		}
-		// Comunhão (Nazaré's passive, owner): allies near him receive a part of every heal he receives.
+		// Comunhão (O Nazareno's passive, owner): allies near him receive a part of every heal he receives.
 		static bool bSharing = false;
 		const float Share = Other->GetPassive().SharedReceivedHeal;
 		if (Share > 0.f && !bSharing && Healed > 0.f)

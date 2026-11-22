@@ -265,6 +265,9 @@ TSharedRef<SWidget> AValdoriaPlayerController::BuildSettingsScreen()
 	Ctrl->AddSlot().AutoHeight()[Slider(LOCTEXT("Sens", "Sensibilidade do mouse"), 0.1f, 3.f,
 		[Opt]() { return Opt().MouseSensitivity; }, [Opt](float V) { Opt().MouseSensitivity = V; },
 		[Opt]() { return FText::FromString(FString::Printf(TEXT("%.2f"), Opt().MouseSensitivity)); })];
+	Ctrl->AddSlot().AutoHeight()[Slider(LOCTEXT("PadSens", "Sensibilidade do controle (analógico direito)"), 0.2f, 3.f,
+		[Opt]() { return Opt().GamepadSensitivity; }, [Opt](float V) { Opt().GamepadSensitivity = V; },
+		[Opt]() { return FText::FromString(FString::Printf(TEXT("%.2f"), Opt().GamepadSensitivity)); })];
 	Ctrl->AddSlot().AutoHeight()[Toggle(LOCTEXT("Invert", "Inverter eixo Y"), [Opt]() { return Opt().bInvertY; }, [Opt](bool b) { Opt().bInvertY = b; })];
 	Ctrl->AddSlot().AutoHeight()[Slider(LOCTEXT("XSize", "Tamanho da mira"), 0.5f, 2.5f,
 		[Opt]() { return Opt().CrosshairSize; }, [Opt](float V) { Opt().CrosshairSize = V; }, [Opt]() { return Pct(Opt().CrosshairSize); })];

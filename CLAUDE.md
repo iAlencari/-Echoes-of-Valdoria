@@ -4,6 +4,9 @@ Hero shooter em **Unreal Engine 5.8 + C++**, com o Gameplay Ability System (GAS)
 projeto é iniciante em programação (conhece um pouco de C++ de servidores OT): explique em
 português simples. **Leia `LOG.md` inteiro antes de mexer.**
 
+> **Chegou agora (ex.: o filho do dono)?** Comece por `docs/PassagemDeBastao.md`: pastas dos três
+> jogos, sessões, regras e o que ficou começado.
+
 ## Regras
 - Personagens, nomes, mapas, arte e lore **originais**. Overwatch, Marvel Rivals, Deadlock e
   Valorant são só inspiração de gênero. Nada de Priston Tale/MU.
@@ -14,6 +17,8 @@ português simples. **Leia `LOG.md` inteiro antes de mexer.**
 - Atributos são **por personagem**, não por função. Funções (Vanguarda, Guerreiro,
   Retaguarda, Flanqueador) são só etiquetas; um herói pode ter mais de uma.
 - Toda mudança vai para o `LOG.md` (estado atual + bloco do turno) e para um commit.
+- O herói é **O Nazareno** (nunca "Nazaré"); id interno `nazare`. Kai tem id `kay`.
+- O jogo tem que funcionar com o **controle** do dono (DS4 genérico com touchpad): veja `docs/Controle.md`.
 - O caminho do projeto **não pode ter acento** (o compilador da Microsoft quebra): fica em
   `C:\Dev\EchoesOfValdoria`.
 

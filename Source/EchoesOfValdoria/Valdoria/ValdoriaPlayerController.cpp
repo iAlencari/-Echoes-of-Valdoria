@@ -7,6 +7,7 @@
 #include "ValdoriaAudio.h"
 #include "AssetRegistry/AssetRegistryModule.h"
 #include "Components/InputComponent.h"
+#include "Containers/Ticker.h"
 #include "Engine/Engine.h"
 #include "Engine/GameViewportClient.h"
 #include "Framework/Application/SlateApplication.h"
@@ -110,6 +111,55 @@ void AValdoriaPlayerController::SetupInputComponent()
 	InputComponent->BindKey(EKeys::B, IE_Pressed, this, &AValdoriaPlayerController::ToggleShop);
 	InputComponent->BindKey(EKeys::K, IE_Pressed, this, &AValdoriaPlayerController::HelpPressed);
 	InputComponent->BindKey(EKeys::K, IE_Released, this, &AValdoriaPlayerController::HelpReleased);
+
+	// Gamepad / DualShock 4 (XInput names). Options = pause, O = back in menus, Share = scoreboard,
+	// R3 = punch, D-pad down = 1st/3rd person. Menus are navigated by Slate (D-pad / left stick, X confirms).
+	FInputKeyBinding& PadStart = InputComponent->BindKey(EKeys::Gamepad_Special_Right, IE_Pressed, this, &AValdoriaPlayerController::TogglePauseMenu);
+	PadStart.bExecuteWhenPaused = true;
+	FInputKeyBinding& PadBack = InputComponent->BindKey(EKeys::Gamepad_FaceButton_Right, IE_Pressed, this, &AValdoriaPlayerController::MenuBackPressed);
+	PadBack.bExecuteWhenPaused = true;
+	InputComponent->BindKey(EKeys::Gamepad_Special_Left, IE_Pressed, this, &AValdoriaPlayerController::ScoreboardPressed);
+	InputComponent->BindKey(EKeys::Gamepad_Special_Left, IE_Released, this, &AValdoriaPlayerController::ScoreboardReleased);
+	InputComponent->BindKey(EKeys::Gamepad_RightThumbstick, IE_Pressed, this, &AValdoriaPlayerController::MeleePressed);
+	InputComponent->BindKey(EKeys::Gamepad_DPad_Down, IE_Pressed, this, &AValdoriaPlayerController::ToggleCameraMode);
+}
+
+void AValdoriaPlayerController::MenuBackPressed()
+{
+	if (ShopWidget.IsValid() || ChatWidget.IsValid() || SettingsWidget.IsValid() || PauseWidget.IsValid())
+	{
+		TogglePauseMenu(); // closes the top one (shop, chat, settings, then pause)
+	}
+	else if (AdminWidget.IsValid())
+	{
+		CloseAdminPanel();
+	}
+}
+
+static TSharedPtr<SWidget> FindFirstFocusable(const TSharedRef<SWidget>& W, int32 Depth = 0)
+{
+	if (Depth > 64 || !W->GetVisibility().IsVisible() || !W->IsEnabled())
+	{
+		return nullptr;
+	}
+	if (W->SupportsKeyboardFocus() && W->GetType() == FName(TEXT("SButton")))
+	{
+		return W;
+	}
+	FChildren* Children = W->GetChildren();
+	for (int32 i = 0; Children && i < Children->Num(); ++i)
+	{
+		if (TSharedPtr<SWidget> Found = FindFirstFocusable(Children->GetChildAt(i), Depth + 1))
+		{
+			return Found;
+		}
+	}
+	return nullptr;
+}
+
+TSharedPtr<SWidget> AValdoriaPlayerController::FindMenuFocus(const TSharedPtr<SWidget>& Menu)
+{
+	return Menu.IsValid() ? FindFirstFocusable(Menu.ToSharedRef()) : nullptr;
 }
 
 void AValdoriaPlayerController::RefreshInputMode()
@@ -141,24 +191,37 @@ void AValdoriaPlayerController::ApplyCursorInput()
 	FInputModeGameAndUI Mode;
 	Mode.SetLockMouseToViewportBehavior(EMouseLockMode::DoNotLock);
 	Mode.SetHideCursorDuringCapture(false);
-	if (ChatBox.IsValid() && ChatWidget.IsValid())
+	// Gamepad: the focus goes to a BUTTON of the top menu (settings and shop open over the pause menu), so the
+	// D-pad / left stick can navigate and X confirms. A non-focusable panel would leave the focus on the viewport.
+	TSharedPtr<SWidget> Focus;
+	if (ChatBox.IsValid() && ChatWidget.IsValid()) { Focus = ChatBox; }
+	else if (SettingsWidget.IsValid()) { Focus = FindMenuFocus(SettingsWidget); }
+	else if (ShopWidget.IsValid()) { Focus = FindMenuFocus(ShopWidget); }
+	else if (PauseWidget.IsValid()) { Focus = PauseFirstFocus.IsValid() ? PauseFirstFocus.Pin() : FindMenuFocus(PauseWidget); }
+	else if (LobbyWidget.IsValid()) { Focus = FindMenuFocus(LobbyWidget); }
+	// The F10 admin panel (final, owner) keeps the focus on the game: the stick still walks while it is open.
+	if (Focus.IsValid())
 	{
-		Mode.SetWidgetToFocus(ChatBox);
-	}
-	else if (PauseWidget.IsValid())
-	{
-		Mode.SetWidgetToFocus(PauseWidget);
-	}
-	else if (LobbyWidget.IsValid())
-	{
-		Mode.SetWidgetToFocus(LobbyWidget);
-	}
-	else if (AdminWidget.IsValid())
-	{
-		Mode.SetWidgetToFocus(AdminWidget);
+		Mode.SetWidgetToFocus(Focus);
 	}
 	SetInputMode(Mode);
 	bShowMouseCursor = true;
+	if (Focus.IsValid() && FSlateApplication::IsInitialized() && Focus != ChatBox)
+	{
+		// Navigation cause: Slate draws the focus frame. Done again on the next tick because SetInputMode applies its
+		// own focus at the end of the frame.
+		TWeakPtr<SWidget> Weak = Focus;
+		FSlateApplication::Get().SetAllUserFocus(Focus, EFocusCause::Navigation);
+		// Core ticker, not a world timer: the pause menu pauses the world.
+		FTSTicker::GetCoreTicker().AddTicker(FTickerDelegate::CreateLambda([Weak](float)
+		{
+			if (TSharedPtr<SWidget> W = Weak.Pin(); W.IsValid() && FSlateApplication::IsInitialized())
+			{
+				FSlateApplication::Get().SetAllUserFocus(W, EFocusCause::Navigation);
+			}
+			return false;
+		}), 0.05f);
+	}
 }
 
 void AValdoriaPlayerController::FreeCursorPressed()
@@ -219,13 +282,18 @@ void AValdoriaPlayerController::TogglePauseMenu()
 	}
 }
 
-static TSharedRef<SWidget> MakeMenuButton(const FText& Label, FOnClicked OnClicked)
+static TSharedRef<SWidget> MakeMenuButton(const FText& Label, FOnClicked OnClicked, TSharedPtr<SButton>* OutButton = nullptr)
 {
-	return SNew(SBox)
+	TSharedPtr<SButton> Dummy;
+	TSharedPtr<SButton>& Btn = OutButton ? *OutButton : Dummy;
+	TSharedRef<TWeakPtr<SButton>> Self = MakeShared<TWeakPtr<SButton>>();
+	TSharedRef<SWidget> Box = SNew(SBox)
 		.WidthOverride(320.f)
 		.HeightOverride(52.f)
 		[
-			SNew(SButton)
+			SAssignNew(Btn, SButton)
+			// Gamepad focus: the focused button turns gold (the default focus frame is a thin line).
+			.ButtonColorAndOpacity_Lambda([Self]() { const TSharedPtr<SButton> B = Self->Pin(); return B.IsValid() && B->HasAnyUserFocus().IsSet() ? FLinearColor(1.f, 0.75f, 0.25f) : FLinearColor::White; })
 			.HAlign(HAlign_Center)
 			.VAlign(VAlign_Center)
 			.OnClicked(OnClicked)
@@ -235,6 +303,8 @@ static TSharedRef<SWidget> MakeMenuButton(const FText& Label, FOnClicked OnClick
 				.Font(FCoreStyle::GetDefaultFontStyle("Bold", 16))
 			]
 		];
+	*Self = Btn;
+	return Box;
 }
 
 void AValdoriaPlayerController::OpenPauseMenu()
@@ -243,6 +313,7 @@ void AValdoriaPlayerController::OpenPauseMenu()
 	{
 		return;
 	}
+	TSharedPtr<SButton> ResumeButton;
 	// Escolha de herói: um botão por herói pronto, na cor dele.
 	TSharedRef<SHorizontalBox> HeroRow = SNew(SHorizontalBox);
 	struct FHeroButton { const TCHAR* Id; FText Name; FLinearColor Color; };
@@ -255,22 +326,24 @@ void AValdoriaPlayerController::OpenPauseMenu()
 		{ TEXT("kay"), LOCTEXT("PickKay", "Kay"), FLinearColor(0.75f, 0.75f, 0.85f) },
 		{ TEXT("ariel"), LOCTEXT("PickAriel", "Ariel"), FLinearColor(0.85f, 0.5f, 0.2f) },
 		{ TEXT("heimdall"), LOCTEXT("PickHeimdall", "Heimdall"), FLinearColor(0.95f, 0.8f, 0.35f) },
-		{ TEXT("nazare"), LOCTEXT("PickNazare", "Nazaré"), FLinearColor(1.f, 0.88f, 0.55f) },
+		{ TEXT("nazare"), LOCTEXT("PickNazare", "O Nazareno"), FLinearColor(1.f, 0.88f, 0.55f) },
 		{ TEXT("recruta"), LOCTEXT("PickRecruit", "Recruta"), FLinearColor(0.8f, 0.8f, 0.8f) },
 	};
 	for (const FHeroButton& B : HeroButtons)
 	{
 		const FName Id(B.Id);
-		HeroRow->AddSlot().AutoWidth().Padding(4.f, 0.f)
-		[
-			SNew(SBox).WidthOverride(110.f).HeightOverride(44.f)
+		// Weak self reference (a strong one inside its own lambda would never be freed).
+		TSharedRef<TWeakPtr<SButton>> HeroSelf = MakeShared<TWeakPtr<SButton>>();
+		TSharedRef<SButton> HeroBtn = SNew(SButton).HAlign(HAlign_Center).VAlign(VAlign_Center)
+			.ButtonColorAndOpacity_Lambda([HeroSelf, C = B.Color]() { const TSharedPtr<SButton> Btn = HeroSelf->Pin(); return Btn.IsValid() && Btn->HasAnyUserFocus().IsSet() ? FLinearColor(1.f, 0.75f, 0.25f) : C * 0.6f; })
+			.OnClicked_Lambda([this, Id]() { SelectHero(Id); ClosePauseMenu(); return FReply::Handled(); })
 			[
-				SNew(SButton).HAlign(HAlign_Center).VAlign(VAlign_Center).ButtonColorAndOpacity(B.Color * 0.6f)
-				.OnClicked_Lambda([this, Id]() { SelectHero(Id); ClosePauseMenu(); return FReply::Handled(); })
-				[
-					SNew(STextBlock).Text(B.Name).Font(FCoreStyle::GetDefaultFontStyle("Bold", 14)).ColorAndOpacity(FLinearColor::White)
-				]
-			]
+				SNew(STextBlock).Text(B.Name).Font(FCoreStyle::GetDefaultFontStyle("Bold", 12)).ColorAndOpacity(FLinearColor::White)
+			];
+		*HeroSelf = HeroBtn;
+		HeroRow->AddSlot().AutoWidth().Padding(3.f, 0.f)
+		[
+			SNew(SBox).WidthOverride(120.f).HeightOverride(44.f)[HeroBtn]
 		];
 	}
 
@@ -300,7 +373,7 @@ void AValdoriaPlayerController::OpenPauseMenu()
 			]
 			+ SVerticalBox::Slot().AutoHeight().Padding(0.f, 6.f)
 			[
-				MakeMenuButton(LOCTEXT("Resume", "Continuar"), FOnClicked::CreateUObject(this, &AValdoriaPlayerController::OnResumeClicked))
+				MakeMenuButton(LOCTEXT("Resume", "Continuar"), FOnClicked::CreateUObject(this, &AValdoriaPlayerController::OnResumeClicked), &ResumeButton)
 			]
 			+ SVerticalBox::Slot().AutoHeight().Padding(0.f, 6.f)
 			[
@@ -345,11 +418,12 @@ void AValdoriaPlayerController::OpenPauseMenu()
 			+ SVerticalBox::Slot().AutoHeight().HAlign(HAlign_Center).Padding(0.f, 18.f, 0.f, 0.f)
 			[
 				SNew(STextBlock)
-				.Text(LOCTEXT("Hint", "Esc volta ao jogo"))
+				.Text(LOCTEXT("Hint", "Esc volta ao jogo  ·  Controle: direcional/analógico escolhe, X confirma, O volta"))
 				.Font(FCoreStyle::GetDefaultFontStyle("Regular", 11))
 				.ColorAndOpacity(FLinearColor(0.7f, 0.72f, 0.78f))
 			]
 		];
+	PauseFirstFocus = ResumeButton;
 	GEngine->GameViewport->AddViewportWidgetContent(PauseWidget.ToSharedRef(), 100);
 	ValdoriaAudio::Play2D(this, ValdoriaAudio::Load(TEXT("UI"), TEXT("open_001")), 0.6f);
 	SetPause(true);

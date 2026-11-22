@@ -37,6 +37,8 @@ struct ECHOESOFVALDORIA_API FValdoriaOptions
 
 	// Controles
 	float MouseSensitivity = 1.f;
+	/** Right stick look speed (gamepad / DS4). 1 = 200 degrees per second at full tilt. */
+	float GamepadSensitivity = 1.f;
 	bool bInvertY = false;
 	float CrosshairSize = 1.f;
 	int32 CrosshairColor = 0;         // 0 branco, 1 verde, 2 ciano, 3 amarelo, 4 vermelho, 5 rosa
