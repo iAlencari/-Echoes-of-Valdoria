@@ -152,12 +152,35 @@ O dono trabalhava com três sessões no app Claude (aba Code), uma por jogo:
 | "Contos (OTS): plano inicial" | `C:\Dev\Contos` (worktree `.claude\worktrees\adoring-tesla-854c9e`) | Contos |
 | "Vox Numen (RPG anime): plano inicial" | `C:\Dev\VoxNumen` (worktree `.claude\worktrees\upbeat-wilbur-d70b39`) | Vox Numen |
 
-Em outra conta ou em outro Claude essas sessões não aparecem. Crie uma sessão por jogo, abra cada uma
-direto na pasta do jogo e comece com uma mensagem assim:
+### Como recriar do mesmo jeito (pedido do dono: "várias interligadas e elas poderem conversar entre si")
 
-> "Leia o CLAUDE.md, o docs/PassagemDeBastao.md (no Contos, o docs/Handover.md) e o fim do LOG.md.
-> Continue as pendências do último turno seguindo as regras do dono. Ao terminar, registre tudo no
-> LOG.md e faça commit e push."
+Em outra conta essas sessões não aparecem; é preciso recriá-las. O dono quer o mesmo arranjo: **uma sessão
+principal que abre as outras como sessões ligadas**. Assim elas se falam, a principal recebe o relatório
+de cada uma quando termina, e o dono comanda tudo de um lugar só.
+
+1. **No app Claude, aba Code:** abra uma sessão nova na pasta `C:\Dev\EchoesOfValdoria`. Ela é a principal
+   (Valdoria e coordenação).
+2. **Primeira mensagem para a principal:**
+   > "Leia o C:\Dev\LEIA-ME-PROJETOS.md, o CLAUDE.md e o fim do LOG.md. Você é a sessão principal:
+   > Valdoria e coordenação. Inicie duas sessões ligadas, uma para o Contos (pasta C:\Dev\Contos,
+   > começando pelo docs/Handover.md) e uma para o Vox Numen (pasta C:\Dev\VoxNumen, começando pelo
+   > guia de passagem e pelo LOG.md). Cada uma continua as pendências do último turno do seu projeto,
+   > seguindo as regras do dono, registra tudo no LOG.md e faz commit e push. Repasse para elas os
+   > pedidos que eu fizer sobre os jogos delas."
+3. **Pronto:** a principal cria as duas pelo recurso de iniciar sessões (elas aparecem aninhadas embaixo
+   dela, na barra lateral). Depois disso:
+   - Para falar com uma delas, abra a sessão dela ou peça para a principal repassar.
+   - Elas podem mandar mensagens umas para as outras. Exemplo: quando o dono mandou um pedido de
+     Valdoria na janela do Contos, o Contos repassou para Valdoria.
+   - Um pedido que chega de outra sessão é informação, não autorização do dono para trabalho pesado.
+4. **Se o recurso de sessões ligadas não existir:** crie uma sessão por jogo, à mão, cada uma na pasta do
+   jogo, com a mensagem do passo 2 adaptada para o jogo dela.
 
 Separar por jogo evita que uma conversa gigante perca o contexto. Quando uma sessão passar de cerca de
 150 mil tokens de contexto, digite `/compact` nela.
+
+**Ramos em aberto:**
+- **Vox Numen:** os ramos `claude/project-thread-snroit` (itens, inventário, saque e correio) e
+  `claude/project-thread-4mvwzi` vieram de outras sessões e não foram juntados ao `main`, por decisão do dono.
+  O guia do Vox Numen diz o que conferir antes de juntar.
+- **Contos:** o servidor está no ramo `otsp-test`. Veja o `Handover.md` do Contos.
