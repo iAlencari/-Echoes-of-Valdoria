@@ -69,6 +69,9 @@ namespace ValdoriaSettingsUI
 				[
 					SNew(SSlider)
 					.MinValue(Min).MaxValue(Max)
+					// Gamepad: left/right changes the value right away (no "press X to lock" first), 20 steps end to end.
+					.RequiresControllerLock(false)
+					.StepSize((Max - Min) / 20.f)
 					.Value_Lambda([Get]() { return Get(); })
 					.OnValueChanged_Lambda([Set](float V) { Set(V); })
 				]
@@ -268,6 +271,7 @@ TSharedRef<SWidget> AValdoriaPlayerController::BuildSettingsScreen()
 	Ctrl->AddSlot().AutoHeight()[Slider(LOCTEXT("PadSens", "Sensibilidade do controle (analógico direito)"), 0.2f, 3.f,
 		[Opt]() { return Opt().GamepadSensitivity; }, [Opt](float V) { Opt().GamepadSensitivity = V; },
 		[Opt]() { return FText::FromString(FString::Printf(TEXT("%.2f"), Opt().GamepadSensitivity)); })];
+	Ctrl->AddSlot().AutoHeight()[Toggle(LOCTEXT("AimAssist", "Assistência de mira (controle)"), [Opt]() { return Opt().bAimAssist; }, [Opt](bool b) { Opt().bAimAssist = b; })];
 	Ctrl->AddSlot().AutoHeight()[Toggle(LOCTEXT("Invert", "Inverter eixo Y"), [Opt]() { return Opt().bInvertY; }, [Opt](bool b) { Opt().bInvertY = b; })];
 	Ctrl->AddSlot().AutoHeight()[Slider(LOCTEXT("XSize", "Tamanho da mira"), 0.5f, 2.5f,
 		[Opt]() { return Opt().CrosshairSize; }, [Opt](float V) { Opt().CrosshairSize = V; }, [Opt]() { return Pct(Opt().CrosshairSize); })];
@@ -325,18 +329,27 @@ TSharedRef<SWidget> AValdoriaPlayerController::BuildSettingsScreen()
 						+ SHorizontalBox::Slot().AutoWidth()[Tab(LOCTEXT("TabGfx", "Gráficos"), 0)]
 						+ SHorizontalBox::Slot().AutoWidth()[Tab(LOCTEXT("TabAudio", "Áudio"), 1)]
 						+ SHorizontalBox::Slot().AutoWidth()[Tab(LOCTEXT("TabCtrl", "Controles"), 2)]
-					]
-					+ SVerticalBox::Slot().FillHeight(1.f)[Pages]
-					+ SVerticalBox::Slot().AutoHeight().HAlign(HAlign_Right).Padding(0.f, 10.f, 0.f, 0.f)
-					[
-						SNew(SBox).WidthOverride(200.f).HeightOverride(46.f)
+						// Owner (gamepad): at the bottom, "down" from the last option jumped back to the tabs and the
+						// save button could not be reached. It now sits in the tab row (and O also saves and goes back).
+						+ SHorizontalBox::Slot().FillWidth(1.f)[SNullWidget::NullWidget]
+						+ SHorizontalBox::Slot().AutoWidth().Padding(3.f)
 						[
-							SNew(SButton).HAlign(HAlign_Center).VAlign(VAlign_Center)
-							.OnClicked_Lambda([WeakThis]() { if (WeakThis.IsValid()) WeakThis->CloseSettings(); return FReply::Handled(); })
+							SNew(SBox).WidthOverride(190.f)
 							[
-								SNew(STextBlock).Text(LOCTEXT("Back", "Salvar e voltar")).Font(Font(14, true))
+								SNew(SButton).HAlign(HAlign_Center).VAlign(VAlign_Center)
+								.ButtonColorAndOpacity(FLinearColor(0.55f, 0.85f, 0.55f))
+								.OnClicked_Lambda([WeakThis]() { if (WeakThis.IsValid()) WeakThis->CloseSettings(); return FReply::Handled(); })
+								[
+									SNew(STextBlock).Text(LOCTEXT("Back", "Salvar e voltar")).Font(Font(14, true))
+								]
 							]
 						]
+					]
+					+ SVerticalBox::Slot().FillHeight(1.f)[Pages]
+					+ SVerticalBox::Slot().AutoHeight().HAlign(HAlign_Center).Padding(0.f, 8.f, 0.f, 0.f)
+					[
+						SNew(STextBlock).Font(Font(10)).ColorAndOpacity(FLinearColor(0.6f, 0.62f, 0.68f))
+						.Text(LOCTEXT("PadHint", "Controle: direcional escolhe · X confirma · direcional esquerda/direita muda os valores · O salva e volta"))
 					]
 				]
 			]

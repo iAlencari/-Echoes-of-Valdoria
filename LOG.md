@@ -797,3 +797,36 @@ A especificação comum aos três jogos está em `C:\Users\Pichau\AppData\Local\
   - LoadErrors dos VA_ do VRM4U.
   - Pose dos braços VRoid.
   - Modelos para Brasa, Lume, Heimdall, Ariel e O Nazareno.
+
+### Turno 51 — Claude Code — 22/11/2026 (teste do dono com o controle)
+**Fala do dono:** "eixo y está invertido automaticamente, falta aim assist e a sensibilidade inicial está alta demais, agachar ou deitar e andar buga o personagem dando miniteleportes na direção que ele vai tanto no teclado quanto no controle, o menu tem um bug que não dá pra selecionar salvar pelo controle pois ele vai pra aba de trás" (com o Recruta)
+
+**Feito:**
+- **Eixo Y do analógico:** invertido em relação à primeira versão. A opção "Inverter eixo Y" continua valendo.
+- **Sensibilidade do controle:** a base caiu de 200 para 120 graus/s.
+- **Assistência de mira** (opção "Assistência de mira (controle)", ligada por padrão):
+  - A câmera fica até 45% mais lenta sobre um inimigo ou boneco.
+  - Ela puxa a mira de leve para o alvo enquanto o analógico se mexe.
+  - O alvo precisa estar visível, a até 45 m e a até 8° do centro da mira. Atrás de parede, não puxa.
+- **Mini-teleportes ao agachar ou deitar andando — causa e correção:**
+  - **Causa:** as animações em loop do Fab (Free Animation Library e Free Crawl) levam o andar no osso raiz: 238 cm por ciclo agachado e 63 cm rastejando.
+  - O animador próprio (`ValdoriaAnimInstance`, `ExtractPose`) lia essa raiz, então o corpo escorregava para a frente e voltava a cada ciclo.
+  - **Correção:** a raiz agora fica fixa na horizontal, porque quem anda é a cápsula.
+  - Os pacotes do Fab ficam fora do git, por isso a correção é no código e não nos arquivos.
+  - **Medido** com o novo `-ValdoriaJumpLog`, que vigia a pélvis e a posição quadro a quadro:
+    - sem a trava (`-ValdoriaNoRootLock`): 20 pulos da pélvis, de até 75 cm;
+    - com a trava: 5 pulos de 13 a 29 cm, só deitado, durante a transição de deitar;
+    - a posição do herói (cápsula) nunca saltou.
+- **Menu de configurações:**
+  - "Salvar e voltar" foi para a linha das abas, em verde. O O também salva e volta.
+  - As barras deslizantes mudam com o direcional esquerda/direita, sem travar com X, em 20 passos.
+  - Linha de ajuda do controle no rodapé.
+- **Testes:**
+  - O `-ValdoriaInputTest` passou.
+  - Novo `-ValdoriaCrouchTest`, junto com o `-ValdoriaInputTest`: roda só a parte de agachar e deitar andando, logo depois de nascer.
+  - `Scripts/inspect_loop_root.py` lista quanto cada animação de agachar ou deitar move a raiz.
+
+**Pendente:**
+- O dono testar de novo com o controle: sentido do Y, sensibilidade e força da assistência. A força está nos números de `Input_LookStick`: 8°, 45 m, 45% de atrito e puxão 4/s.
+- Os 5 pulos pequenos ao deitar: conferir se aparecem jogando. Se aparecerem, suavizar a transição.
+- No teste completo, a parte de agachar marca 0 cm porque o herói ainda está no ar depois do voo. Use o `-ValdoriaCrouchTest`.

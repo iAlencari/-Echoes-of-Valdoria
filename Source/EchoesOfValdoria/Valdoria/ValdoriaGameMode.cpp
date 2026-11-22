@@ -997,6 +997,12 @@ void AValdoriaGameMode::RunInputTestStep()
 	}
 	AValdoriaPlayerController* PC = Cast<AValdoriaPlayerController>(GetWorld()->GetFirstPlayerController());
 	AValdoriaHeroCharacter* Hero = PC ? Cast<AValdoriaHeroCharacter>(PC->GetPawn()) : nullptr;
+	// -ValdoriaCrouchTest: only the crouch/prone walking part, right after spawning.
+	static const bool bCrouchOnly = FParse::Param(FCommandLine::Get(), TEXT("ValdoriaCrouchTest"));
+	if (bCrouchOnly && InputTestStep == 16)
+	{
+		InputTestStep = 15 + 121;
+	}
 	const int32 S = InputTestStep - 15;
 	auto Shot = [](const TCHAR* Name)
 	{
@@ -1094,7 +1100,14 @@ void AValdoriaGameMode::RunInputTestStep()
 		FSlateApplication::Get().ProcessAnalogInputEvent(FAnalogInputEvent(EKeys::Gamepad_LeftY, FModifierKeysState(), 0, false, 0, 0, 0.f));
 		UE_LOG(LogValdoria, Display, TEXT("INPUTTEST controle analogico: andou %.0f cm"), Hero ? FVector::Dist2D(Hero->GetActorLocation(), InputTestStartLoc) : -1.f);
 	}
-	if (S >= 122)
+	// Crouch and prone while walking (owner: "mini-teleports" in the walking direction). Run with -ValdoriaJumpLog.
+	if (S == 122) { UE_LOG(LogValdoria, Display, TEXT("INPUTTEST agachar andando")); PressKey(EKeys::LeftControl, true); }
+	if (S == 123 && Hero) { InputTestStartLoc = Hero->GetActorLocation(); PressKey(EKeys::W, true); }
+	if (S == 135) { PressKey(EKeys::W, false); PressKey(EKeys::LeftControl, false); UE_LOG(LogValdoria, Display, TEXT("INPUTTEST agachado andou %.0f cm"), Hero ? FVector::Dist2D(Hero->GetActorLocation(), InputTestStartLoc) : -1.f); }
+	if (S == 137) { UE_LOG(LogValdoria, Display, TEXT("INPUTTEST deitar andando")); PressKey(EKeys::X, true); PressKey(EKeys::X, false); }
+	if (S == 141 && Hero) { InputTestStartLoc = Hero->GetActorLocation(); PressKey(EKeys::W, true); }
+	if (S == 153) { PressKey(EKeys::W, false); UE_LOG(LogValdoria, Display, TEXT("INPUTTEST deitado andou %.0f cm deitado=%d"), Hero ? FVector::Dist2D(Hero->GetActorLocation(), InputTestStartLoc) : -1.f, Hero && Hero->IsProne()); PressKey(EKeys::X, true); PressKey(EKeys::X, false); }
+	if (S >= 156)
 	{
 		UE_LOG(LogValdoria, Display, TEXT("INPUTTEST fim"));
 		InputTestStep = 100000;

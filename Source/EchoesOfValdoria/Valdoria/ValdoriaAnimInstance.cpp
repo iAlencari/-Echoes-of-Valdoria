@@ -24,6 +24,17 @@ namespace
 	{
 		FAnimationPoseData Data(Ctx);
 		Seq->GetAnimationPose(Data, FAnimExtractContext(static_cast<double>(Time), false, FDeltaTimeRecord(), bLoop));
+		// Turn 51 (owner: crouch/prone walking "mini-teleports"): some Fab loops carry their walk in the root bone
+		// (crouch: 238 cm per cycle, crawl: 63 cm), so the body slid ahead and snapped back every loop. The capsule
+		// does the moving here, so the root stays at its reference spot horizontally (height is kept).
+		static const bool bNoRootLock = FParse::Param(FCommandLine::Get(), TEXT("ValdoriaNoRootLock")); // test: old behaviour
+		if (!bNoRootLock && Ctx.Pose.GetNumBones() > 0)
+		{
+			const FCompactPoseBoneIndex Root(0);
+			FTransform& RootT = Ctx.Pose[Root];
+			const FVector Ref = Ctx.Pose.GetBoneContainer().GetRefPoseTransform(Root).GetTranslation();
+			RootT.SetTranslation(FVector(Ref.X, Ref.Y, RootT.GetTranslation().Z));
+		}
 	}
 }
 

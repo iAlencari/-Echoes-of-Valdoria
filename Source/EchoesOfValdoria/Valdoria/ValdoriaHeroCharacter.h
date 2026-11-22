@@ -595,6 +595,8 @@ protected:
 	void TickFootDiscs(float DeltaSeconds);
 	/** Turn 49: with a VRoid body the weapons follow the VISIBLE hands (the Mannequin's hands are elsewhere). */
 	void TickVisualAttachments();
+	FVector JumpLogLast = FVector::ZeroVector;
+	FVector JumpLogPelvis = FVector::ZeroVector;
 	FVector VisualBaseRel[2] = { FVector::ZeroVector, FVector::ZeroVector };
 	FVector VisualWrittenRel[2] = { FVector(1e9f), FVector(1e9f) };
 

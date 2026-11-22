@@ -31,7 +31,7 @@ botão "Continuar" em dourado.
 | Botão | Jogo | Menus |
 |---|---|---|
 | Analógico esquerdo (Left2D) | andar | navegar |
-| Analógico direito (Right2D) | mirar/câmera (sensibilidade em Configurações > Controles) | - |
+| Analógico direito (Right2D) | mirar/câmera: 120 graus/s no máximo × sensibilidade; assistência de mira ligável em Configurações > Controles | - |
 | L3 (LeftThumbstick) | correr / impulso (Shift) | - |
 | R3 (RightThumbstick) | soco (V) | - |
 | X (FaceButton_Bottom) | pular / voar (Espaço) | confirmar |
@@ -58,14 +58,24 @@ que abrem com o cursor.
 - `ValdoriaHeroCharacter.cpp`:
   - `BuildDefaultInput` e `MapAbilityKeys` registram os botões do controle no mesmo contexto do
     teclado (`IMC_Valdoria`).
-  - `Input_LookStick` gira a câmera: 200 graus/s × `GamepadSensitivity`, com resposta quadrática para
-    mirar com mais precisão perto do centro do analógico.
+  - `Input_LookStick` gira a câmera: 120 graus/s × `GamepadSensitivity`, com resposta quadrática para
+    mirar com mais precisão perto do centro do analógico. O eixo Y foi invertido no turno 51, porque
+    a primeira versão subia ao contrário.
+  - **Assistência de mira** (`bAimAssist`, ligada por padrão, só para o controle). Vale para um
+    inimigo visível a até 45 m e a até 8° do centro da mira:
+    - **Atrito:** a câmera fica até 45% mais lenta sobre o alvo.
+    - **Puxão:** puxa a mira para o peito do alvo enquanto o analógico se mexe.
 - `ValdoriaPlayerController.cpp`:
   - `SetupInputComponent` liga Options, O, Share, R3 e o direcional para baixo.
   - `MenuBackPressed` é o O, que fecha o menu de cima.
   - `ApplyCursorInput` e `FindMenuFocus` dão o foco ao primeiro botão do menu aberto (na pausa, o
     "Continuar"), para o direcional navegar. O botão em foco fica dourado.
   - O painel F10 não recebe foco de propósito: o analógico continua andando com ele aberto.
-- `ValdoriaSettings` guarda a `GamepadSensitivity` no GameUserSettings.ini.
+- `ValdoriaSettings` guarda a `GamepadSensitivity` e a `bAimAssist` no GameUserSettings.ini.
+- **Configurações:**
+  - "Salvar e voltar" fica na linha das abas: no fim da lista, o direcional pulava de volta para as
+    abas.
+  - As barras deslizantes mudam com o direcional para os lados, sem travar com X (`RequiresControllerLock(false)`),
+    em 20 passos.
 - **Teste automático:** `-ValdoriaInputTest` (`ValdoriaGameMode.cpp`, `RunInputTestStep`). Os passos
   "controle" simulam Options, o direcional, o O e o analógico esquerdo.

@@ -606,29 +606,86 @@ void AValdoriaHeroCharacter::Input_Look(const FInputActionValue& Value)
 
 void AValdoriaHeroCharacter::Input_LookStick(const FInputActionValue& Value)
 {
-	if (IsCursorFree())
+	if (IsCursorFree() || !Controller)
 	{
 		return;
 	}
 	// A stick is held, so it is a turn rate: scale by frame time. Squared response gives finer aim near the centre.
 	FVector2D Axis = Value.Get<FVector2D>();
+	const float Tilt = FMath::Min(1.f, Axis.Size());
 	Axis = FVector2D(Axis.X * FMath::Abs(Axis.X), Axis.Y * FMath::Abs(Axis.Y));
 	const FValdoriaOptions& Options = FValdoriaOptions::Get();
 	const float Dt = GetWorld() ? GetWorld()->GetDeltaSeconds() : 0.016f;
-	const float Rate = 200.f * Options.GamepadSensitivity * Dt;
-	// AddController*Input is multiplied by the PlayerController's input scale (2.5 by default for mouse);
-	// divide it out so the rate above is in degrees.
+	float Rate = 120.f * Options.GamepadSensitivity * Dt;
+	// AddController*Input is multiplied by the PlayerController's legacy input scale; divide it out so the
+	// numbers here are degrees.
 	float YawScale = 1.f, PitchScale = 1.f;
 	const APlayerController* PC = Cast<APlayerController>(Controller);
 	if (PC && GetDefault<UInputSettings>()->bEnableLegacyInputScales)
 	{
 PRAGMA_DISABLE_DEPRECATION_WARNINGS
 		YawScale = FMath::IsNearlyZero(PC->GetDeprecatedInputYawScale()) ? 1.f : PC->GetDeprecatedInputYawScale();
-		PitchScale = FMath::IsNearlyZero(PC->GetDeprecatedInputPitchScale()) ? 1.f : FMath::Abs(PC->GetDeprecatedInputPitchScale());
+		PitchScale = FMath::IsNearlyZero(PC->GetDeprecatedInputPitchScale()) ? 1.f : PC->GetDeprecatedInputPitchScale();
 PRAGMA_ENABLE_DEPRECATION_WARNINGS
 	}
-	AddControllerYawInput(Axis.X * Rate / YawScale);
-	AddControllerPitchInput((Options.bInvertY ? -Axis.Y : Axis.Y) * -Rate / PitchScale);
+
+	// Aim assist (gamepad only): friction over a target and a gentle pull toward it while the stick moves.
+	float PullYaw = 0.f, PullPitch = 0.f;
+	if (Options.bAimAssist && !bIsDead)
+	{
+		FVector ViewLoc;
+		FRotator ViewRot;
+		Controller->GetPlayerViewPoint(ViewLoc, ViewRot);
+		const FVector ViewDir = ViewRot.Vector();
+		const float MaxAngle = 8.f, MaxRange = 4500.f;
+		float BestAngle = MaxAngle;
+		FVector BestPoint = FVector::ZeroVector;
+		for (TActorIterator<AValdoriaHeroCharacter> It(GetWorld()); It; ++It)
+		{
+			AValdoriaHeroCharacter* Other = *It;
+			if (!IsEnemy(Other) || Other->IsHidden())
+			{
+				continue;
+			}
+			const FVector Point = Other->GetActorLocation() + FVector(0.f, 0.f, Other->GetCapsuleComponent()->GetScaledCapsuleHalfHeight() * 0.35f);
+			const FVector To = Point - ViewLoc;
+			const float Dist = To.Size();
+			if (Dist > MaxRange || Dist < 50.f)
+			{
+				continue;
+			}
+			const float Angle = FMath::RadiansToDegrees(FMath::Acos(FMath::Clamp(FVector::DotProduct(ViewDir, To / Dist), -1.f, 1.f)));
+			if (Angle >= BestAngle)
+			{
+				continue;
+			}
+			FHitResult Hit;
+			FCollisionQueryParams Params(SCENE_QUERY_STAT(ValdoriaAimAssist), false, this);
+			if (GetWorld()->LineTraceSingleByChannel(Hit, ViewLoc, Point, ECC_Visibility, Params) && Hit.GetActor() != Other)
+			{
+				continue; // behind a wall
+			}
+			BestAngle = Angle;
+			BestPoint = Point;
+		}
+		if (BestAngle < MaxAngle)
+		{
+			// Friction: up to 45% slower when right on the target.
+			Rate *= FMath::Lerp(0.55f, 1.f, BestAngle / MaxAngle);
+			// Pull: a fraction of the remaining angle per second, scaled by how much the stick is pushed.
+			const FRotator Want = (BestPoint - ViewLoc).Rotation();
+			const FRotator Delta = (Want - ViewRot).GetNormalized();
+			const float Pull = FMath::Min(1.f, 4.f * Dt) * Tilt * (1.f - BestAngle / MaxAngle);
+			PullYaw = Delta.Yaw * Pull;
+			PullPitch = Delta.Pitch * Pull;
+		}
+	}
+
+	// The final numbers below are degrees of real pitch (positive = up): the signed legacy pitch scale is divided
+	// out. The stick's Y reading is flipped: the first version used it as-is and the owner found it inverted.
+	const float LookY = Options.bInvertY ? Axis.Y : -Axis.Y;
+	AddControllerYawInput((Axis.X * Rate + PullYaw) / YawScale);
+	AddControllerPitchInput((LookY * Rate + PullPitch) / -FMath::Abs(PitchScale) * (PitchScale < 0.f ? 1.f : -1.f));
 }
 
 bool AValdoriaHeroCharacter::IsCursorFree() const
@@ -1904,6 +1961,33 @@ void AValdoriaHeroCharacter::Tick(float DeltaSeconds)
 {
 	Super::Tick(DeltaSeconds);
 	TickVisualAttachments();
+	{
+		// -ValdoriaJumpLog: logs any frame where the hero moved much more than its speed allows (teleport hunting).
+		static const bool bJumpLog = FParse::Param(FCommandLine::Get(), TEXT("ValdoriaJumpLog"));
+		if (bJumpLog && IsLocallyControlled())
+		{
+			const FVector Now = GetActorLocation();
+			const float Step = FVector::Dist2D(Now, JumpLogLast);
+			const float Allowed = GetVelocity().Size2D() * DeltaSeconds * 1.5f + 3.f;
+			if (JumpLogLast != FVector::ZeroVector && Step > Allowed && Step < 2000.f)
+			{
+				UE_LOG(LogValdoria, Display, TEXT("JUMPLOG salto %.1f cm (permitido %.1f) vel=%.0f agachado=%d deitado=%d modo=%d dz=%.1f"),
+					Step, Allowed, GetVelocity().Size2D(), bIsCrouched, bIsProne, (int32)GetCharacterMovement()->MovementMode.GetValue(), Now.Z - JumpLogLast.Z);
+			}
+			JumpLogLast = Now;
+			// The body itself: the pelvis offset from the capsule must not snap between frames.
+			if (GetMesh() && GetMesh()->GetBoneIndex(TEXT("pelvis")) != INDEX_NONE)
+			{
+				const FVector Off = GetMesh()->GetBoneLocation(TEXT("pelvis")) - Now;
+				const float Snap = FVector::Dist2D(Off, JumpLogPelvis);
+				if (JumpLogPelvis != FVector::ZeroVector && Snap > 12.f)
+				{
+					UE_LOG(LogValdoria, Display, TEXT("JUMPLOG pelvis pulou %.1f cm agachado=%d deitado=%d"), Snap, bIsCrouched, bIsProne);
+				}
+				JumpLogPelvis = Off;
+			}
+		}
+	}
 	if (Overheal > 0.f)
 	{
 		Overheal = FMath::Max(0.f, Overheal - OverhealDecayRate * DeltaSeconds);

@@ -35,6 +35,7 @@ void FValdoriaOptions::Load()
 	GConfig->GetFloat(Section, TEXT("EffectsVolume"), EffectsVolume, Ini);
 	GConfig->GetFloat(Section, TEXT("MouseSensitivity"), MouseSensitivity, Ini);
 	GConfig->GetFloat(Section, TEXT("GamepadSensitivity"), GamepadSensitivity, Ini);
+	GConfig->GetBool(Section, TEXT("AimAssist"), bAimAssist, Ini);
 	GConfig->GetBool(Section, TEXT("InvertY"), bInvertY, Ini);
 	GConfig->GetInt(Section, TEXT("KeyScheme"), KeyScheme, Ini);
 	GConfig->GetInt(Section, TEXT("BackgroundFpsLimit"), BackgroundFpsLimit, Ini);
@@ -60,6 +61,7 @@ void FValdoriaOptions::Save() const
 	GConfig->SetFloat(Section, TEXT("EffectsVolume"), EffectsVolume, Ini);
 	GConfig->SetFloat(Section, TEXT("MouseSensitivity"), MouseSensitivity, Ini);
 	GConfig->SetFloat(Section, TEXT("GamepadSensitivity"), GamepadSensitivity, Ini);
+	GConfig->SetBool(Section, TEXT("AimAssist"), bAimAssist, Ini);
 	GConfig->SetBool(Section, TEXT("InvertY"), bInvertY, Ini);
 	GConfig->SetInt(Section, TEXT("KeyScheme"), KeyScheme, Ini);
 	GConfig->SetInt(Section, TEXT("BackgroundFpsLimit"), BackgroundFpsLimit, Ini);
