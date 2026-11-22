@@ -1114,8 +1114,8 @@ void AValdoriaGameMode::RunInputTestStep()
 	if (S == 165) { UE_LOG(LogValdoria, Display, TEXT("INPUTTEST controle O de novo: deitado=%d"), Hero && Hero->IsProne()); PressKey(EKeys::Gamepad_Special_Right, true); PressKey(EKeys::Gamepad_Special_Right, false); }
 	if (S == 167 || S == 168) { PressKey(EKeys::Gamepad_DPad_Down, true); PressKey(EKeys::Gamepad_DPad_Down, false); }
 	if (S == 170) { UE_LOG(LogValdoria, Display, TEXT("INPUTTEST controle pausa 2x baixo: foco=%s"), *FocusName()); PressKey(EKeys::Gamepad_FaceButton_Bottom, true); PressKey(EKeys::Gamepad_FaceButton_Bottom, false); }
-	if (S == 172) { UE_LOG(LogValdoria, Display, TEXT("INPUTTEST controle botao Loja: loja=%d pausa=%d"), PC && PC->IsShopOpen(), PC && PC->IsPauseMenuOpen()); Shot(TEXT("Input_ControleLoja.png")); PressKey(EKeys::Gamepad_FaceButton_Right, true); PressKey(EKeys::Gamepad_FaceButton_Right, false); }
-	if (S == 174) { UE_LOG(LogValdoria, Display, TEXT("INPUTTEST controle O fecha loja: loja=%d"), PC && PC->IsShopOpen()); }
+	if (S == 172) { UE_LOG(LogValdoria, Display, TEXT("INPUTTEST controle botao da linha nova (Loja/Habilidades): loja=%d habilidades=%d pausa=%d"), PC && PC->IsShopOpen(), PC && PC->IsHelpOpen(), PC && PC->IsPauseMenuOpen()); Shot(TEXT("Input_ControleLoja.png")); PressKey(EKeys::Gamepad_FaceButton_Right, true); PressKey(EKeys::Gamepad_FaceButton_Right, false); }
+	if (S == 174) { UE_LOG(LogValdoria, Display, TEXT("INPUTTEST controle O fecha: loja=%d habilidades=%d"), PC && PC->IsShopOpen(), PC && PC->IsHelpOpen()); }
 	if (S >= 176)
 	{
 		UE_LOG(LogValdoria, Display, TEXT("INPUTTEST fim"));

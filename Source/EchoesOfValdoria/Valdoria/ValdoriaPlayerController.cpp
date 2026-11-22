@@ -214,6 +214,12 @@ void AValdoriaPlayerController::ApplyCursorInput()
 	}
 	SetInputMode(Mode);
 	bShowMouseCursor = true;
+	if (!Focus.IsValid() && FSlateApplication::IsInitialized())
+	{
+		// Only the F10 panel (or Alt) is up: the game keeps the focus, so the stick walks instead of moving
+		// between the panel's buttons (turn 53 test: after the pause closed, the stick was stuck on a panel button).
+		FSlateApplication::Get().SetAllUserFocusToGameViewport();
+	}
 	if (Focus.IsValid() && FSlateApplication::IsInitialized() && Focus != ChatBox)
 	{
 		// Navigation cause: Slate draws the focus frame. Done again on the next tick because SetInputMode applies its

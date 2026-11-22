@@ -852,3 +852,11 @@ O dono encerrou o turno desta conta ("salve tudo e deixe pronto pra outra começ
 - Compilado. **Não testado na tela ainda:** a janela marcava "em uso".
 - Lista de heróis no lobby: o lobby já recebe o foco do controle (turno 50); falta o dono confirmar se ainda há algo que não dá para escolher.
 - Turno 52 (madrugada): bateria `Scripts/test_all.ps1` iniciada no monitor 2; o painel admin passou em todos os heróis (troca de herói, imortal, recarga, munição, ultimate, todos ligam e desligam). O dono pediu para parar antes do fim (voo, Lume, geral, teclas e playtest ficaram sem resultado). Próximo: rodar `test_all.ps1` de novo e conferir `Saved/Logs/t44_summary.txt`.
+
+### Turno 53 - Claude Code (Forge) - 22/11/2026 (testes, Bifrost para bots, foco)
+- Bateria `Scripts/test_all.ps1` completa passou: admin em todos os herois, voo, Lume, geral na NP, teclas/controle, playtest de todos os herois na MOBA (120 s cada, sem travar).
+- **Bug achado e corrigido:** com o painel F10 aberto, depois de fechar a pausa o analogico ficava preso nos botoes do painel (andou 23 cm). `ApplyCursorInput` devolve o foco ao jogo quando so o painel esta aberto. Reteste: andou 1402 cm.
+- **Bots na Bifrost** (`TickAutopilot`): bots da MOBA montam na trilha do proprio time rumo a lane e descem perto do destino ou ao ver inimigo. Teste: 3 bots na Bifrost.
+- **Foco:** scripts de teste usam `-NOSPLASH -ValdoriaBackground` (o jogo devolve o foco a janela anterior nos primeiros 40 s). Medido: jogo em foco 0 de 34 e 0 de 19 amostras.
+- Controle: segurar O deita, O levanta; menu de pausa tem Loja / Habilidades / Chat; O fecha. Ao apertar X no foco do meio abriu Habilidades (ordem do direcional), a Loja nao foi apertada no teste.
+- Arte pedida ao dono (icone, lobby, carregamento): salvar em D:\Agentes\Forge, nome do arquivo dentro do prompt.

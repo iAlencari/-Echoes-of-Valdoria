@@ -3771,6 +3771,61 @@ void AValdoriaHeroCharacter::TickAutopilot(float DeltaSeconds)
 	}
 	AValdoriaHeroCharacter* Target = AutopilotTarget.Get();
 	const FVector Fwd = GetActorForwardVector().GetSafeNormal2D();
+	// Bifrost for bots (owner, turn 53): ride the own team's trail toward the lane instead of walking it,
+	// get off near the route point it leads to, or as soon as an enemy shows up.
+	if (!IsPlayerControlled() && LeashRadius <= 0.f)
+	{
+		if (!IsRiding())
+		{
+			bAutopilotRiding = false;
+		}
+		if (bAutopilotRiding)
+		{
+			const FVector Goal = AutopilotRoute.IsValidIndex(AutopilotRideGoalIndex) ? AutopilotRoute[AutopilotRideGoalIndex] : GetActorLocation();
+			if ((Target && !Target->IsDead()) || FVector::Dist2D(GetActorLocation(), Goal) < 1500.f)
+			{
+				StopRiding();
+				bAutopilotRiding = false;
+				AutopilotRouteIndex = FMath::Max(AutopilotRouteIndex, AutopilotRideGoalIndex);
+			}
+			else
+			{
+				return; // the trail carries the bot
+			}
+		}
+		else if ((!Target || Target->IsDead()) && AutopilotRoute.IsValidIndex(AutopilotRouteIndex) && Now >= AutopilotNextRailTry && !IsInPassiveCombat(2.f))
+		{
+			AutopilotNextRailTry = Now + 2.f;
+			for (TActorIterator<AValdoriaLaneRail> It(GetWorld()); It; ++It)
+			{
+				if (It->Team != TeamId)
+				{
+					continue;
+				}
+				if (const float* Until = RailLockouts.Find(*It); Until && Now < *Until)
+				{
+					continue;
+				}
+				float AlongMe = 0.f;
+				if (It->DistanceToPoint(GetActorLocation(), AlongMe) > 900.f)
+				{
+					continue;
+				}
+				// The farthest route point this trail passes close to.
+				for (int32 i = AutopilotRoute.Num() - 1; i >= AutopilotRouteIndex; --i)
+				{
+					float AlongGoal = 0.f;
+					if (It->DistanceToPoint(AutopilotRoute[i], AlongGoal) < 2000.f && FMath::Abs(AlongGoal - AlongMe) > 3000.f)
+					{
+						MountRailAt(*It, AlongMe, AlongGoal > AlongMe ? 1.f : -1.f);
+						bAutopilotRiding = true;
+						AutopilotRideGoalIndex = i;
+						return;
+					}
+				}
+			}
+		}
+	}
 	if (LeashRadius > 0.f && (!Target || Target->IsDead()) && FVector::Dist2D(GetActorLocation(), LeashCenter) > 200.f)
 	{
 		// Nothing to fight: walk back to the middle of the area.

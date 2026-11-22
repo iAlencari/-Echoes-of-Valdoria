@@ -1,9 +1,9 @@
-# Turn 44: runs the main automated tests one after another on monitor 2, then the full playtest.
+﻿# Turn 44: runs the main automated tests one after another on monitor 2, then the full playtest.
 # Stops before each run if Deadlock is open. Summary: Saved\Logs\t44_summary.txt (+ Saved\Logs\Playtest\resumo.txt).
 # Turn 48 review: no -log (console stole focus), Deadlock watched during each test too, admin filter covers every hero.
 $ue = "C:\Program Files\Epic Games\UE_5.8\Engine\Binaries\Win64\UnrealEditor.exe"
 $proj = '"C:\Dev\EchoesOfValdoria\EchoesOfValdoria.uproject"'
-$win = '-game -windowed -ResX=1600 -ResY=900 -WinX=-1760 -WinY=60 -ValdoriaNoIntro'
+$win = '-game -windowed -ResX=1600 -ResY=900 -WinX=-1760 -WinY=60 -ValdoriaNoIntro -NOSPLASH -ValdoriaBackground' # no engine splash on monitor 1 (owner)
 $sum = "C:\Dev\EchoesOfValdoria\Saved\Logs\t44_summary.txt"
 function Test-Deadlock { return [bool](Get-Process -ErrorAction SilentlyContinue | Where-Object { $_.ProcessName -match 'deadlock|project8' }) }
 "Testes $(Get-Date)" | Out-File $sum -Encoding utf8

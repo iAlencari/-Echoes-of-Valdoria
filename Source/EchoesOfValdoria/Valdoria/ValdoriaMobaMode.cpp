@@ -562,6 +562,12 @@ void AValdoriaMobaMode::RunMobaTestStep()
 		break;
 	case 30:
 	{
+		int32 BotsRiding = 0;
+		for (TActorIterator<AValdoriaHeroCharacter> It(GetWorld()); It; ++It)
+		{
+			BotsRiding += (!It->IsPlayerControlled() && It->IsRiding()) ? 1 : 0;
+		}
+		UE_LOG(LogValdoria, Display, TEXT("MOBATEST bots na bifrost=%d"), BotsRiding);
 		// Bifrost: go home and look at our middle trail, then hold Space.
 		Hero->TeleportTo(Ground(Base[0]) + FVector(0, 0, 50.f), Hero->GetActorRotation());
 		for (TActorIterator<AValdoriaLaneRail> It(GetWorld()); It; ++It)

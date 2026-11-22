@@ -684,6 +684,9 @@ protected:
 	void Input_InteractPressed() { bInteractHeld = true; }
 	void Input_InteractReleased() { bInteractHeld = false; }
 	int32 AutopilotRouteIndex = 0;
+	bool bAutopilotRiding = false;
+	int32 AutopilotRideGoalIndex = 0;
+	float AutopilotNextRailTry = 0.f;
 	/** Stuck rescue (turn 45): where the bot was at the last check; no progress in 3 s = skip to the next route point. */
 	FVector AutopilotStuckPos = FVector::ZeroVector;
 	float AutopilotStuckCheck = 0.f;
