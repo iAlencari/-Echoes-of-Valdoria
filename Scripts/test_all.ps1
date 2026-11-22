@@ -3,7 +3,7 @@
 # Turn 48 review: no -log (console stole focus), Deadlock watched during each test too, admin filter covers every hero.
 $ue = "C:\Program Files\Epic Games\UE_5.8\Engine\Binaries\Win64\UnrealEditor.exe"
 $proj = '"C:\Dev\EchoesOfValdoria\EchoesOfValdoria.uproject"'
-$win = '-game -windowed -ResX=1600 -ResY=900 -WinX=-1760 -WinY=60 -ValdoriaNoIntro -NOSPLASH -ValdoriaBackground' # no engine splash on monitor 1 (owner)
+$win = '-game -windowed -ResX=1600 -ResY=900 -WinX=-1760 -WinY=60 -ValdoriaNoIntro -NOSPLASH -ValdoriaBackground -nosound' # no engine splash on monitor 1 (owner)
 $sum = "C:\Dev\EchoesOfValdoria\Saved\Logs\t44_summary.txt"
 function Test-Deadlock { return [bool](Get-Process -ErrorAction SilentlyContinue | Where-Object { $_.ProcessName -match 'deadlock|project8' }) }
 "Testes $(Get-Date)" | Out-File $sum -Encoding utf8

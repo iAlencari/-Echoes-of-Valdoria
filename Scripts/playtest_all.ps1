@@ -7,7 +7,7 @@
 # Deadlock is also watched DURING each match (the game is closed at once and the runner stops).
 $ue = "C:\Program Files\Epic Games\UE_5.8\Engine\Binaries\Win64\UnrealEditor.exe"
 $proj = '"C:\Dev\EchoesOfValdoria\EchoesOfValdoria.uproject"'
-$win = '-game -windowed -ResX=1600 -ResY=900 -WinX=-1760 -WinY=60 -ValdoriaNoIntro -NOSPLASH -ValdoriaBackground' # no engine splash on monitor 1 (owner)
+$win = '-game -windowed -ResX=1600 -ResY=900 -WinX=-1760 -WinY=60 -ValdoriaNoIntro -NOSPLASH -ValdoriaBackground -nosound' # no engine splash on monitor 1 (owner)
 $out = "C:\Dev\EchoesOfValdoria\Saved\Logs\Playtest"
 New-Item -ItemType Directory -Force $out | Out-Null
 New-Item -ItemType Directory -Force "C:\Dev\EchoesOfValdoria\Saved\Screenshots\Playtest" | Out-Null
