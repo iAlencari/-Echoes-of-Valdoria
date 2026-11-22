@@ -830,3 +830,14 @@ A especificação comum aos três jogos está em `C:\Users\Pichau\AppData\Local\
 - O dono testar de novo com o controle: sentido do Y, sensibilidade e força da assistência. A força está nos números de `Input_LookStick`: 8°, 45 m, 45% de atrito e puxão 4/s.
 - Os 5 pulos pequenos ao deitar: conferir se aparecem jogando. Se aparecerem, suavizar a transição.
 - No teste completo, a parte de agachar marca 0 cm porque o herói ainda está no ar depois do voo. Use o `-ValdoriaCrouchTest`.
+
+### Fim do turno desta conta — 22/11/2026
+O dono encerrou o turno desta conta ("salve tudo e deixe pronto pra outra começar de onde paramos, com todo o contexto de como e por que chegamos aqui").
+- Tudo está commitado e enviado.
+- O guia `docs/PassagemDeBastao.md`, com cópia em `C:\Dev\LEIA-ME-PROJETOS.md`, agora traz:
+  - a linha do tempo de Valdoria e o porquê de cada decisão (Godot → Unreal, Data Assets, VRoid, controle);
+  - o estado no fim do turno 51 e as pendências em ordem;
+  - o que não está no git (plugins, pacotes do Fab da conta do dono, ArtSource, lore);
+  - como recriar as sessões em outra conta.
+- As sessões Contos e Vox Numen receberam o mesmo pedido de fechamento: guias, logs e push.
+- **Próximo passo sugerido:** o dono testar de novo o controle (Y, sensibilidade, assistência de mira). Depois, os botões que faltam no controle e o staff.
