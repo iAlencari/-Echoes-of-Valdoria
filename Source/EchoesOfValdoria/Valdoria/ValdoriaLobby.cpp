@@ -17,6 +17,8 @@
 #include "Styling/CoreStyle.h"
 #include "TimerManager.h"
 #include "Widgets/Input/SButton.h"
+#include "Widgets/Images/SImage.h"
+#include "Widgets/SOverlay.h"
 #include "Widgets/Layout/SBorder.h"
 #include "Widgets/Layout/SBox.h"
 #include "Widgets/Layout/SScrollBox.h"
@@ -355,7 +357,19 @@ TSharedRef<SWidget> AValdoriaPlayerController::BuildLobby()
 		];
 	};
 
-	return SNew(SBorder)
+	// Owner's key art behind the menu (turn 53), dimmed at the left for the buttons.
+	static TSharedPtr<FSlateBrush> LobbyArt;
+	if (!LobbyArt.IsValid())
+	{
+		if (UTexture2D* Tex = LoadObject<UTexture2D>(nullptr, TEXT("/Game/Valdoria/UI/Loading/T_Lobby_Valdoria.T_Lobby_Valdoria"), nullptr, LOAD_NoWarn | LOAD_Quiet))
+		{
+			Tex->AddToRoot();
+			LobbyArt = MakeShared<FSlateBrush>();
+			LobbyArt->SetResourceObject(Tex);
+			LobbyArt->ImageSize = FVector2D(Tex->GetSizeX(), Tex->GetSizeY());
+		}
+	}
+	TSharedRef<SWidget> LobbyMenu = SNew(SBorder)
 		.BorderImage(FCoreStyle::Get().GetBrush("WhiteBrush"))
 		.BorderBackgroundColor(FLinearColor(0.f, 0.f, 0.02f, 0.55f))
 		.Padding(48.f)
@@ -389,6 +403,12 @@ TSharedRef<SWidget> AValdoriaPlayerController::BuildLobby()
 				]
 			]
 		];
+
+	// Menu on top of the art; the pause world stays dark if the picture is missing.
+	return SNew(SOverlay)
+		+ SOverlay::Slot()[ SNew(SBorder).BorderImage(FCoreStyle::Get().GetBrush("WhiteBrush")).BorderBackgroundColor(FLinearColor(0.02f, 0.025f, 0.04f, 1.f)) ]
+		+ SOverlay::Slot()[ SNew(SImage).Image(LobbyArt.IsValid() ? LobbyArt.Get() : nullptr) ]
+		+ SOverlay::Slot()[ LobbyMenu ];
 }
 
 #undef LOCTEXT_NAMESPACE

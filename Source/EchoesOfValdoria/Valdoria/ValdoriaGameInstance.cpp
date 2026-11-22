@@ -48,7 +48,12 @@ void UValdoriaGameInstance::Init()
 	Super::Init();
 	FCoreUObjectDelegates::PreLoadMap.AddUObject(this, &UValdoriaGameInstance::OnPreLoadMap);
 	FCoreUObjectDelegates::PostLoadMapWithWorld.AddUObject(this, &UValdoriaGameInstance::OnPostLoadMap);
-	ImageNP = LoadObject<UTexture2D>(nullptr, TEXT("/Game/Valdoria/UI/Loading/T_Loading_NP.T_Loading_NP"), nullptr, LOAD_NoWarn | LOAD_Quiet);
+	// Owner's own key art (turn 53) first; the older generated pictures stay as fallback.
+	ImageNP = LoadObject<UTexture2D>(nullptr, TEXT("/Game/Valdoria/UI/Loading/T_Loading_Valdoria.T_Loading_Valdoria"), nullptr, LOAD_NoWarn | LOAD_Quiet);
+	if (!ImageNP)
+	{
+		ImageNP = LoadObject<UTexture2D>(nullptr, TEXT("/Game/Valdoria/UI/Loading/T_Loading_NP.T_Loading_NP"), nullptr, LOAD_NoWarn | LOAD_Quiet);
+	}
 	ImageTraining = LoadObject<UTexture2D>(nullptr, TEXT("/Game/Valdoria/UI/Loading/T_Loading_NP2.T_Loading_NP2"), nullptr, LOAD_NoWarn | LOAD_Quiet);
 	ArmLoadingScreen(TEXT("")); // armed before the very first map load (turn 44)
 	// Lower FPS in the background (the owner plays other games on the other monitor).

@@ -28,6 +28,7 @@ public:
 	bool IsAdminMode() const { return bAdminMode; }
 	void DebugSetAdminMode(bool bOn) { bAdminMode = bOn; }
 	void DebugOpenSettings() { OpenSettings(); }
+	void DebugOpenLobby() { OpenLobby(); }
 	/** Test helpers: labels of every button/checkbox in the open admin panel (all tabs), and click one by label. */
 	TArray<FString> DebugListAdminControls() const;
 	bool DebugClickAdmin(const FString& Label);

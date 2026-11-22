@@ -860,3 +860,8 @@ O dono encerrou o turno desta conta ("salve tudo e deixe pronto pra outra começ
 - **Foco:** scripts de teste usam `-NOSPLASH -ValdoriaBackground` (o jogo devolve o foco a janela anterior nos primeiros 40 s). Medido: jogo em foco 0 de 34 e 0 de 19 amostras.
 - Controle: segurar O deita, O levanta; menu de pausa tem Loja / Habilidades / Chat; O fecha. Ao apertar X no foco do meio abriu Habilidades (ordem do direcional), a Loja nao foi apertada no teste.
 - Arte pedida ao dono (icone, lobby, carregamento): salvar em D:\Agentes\Forge, nome do arquivo dentro do prompt.
+
+### Turno 53b - Forge - 22/11/2026 (arte do dono no jogo)
+- Arte original do dono (baixada em D:\Agentes\Forge): `Valdoria_Lobby.png` e `Valdoria_Loading.png` (2730x1536) importadas como `T_Lobby_Valdoria` / `T_Loading_Valdoria` em /Game/Valdoria/UI/Loading; `Valdoria_Icon.png` (2048x2048) virou `Build/Windows/Application.ico` (16 a 256 px).
+- Tela de carregamento usa a nova arte (a antiga fica de reserva). O lobby ganhou a arte de fundo atras do menu. Novo `-ValdoriaLobbyShot` tira um print do lobby.
+- Originais em `RawContent/Art/`. O .ico so aparece no executavel empacotado (no editor/jogo em janela continua o icone da Unreal).

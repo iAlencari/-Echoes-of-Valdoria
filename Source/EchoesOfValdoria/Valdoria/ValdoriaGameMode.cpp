@@ -243,6 +243,21 @@ void AValdoriaGameMode::StartPlay()
 			return BeamTestStep < 100000;
 		}), 0.25f);
 	}
+	if (FParse::Param(FCommandLine::Get(), TEXT("ValdoriaLobbyShot")))
+	{
+		// Opens the lobby and takes a screenshot (key art check), then quits.
+		FTSTicker::GetCoreTicker().AddTicker(FTickerDelegate::CreateWeakLambda(this, [this](float)
+		{
+			if (AValdoriaPlayerController* VPC = Cast<AValdoriaPlayerController>(GetWorld()->GetFirstPlayerController())) { VPC->DebugOpenLobby(); }
+			FTSTicker::GetCoreTicker().AddTicker(FTickerDelegate::CreateLambda([](float)
+			{
+				FScreenshotRequest::RequestScreenshot(FPaths::ConvertRelativePathToFull(FPaths::ProjectSavedDir() / TEXT("Screenshots/Lobby_Arte.png")), true, false); // true = with the UI
+				FTSTicker::GetCoreTicker().AddTicker(FTickerDelegate::CreateLambda([](float) { FPlatformMisc::RequestExit(false); return false; }), 2.f);
+				return false;
+			}), 2.f);
+			return false;
+		}), 3.f);
+	}
 	if (FParse::Param(FCommandLine::Get(), TEXT("ValdoriaAdminTest")))
 	{
 		FTSTicker::GetCoreTicker().AddTicker(FTickerDelegate::CreateWeakLambda(this, [this](float)
