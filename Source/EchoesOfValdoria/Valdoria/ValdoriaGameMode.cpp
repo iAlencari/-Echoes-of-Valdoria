@@ -1033,8 +1033,8 @@ void AValdoriaGameMode::RunInputTestStep()
 	case 15: PressKey(EKeys::K, true); break;
 	case 16: UE_LOG(LogValdoria, Display, TEXT("INPUTTEST K segurado: ajuda=%d"), PC && PC->IsHelpOpen()); PressKey(EKeys::K, false); break;
 	case 17: UE_LOG(LogValdoria, Display, TEXT("INPUTTEST K solto: ajuda=%d"), PC && PC->IsHelpOpen()); Shot(TEXT("Input_Arma.png")); break;
-	case 18: PressKey(EKeys::V, true); PressKey(EKeys::V, false); break;
-	case 19: UE_LOG(LogValdoria, Display, TEXT("INPUTTEST V: primeira pessoa=%d"), Hero && Hero->IsFirstPerson()); Shot(TEXT("Input_PrimeiraPessoa.png")); break;
+	case 18: PressKey(EKeys::MiddleMouseButton, true); PressKey(EKeys::MiddleMouseButton, false); break; // camera moved off V (turn 46: V = punch)
+	case 19: UE_LOG(LogValdoria, Display, TEXT("INPUTTEST botao do meio: primeira pessoa=%d"), Hero && Hero->IsFirstPerson()); Shot(TEXT("Input_PrimeiraPessoa.png")); break;
 	default: break;
 	}
 	// Morrer duas vezes e conferir se dá para andar depois de cada renascimento.
@@ -1107,7 +1107,16 @@ void AValdoriaGameMode::RunInputTestStep()
 	if (S == 137) { UE_LOG(LogValdoria, Display, TEXT("INPUTTEST deitar andando")); PressKey(EKeys::X, true); PressKey(EKeys::X, false); }
 	if (S == 141 && Hero) { InputTestStartLoc = Hero->GetActorLocation(); PressKey(EKeys::W, true); }
 	if (S == 153) { PressKey(EKeys::W, false); UE_LOG(LogValdoria, Display, TEXT("INPUTTEST deitado andou %.0f cm deitado=%d"), Hero ? FVector::Dist2D(Hero->GetActorLocation(), InputTestStartLoc) : -1.f, Hero && Hero->IsProne()); PressKey(EKeys::X, true); PressKey(EKeys::X, false); }
-	if (S >= 156)
+	// Gamepad: hold O/B = prone; the pause menu's Loja button by D-pad + X.
+	if (S == 157) { PressKey(EKeys::Gamepad_FaceButton_Right, true); }
+	if (S == 161) { UE_LOG(LogValdoria, Display, TEXT("INPUTTEST controle segurar O: deitado=%d"), Hero && Hero->IsProne()); PressKey(EKeys::Gamepad_FaceButton_Right, false); Shot(TEXT("Input_ControleDeitar.png")); }
+	if (S == 163) { PressKey(EKeys::Gamepad_FaceButton_Right, true); PressKey(EKeys::Gamepad_FaceButton_Right, false); }
+	if (S == 165) { UE_LOG(LogValdoria, Display, TEXT("INPUTTEST controle O de novo: deitado=%d"), Hero && Hero->IsProne()); PressKey(EKeys::Gamepad_Special_Right, true); PressKey(EKeys::Gamepad_Special_Right, false); }
+	if (S == 167 || S == 168) { PressKey(EKeys::Gamepad_DPad_Down, true); PressKey(EKeys::Gamepad_DPad_Down, false); }
+	if (S == 170) { UE_LOG(LogValdoria, Display, TEXT("INPUTTEST controle pausa 2x baixo: foco=%s"), *FocusName()); PressKey(EKeys::Gamepad_FaceButton_Bottom, true); PressKey(EKeys::Gamepad_FaceButton_Bottom, false); }
+	if (S == 172) { UE_LOG(LogValdoria, Display, TEXT("INPUTTEST controle botao Loja: loja=%d pausa=%d"), PC && PC->IsShopOpen(), PC && PC->IsPauseMenuOpen()); Shot(TEXT("Input_ControleLoja.png")); PressKey(EKeys::Gamepad_FaceButton_Right, true); PressKey(EKeys::Gamepad_FaceButton_Right, false); }
+	if (S == 174) { UE_LOG(LogValdoria, Display, TEXT("INPUTTEST controle O fecha loja: loja=%d"), PC && PC->IsShopOpen()); }
+	if (S >= 176)
 	{
 		UE_LOG(LogValdoria, Display, TEXT("INPUTTEST fim"));
 		InputTestStep = 100000;

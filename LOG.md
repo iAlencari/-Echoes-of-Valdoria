@@ -841,3 +841,13 @@ O dono encerrou o turno desta conta ("salve tudo e deixe pronto pra outra começ
   - como recriar as sessões em outra conta.
 - As sessões Contos e Vox Numen receberam o mesmo pedido de fechamento: guias, logs e push.
 - **Próximo passo sugerido:** o dono testar de novo o controle (Y, sensibilidade, assistência de mira). Depois, os botões que faltam no controle e o staff.
+
+### Turno 52 — Claude Code — 22/11/2026 (botões que faltavam no controle)
+- **Deitar no controle:** segurar O (B no Xbox) por 0,5 s deita; tocar O de novo levanta para agachado. Ação nova `IA_Valdoria_ProneHold` com gatilho Hold (o X do teclado continua igual).
+- **Recapitulação da morte:** Triângulo (Y) mostra a recapitulação enquanto o herói está morto. Vivo, continua sendo a habilidade 3.
+- **Loja, ajuda e chat no controle:** linha nova no menu de pausa com "Loja", "Habilidades" e "Chat" (teclado: B, K, Enter). O O fecha a tela de habilidades aberta por ali.
+- **Teste antigo do V:** o `-ValdoriaInputTest` usa o botão do meio do mouse para a câmera (o V é soco desde o turno 46). Passos novos no fim: segurar O deita, O levanta, pausa > 2x baixo > X abre a loja, O fecha.
+- Removidos os 3 logs de depuração `CHAMADO` do Heimdall.
+- Janela de uso do PC movida para `C:\Dev\pc_status.ps1` (a cópia antiga estava na pasta temporária de uma sessão).
+- Compilado. **Não testado na tela ainda:** a janela marcava "em uso".
+- Lista de heróis no lobby: o lobby já recebe o foco do controle (turno 50); falta o dono confirmar se ainda há algo que não dá para escolher.

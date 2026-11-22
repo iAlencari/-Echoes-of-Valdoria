@@ -85,7 +85,6 @@ void UValdoriaGA_BifrostCall::ActivateAbility(const FGameplayAbilitySpecHandle H
 		const FVector Flat(V->GetActorLocation().X, V->GetActorLocation().Y, From.Z);
 		const FVector Closest = FMath::ClosestPointOnSegment(Flat, From, To);
 		const float Along = FVector::Dist2D(Closest, From);
-		UE_LOG(LogTemp, Log, TEXT("CHAMADO candidato %s lado=%.0f ao_longo=%.0f dz=%.0f"), *V->GetName(), FVector::Dist2D(Closest, Flat), Along, V->GetActorLocation().Z - From.Z);
 		if (FVector::Dist2D(Closest, Flat) < 170.f && FMath::Abs(V->GetActorLocation().Z - From.Z) < 300.f && Along < VictimDist)
 		{
 			Victim = V;
@@ -93,7 +92,6 @@ void UValdoriaGA_BifrostCall::ActivateAbility(const FGameplayAbilitySpecHandle H
 		}
 	}
 	const float Speed = Length / ChargeTime;
-	UE_LOG(LogTemp, Log, TEXT("CHAMADO auth=%d alvo=%s dist=%.0f dir=%s"), Hero->HasAuthority() ? 1 : 0, Victim ? *Victim->GetName() : TEXT("nenhum"), VictimDist, *Fwd.ToCompactString());
 	Hero->LaunchCharacter(Fwd * Speed + FVector(0.f, 0.f, 120.f), true, true);
 	ValdoriaAudio::PlayAt(Hero, ValdoriaAudio::Load(TEXT("SciFi"), TEXT("forceField_000")), Hero->GetActorLocation(), 0.8f);
 	if (!Victim)
@@ -116,7 +114,6 @@ void UValdoriaGA_BifrostCall::ActivateAbility(const FGameplayAbilitySpecHandle H
 		}
 		H->GetCharacterMovement()->StopMovementImmediately();
 		H->DamageSourceLabel = TEXT("Chamado da Bifrost");
-		UE_LOG(LogTemp, Log, TEXT("CHAMADO agarrou %s vida=%.0f"), *V->GetName(), V->GetHealth());
 		H->DealTypedDamage(V, Damage, EValdoriaDamageType::Magical, 1.f, false);
 		H->DamageSourceLabel.Reset();
 		// Thrown up and away (not a teleport); the nearest Bifrost "calls" the victim at the top of the arc.

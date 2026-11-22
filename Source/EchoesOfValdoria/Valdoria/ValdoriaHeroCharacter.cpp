@@ -21,6 +21,7 @@
 #include "InputAction.h"
 #include "InputMappingContext.h"
 #include "InputModifiers.h"
+#include "InputTriggers.h"
 #include "GameFramework/InputSettings.h"
 #include "Net/UnrealNetwork.h"
 #include "TimerManager.h"
@@ -432,6 +433,7 @@ void AValdoriaHeroCharacter::BuildDefaultInput()
 	SprintAction = MakeAction(TEXT("IA_Valdoria_Shift"), EInputActionValueType::Boolean);
 	CrouchAction = MakeAction(TEXT("IA_Valdoria_Crouch"), EInputActionValueType::Boolean);
 	ProneAction = MakeAction(TEXT("IA_Valdoria_Prone"), EInputActionValueType::Boolean);
+	ProneHoldAction = MakeAction(TEXT("IA_Valdoria_ProneHold"), EInputActionValueType::Boolean);
 
 	DefaultMapping = NewObject<UInputMappingContext>(this, TEXT("IMC_Valdoria"));
 	auto AddSwizzle = [this](FEnhancedActionKeyMapping& M)
@@ -472,6 +474,14 @@ void AValdoriaHeroCharacter::BuildDefaultInput()
 	DefaultMapping->MapKey(CrouchAction, EKeys::Gamepad_FaceButton_Right);
 	DefaultMapping->MapKey(ReloadAction, EKeys::Gamepad_FaceButton_Left);
 	DefaultMapping->MapKey(InteractAction, EKeys::Gamepad_DPad_Right);
+	{
+		// Gamepad has no free button for prone: hold O/B (crouch) for half a second to lie down.
+		FEnhancedActionKeyMapping& PadProne = DefaultMapping->MapKey(ProneHoldAction, EKeys::Gamepad_FaceButton_Right);
+		UInputTriggerHold* Hold = NewObject<UInputTriggerHold>(DefaultMapping);
+		Hold->HoldTimeThreshold = 0.5f;
+		Hold->bIsOneShot = true;
+		PadProne.Triggers.Add(Hold);
+	}
 }
 
 void AValdoriaHeroCharacter::MapAbilityKeys()
@@ -552,6 +562,7 @@ void AValdoriaHeroCharacter::SetupPlayerInputComponent(UInputComponent* PlayerIn
 	Input->BindAction(CrouchAction, ETriggerEvent::Started, this, &AValdoriaHeroCharacter::Input_CrouchPressed);
 	Input->BindAction(CrouchAction, ETriggerEvent::Completed, this, &AValdoriaHeroCharacter::Input_CrouchReleased);
 	Input->BindAction(ProneAction, ETriggerEvent::Started, this, &AValdoriaHeroCharacter::Input_Prone);
+	Input->BindAction(ProneHoldAction, ETriggerEvent::Triggered, this, &AValdoriaHeroCharacter::Input_PadProne);
 	Input->BindAction(FireAction, ETriggerEvent::Started, this, &AValdoriaHeroCharacter::Input_FirePressed);
 	Input->BindAction(FireAction, ETriggerEvent::Completed, this, &AValdoriaHeroCharacter::Input_FireReleased);
 	Input->BindAction(SecondaryAction, ETriggerEvent::Started, this, &AValdoriaHeroCharacter::Input_Secondary);
@@ -2557,6 +2568,14 @@ void AValdoriaHeroCharacter::EndSlide()
 	if (!bCrouchHeld && !bIsProne)
 	{
 		UnCrouch();
+	}
+}
+
+void AValdoriaHeroCharacter::Input_PadProne()
+{
+	if (!bIsProne)
+	{
+		Input_Prone(); // from crouched (O held) to prone
 	}
 }
 

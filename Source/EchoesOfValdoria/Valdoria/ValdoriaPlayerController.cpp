@@ -122,10 +122,18 @@ void AValdoriaPlayerController::SetupInputComponent()
 	InputComponent->BindKey(EKeys::Gamepad_Special_Left, IE_Released, this, &AValdoriaPlayerController::ScoreboardReleased);
 	InputComponent->BindKey(EKeys::Gamepad_RightThumbstick, IE_Pressed, this, &AValdoriaPlayerController::MeleePressed);
 	InputComponent->BindKey(EKeys::Gamepad_DPad_Down, IE_Pressed, this, &AValdoriaPlayerController::ToggleCameraMode);
+	// Triangle/Y is ability 3 while alive; while dead it shows the death recap (like Y on the keyboard).
+	InputComponent->BindKey(EKeys::Gamepad_FaceButton_Top, IE_Pressed, this, &AValdoriaPlayerController::PadTopPressed);
+	InputComponent->BindKey(EKeys::Gamepad_FaceButton_Top, IE_Released, this, &AValdoriaPlayerController::RecapReleased);
 }
 
 void AValdoriaPlayerController::MenuBackPressed()
 {
+	if (HelpWidget.IsValid())
+	{
+		HelpReleased(); // help opened from the pause menu (gamepad)
+		return;
+	}
 	if (ShopWidget.IsValid() || ChatWidget.IsValid() || SettingsWidget.IsValid() || PauseWidget.IsValid())
 	{
 		TogglePauseMenu(); // closes the top one (shop, chat, settings, then pause)
@@ -379,6 +387,41 @@ void AValdoriaPlayerController::OpenPauseMenu()
 			[
 				MakeMenuButton(LOCTEXT("Settings", "Configurações"), FOnClicked::CreateLambda([this]() { OpenSettings(); return FReply::Handled(); }))
 			]
+			// Gamepad has no free buttons for these, so they live here too (keyboard: B, K, Enter).
+			+ SVerticalBox::Slot().AutoHeight().Padding(0.f, 6.f)
+			[
+				SNew(SBox).WidthOverride(320.f)
+				[
+					SNew(SHorizontalBox)
+					+ SHorizontalBox::Slot().FillWidth(1.f).Padding(0.f, 0.f, 4.f, 0.f)
+					[
+						SNew(SBox).HeightOverride(44.f)
+						[
+							SNew(SButton).HAlign(HAlign_Center).VAlign(VAlign_Center)
+							.OnClicked_Lambda([this]() { ClosePauseMenu(); ToggleShop(); return FReply::Handled(); })
+							[ SNew(STextBlock).Text(LOCTEXT("PauseShop", "Loja")).Font(FCoreStyle::GetDefaultFontStyle("Bold", 13)) ]
+						]
+					]
+					+ SHorizontalBox::Slot().FillWidth(1.4f).Padding(0.f, 0.f, 4.f, 0.f)
+					[
+						SNew(SBox).HeightOverride(44.f)
+						[
+							SNew(SButton).HAlign(HAlign_Center).VAlign(VAlign_Center)
+							.OnClicked_Lambda([this]() { ClosePauseMenu(); HelpPressed(); return FReply::Handled(); }) // O/B closes it
+							[ SNew(STextBlock).Text(LOCTEXT("PauseHelp", "Habilidades")).Font(FCoreStyle::GetDefaultFontStyle("Bold", 13)) ]
+						]
+					]
+					+ SHorizontalBox::Slot().FillWidth(1.f)
+					[
+						SNew(SBox).HeightOverride(44.f)
+						[
+							SNew(SButton).HAlign(HAlign_Center).VAlign(VAlign_Center)
+							.OnClicked_Lambda([this]() { ClosePauseMenu(); OpenChat(); return FReply::Handled(); })
+							[ SNew(STextBlock).Text(LOCTEXT("PauseChat", "Chat")).Font(FCoreStyle::GetDefaultFontStyle("Bold", 13)) ]
+						]
+					]
+				]
+			]
 			+ SVerticalBox::Slot().AutoHeight().Padding(0.f, 6.f)
 			[
 				SNew(SBox).WidthOverride(320.f).HeightOverride(52.f)
@@ -554,6 +597,15 @@ void AValdoriaPlayerController::ScoreboardReleased()
 	if (AValdoriaHUD* H = Cast<AValdoriaHUD>(GetHUD()))
 	{
 		H->bShowScoreboard = false;
+	}
+}
+
+void AValdoriaPlayerController::PadTopPressed()
+{
+	const AValdoriaHeroCharacter* Hero = Cast<AValdoriaHeroCharacter>(GetPawn());
+	if (!Hero || Hero->IsDead())
+	{
+		RecapPressed();
 	}
 }
 

@@ -554,6 +554,8 @@ protected:
 	UPROPERTY(Transient) TObjectPtr<UInputAction> SprintAction;
 	UPROPERTY(Transient) TObjectPtr<UInputAction> CrouchAction;
 	UPROPERTY(Transient) TObjectPtr<UInputAction> ProneAction;
+	UPROPERTY(Transient) TObjectPtr<UInputAction> ProneHoldAction;
+	void Input_PadProne();
 
 	UFUNCTION(Server, Reliable) void ServerReload();
 	UFUNCTION(NetMulticast, Unreliable) void MulticastShotEffects(FVector_NetQuantize Impact, bool bHit);

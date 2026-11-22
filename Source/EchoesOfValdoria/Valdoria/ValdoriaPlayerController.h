@@ -65,6 +65,7 @@ public:
 	void ScoreboardPressed();
 	void ScoreboardReleased();
 	void RecapPressed();
+	void PadTopPressed();
 	void RecapReleased();
 	int32 GetCredits() const { return FMath::Max(0, FMath::FloorToInt(Credits)); }
 	int32 GetItemLevel(FName ItemId) const { const int32* L = ShopLevels.Find(ItemId); return L ? *L : 0; }
