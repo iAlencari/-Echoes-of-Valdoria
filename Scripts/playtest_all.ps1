@@ -1,4 +1,5 @@
-﻿param([string]$Only = "")  # e.g. -Only moba runs just the runs whose tag starts with "moba" (turn 45)
+﻿# Feito por Claude (Forge) a pedido do Alencar em 23/11/2026 14:46
+param([string]$Only = "")  # e.g. -Only moba runs just the runs whose tag starts with "moba" (turn 45)
 # Turn 44 playtest runner: every hero in training (NP + default map), deathmatch and MOBA with the hero on autopilot.
 # Each match: -ValdoriaPlaytest=<s> logs heroes, kills/deaths, stuck/fallen heroes, navmesh, screenshots, then exits.
 # Run from PowerShell (not while the editor is open):  powershell -ExecutionPolicy Bypass -File Scripts\playtest_all.ps1

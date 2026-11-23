@@ -1,4 +1,5 @@
-﻿# Turn 44: runs the main automated tests one after another on monitor 2, then the full playtest.
+﻿# Feito por Claude (Forge) a pedido do Alencar em 23/11/2026 14:46
+# Turn 44: runs the main automated tests one after another on monitor 2, then the full playtest.
 # Stops before each run if Deadlock is open. Summary: Saved\Logs\t44_summary.txt (+ Saved\Logs\Playtest\resumo.txt).
 # Turn 48 review: no -log (console stole focus), Deadlock watched during each test too, admin filter covers every hero.
 $ue = "C:\Program Files\Epic Games\UE_5.8\Engine\Binaries\Win64\UnrealEditor.exe"
